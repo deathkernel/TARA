@@ -11,19 +11,22 @@ def test_softmax_sums_to_one():
 
 
 def test_causal_attention_does_not_read_future_tokens():
-    attention = SelfAttention(1)
-    sequence = [[Value(1.0)], [Value(2.0)], [Value(100.0)]]
-    outputs = attention.forward(sequence)
-    assert math.isclose(outputs[0][0].data, 1.0, rel_tol=1e-9)
-    assert outputs[1][0].data < 2.0
-    assert outputs[2][0].data > outputs[1][0].data
+    attention = SelfAttention(2, seed=7)
+    prefix = [[Value(1.0), Value(0.5)], [Value(2.0), Value(-1.0)]]
+    with_future = prefix + [[Value(100.0), Value(50.0)]]
+    first_without = attention.forward(prefix)[0]
+    first_with = attention.forward(with_future)[0]
+    assert all(math.isclose(a.data, b.data, rel_tol=1e-9, abs_tol=1e-9)
+               for a, b in zip(first_without, first_with))
 
 
-def test_attention_is_differentiable():
+def test_attention_is_differentiable_and_has_parameters():
     first = Value(1.0)
     second = Value(2.0)
-    outputs = SelfAttention(1).forward([[first], [second]])
+    model = SelfAttention(1, seed=3)
+    outputs = model.forward([[first], [second]])
     loss = outputs[1][0]
     loss.backward()
     assert first.grad != 0.0
     assert second.grad != 0.0
+    assert len(model.parameters()) == 6
