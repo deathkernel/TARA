@@ -44,6 +44,15 @@ class Value:
         out._backward = _backward
         return out
 
+    def exp(self):
+        """Exponential with its local derivative."""
+        value = math.exp(self.data)
+        out = Value(value, (self,), "exp")
+        def _backward():
+            self.grad += value * out.grad
+        out._backward = _backward
+        return out
+
     def __neg__(self):
         return self * -1
 
