@@ -43,13 +43,7 @@ class SelfAttention:
         self.bk = [Value(0.0) for _ in range(embedding_dim)]
         self.bv = [Value(0.0) for _ in range(embedding_dim)]
 
-    @staticmethod
-    def _matrix(rng, limit, size=0):
-        # size is replaced by the caller after construction.
-        return []
-
-    def _init_matrix(self, rng):
-        limit = 1.0 / math.sqrt(self.embedding_dim)
+    def _matrix(self, rng, limit):
         return [[Value(rng.uniform(-limit, limit)) for _ in range(self.embedding_dim)]
                 for _ in range(self.embedding_dim)]
 
@@ -67,13 +61,6 @@ class SelfAttention:
             raise ValueError("sequence must not be empty")
         if any(len(token) != self.embedding_dim for token in sequence):
             raise ValueError("all token vectors must match embedding_dim")
-
-        # Lazily initialize matrices so the constructor remains easy to read.
-        if not self.wq:
-            rng = random.Random(0)
-            self.wq = self._init_matrix(rng)
-            self.wk = self._init_matrix(rng)
-            self.wv = self._init_matrix(rng)
 
         queries = [self._project(token, self.wq, self.bq) for token in sequence]
         keys = [self._project(token, self.wk, self.bk) for token in sequence]
