@@ -30,7 +30,7 @@ class Neuron:
         activation = self.b
         for weight, value in zip(self.w, values):
             activation = activation + weight * value
-        return activation.relu() if self.nonlin else activation
+        return activation.tanh() if self.nonlin else activation
 
     def parameters(self):
         return self.w + [self.b]
@@ -57,7 +57,7 @@ class MLP:
     """A feed-forward multilayer perceptron.
 
     ``nouts`` describes each layer's number of neurons. Hidden layers use
-    ReLU; the final layer is linear so it can be used for regression/losses.
+    tanh; the final layer is linear so it can be used for regression/losses.
     """
 
     def __init__(self, nin, nouts, seed=None):
