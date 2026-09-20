@@ -13,6 +13,7 @@ class MSELoss:
 
 def mean(values):
     """Return the arithmetic mean of scalar Value objects."""
+    values = list(values)
     if not values:
         raise ValueError("mean() requires at least one value")
     total = values[0]
