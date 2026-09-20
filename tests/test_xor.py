@@ -1,36 +1,25 @@
 from src.mlp import MLP
+from src.training import SGD, train_step
 
 
-def test_xor_training_reduces_loss():
-    X = [[0.0, 0.0], [0.0, 1.0], [1.0, 0.0], [1.0, 1.0]]
-    Y = [0.0, 1.0, 1.0, 0.0]
+X = [[0.0, 0.0], [0.0, 1.0], [1.0, 0.0], [1.0, 1.0]]
+Y = [0.0, 1.0, 1.0, 0.0]
 
+
+def test_xor_training_converges():
     model = MLP(2, [3, 3, 1], seed=7)
-    learning_rate = 0.05
+    optimizer = SGD(model.parameters(), learning_rate=0.05)
 
-    def loss_value():
-        losses = []
-        for x, y in zip(X, Y):
-            prediction = model.forward(x)
-            losses.append((prediction - y) ** 2)
-        total = losses[0]
-        for loss in losses[1:]:
-            total = total + loss
-        return (total / len(losses)).data
+    initial_loss = train_step(model, optimizer, X, Y)
+    for _ in range(2999):
+        train_step(model, optimizer, X, Y)
 
-    initial_loss = loss_value()
-    for _ in range(3000):
-        model.zero_grad()
-        losses = []
-        for x, y in zip(X, Y):
-            prediction = model.forward(x)
-            losses.append((prediction - y) ** 2)
-        total = losses[0]
-        for loss in losses[1:]:
-            total = total + loss
-        total = total / len(losses)
-        total.backward()
-        for parameter in model.parameters():
-            parameter.data -= learning_rate * parameter.grad
+    final_predictions = [model.forward(x).data for x in X]
+    final_loss = sum((prediction - target) ** 2 for prediction, target in zip(final_predictions, Y)) / len(Y)
 
-    assert loss_value() < initial_loss
+    assert final_loss < initial_loss
+    assert final_loss < 1e-6
+    assert abs(final_predictions[0] - 0.0) < 1e-3
+    assert abs(final_predictions[1] - 1.0) < 1e-3
+    assert abs(final_predictions[2] - 1.0) < 1e-3
+    assert abs(final_predictions[3] - 0.0) < 1e-3
