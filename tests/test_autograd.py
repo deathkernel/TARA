@@ -1,3 +1,5 @@
+from math import isclose, tanh
+
 from src.autograd import Value
 
 
@@ -26,8 +28,6 @@ def test_composed_expression():
     z = Value(4.0)
     out = (x * y + z).relu()
     out.backward()
-
-    # out = max(0, 2*(-3)+4) = 0, so ReLU blocks the gradient.
     assert out.data == 0.0
     assert x.grad == 0.0
     assert y.grad == 0.0
@@ -47,5 +47,13 @@ def test_chain_rule():
     y = x * x
     out = y + x
     out.backward()
-    # d(x^2 + x)/dx = 2x + 1 = 7 at x=3
     assert x.grad == 7.0
+
+
+def test_tanh_forward_and_gradient():
+    x = Value(0.7)
+    out = x.tanh()
+    out.backward()
+    expected = tanh(0.7)
+    assert isclose(out.data, expected, rel_tol=1e-12, abs_tol=1e-12)
+    assert isclose(x.grad, 1.0 - expected**2, rel_tol=1e-12, abs_tol=1e-12)
