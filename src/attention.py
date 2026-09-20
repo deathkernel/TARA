@@ -1,11 +1,12 @@
 """Small scalar-autograd self-attention for TARA.
 
 Research reference: Vaswani et al. (2017), Attention Is All You Need.
-TARA intentionally starts with one causal attention head so the mechanism
-stays inspectable and runnable on a normal PC.
+TARA starts with one causal attention head so the mechanism stays
+inspectable and runnable on a normal PC.
 """
 
 import math
+import random
 
 from src.autograd import Value
 
@@ -25,15 +26,41 @@ def _softmax(values):
 class SelfAttention:
     """Single-head scaled dot-product causal self-attention.
 
-    Each token is represented by a fixed-size vector. Q, K and V projections
-    are deliberately omitted at this first stage; attention operates directly
-    on the supplied representations so the core algorithm is easy to inspect.
+    The input is projected into learned query, key and value vectors. Future
+    positions are masked by only scoring keys at or before the current token.
     """
 
-    def __init__(self, embedding_dim):
+    def __init__(self, embedding_dim, seed=0):
         if embedding_dim <= 0:
             raise ValueError("embedding_dim must be positive")
         self.embedding_dim = embedding_dim
+        rng = random.Random(seed)
+        limit = 1.0 / math.sqrt(embedding_dim)
+        self.wq = self._matrix(rng, limit)
+        self.wk = self._matrix(rng, limit)
+        self.wv = self._matrix(rng, limit)
+        self.bq = [Value(0.0) for _ in range(embedding_dim)]
+        self.bk = [Value(0.0) for _ in range(embedding_dim)]
+        self.bv = [Value(0.0) for _ in range(embedding_dim)]
+
+    @staticmethod
+    def _matrix(rng, limit, size=0):
+        # size is replaced by the caller after construction.
+        return []
+
+    def _init_matrix(self, rng):
+        limit = 1.0 / math.sqrt(self.embedding_dim)
+        return [[Value(rng.uniform(-limit, limit)) for _ in range(self.embedding_dim)]
+                for _ in range(self.embedding_dim)]
+
+    def _project(self, token, matrix, bias):
+        output = []
+        for row, offset in zip(matrix, bias):
+            value = offset
+            for weight, item in zip(row, token):
+                value = value + weight * item
+            output.append(value)
+        return output
 
     def forward(self, sequence):
         if not sequence:
@@ -41,23 +68,43 @@ class SelfAttention:
         if any(len(token) != self.embedding_dim for token in sequence):
             raise ValueError("all token vectors must match embedding_dim")
 
+        # Lazily initialize matrices so the constructor remains easy to read.
+        if not self.wq:
+            rng = random.Random(0)
+            self.wq = self._init_matrix(rng)
+            self.wk = self._init_matrix(rng)
+            self.wv = self._init_matrix(rng)
+
+        queries = [self._project(token, self.wq, self.bq) for token in sequence]
+        keys = [self._project(token, self.wk, self.bk) for token in sequence]
+        values = [self._project(token, self.wv, self.bv) for token in sequence]
+
         outputs = []
         scale = math.sqrt(self.embedding_dim)
-        for i, query in enumerate(sequence):
+        for i, query in enumerate(queries):
             scores = []
             for j in range(i + 1):
-                key = sequence[j]
-                score = query[0] * key[0]
+                score = query[0] * keys[j][0]
                 for dimension in range(1, self.embedding_dim):
-                    score = score + query[dimension] * key[dimension]
+                    score = score + query[dimension] * keys[j][dimension]
                 scores.append(score / scale)
 
             weights = _softmax(scores)
             output = []
             for dimension in range(self.embedding_dim):
-                value = weights[0] * sequence[0][dimension]
+                value = weights[0] * values[0][dimension]
                 for j in range(1, i + 1):
-                    value = value + weights[j] * sequence[j][dimension]
+                    value = value + weights[j] * values[j][dimension]
                 output.append(value)
             outputs.append(output)
         return outputs
+
+    def parameters(self):
+        return ([parameter for row in self.wq for parameter in row] +
+                [parameter for row in self.wk for parameter in row] +
+                [parameter for row in self.wv for parameter in row] +
+                self.bq + self.bk + self.bv)
+
+    def zero_grad(self):
+        for parameter in self.parameters():
+            parameter.grad = 0.0
