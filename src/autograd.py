@@ -102,15 +102,24 @@ class Value:
 
     def backward(self):
         """Run reverse-mode autodiff from this scalar output."""
+        # Use an iterative graph traversal to avoid Python recursion overhead
+        # and recursion-depth failures on larger computation graphs.
         topo = []
         visited = set()
-        def build_topo(node):
-            if node not in visited:
-                visited.add(node)
-                for child in node._prev:
-                    build_topo(child)
+        stack = [(self, False)]
+        while stack:
+            node, expanded = stack.pop()
+            if node in visited and not expanded:
+                continue
+            if expanded:
                 topo.append(node)
-        build_topo(self)
+                continue
+            visited.add(node)
+            stack.append((node, True))
+            for child in node._prev:
+                if child not in visited:
+                    stack.append((child, False))
+
         self.grad = 1.0
         for node in reversed(topo):
             node._backward()
