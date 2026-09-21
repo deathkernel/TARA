@@ -1,4 +1,5 @@
 import math
+import random
 
 import pytest
 
@@ -24,17 +25,46 @@ def test_layer_norm_is_close_to_zero_mean_and_unit_variance():
 
 
 def test_multi_head_attention_shape():
-    attention = MultiHeadCausalSelfAttention(4, num_heads=2, rng=__import__("random").Random(3))
-    sequence = [[Value(0.1), Value(0.2), Value(0.3), Value(0.4)] for _ in range(3)]
+    attention = MultiHeadCausalSelfAttention(
+        4,
+        num_heads=2,
+        rng=random.Random(3),
+    )
+    sequence = [
+        [Value(0.1), Value(0.2), Value(0.3), Value(0.4)]
+        for _ in range(3)
+    ]
     outputs = attention.forward(sequence)
     assert len(outputs) == 3
     assert all(len(token) == 4 for token in outputs)
 
 
+def test_attention_is_causal():
+    attention = MultiHeadCausalSelfAttention(
+        4,
+        num_heads=2,
+        rng=random.Random(3),
+    )
+    prefix = [
+        [Value(0.1), Value(0.2), Value(0.3), Value(0.4)],
+        [Value(0.4), Value(0.3), Value(0.2), Value(0.1)],
+    ]
+    future_a = [Value(0.2), Value(0.8), Value(-0.4), Value(0.7)]
+    future_b = [Value(-2.0), Value(3.0), Value(1.5), Value(-4.0)]
+
+    outputs_a = attention.forward(prefix + [future_a])
+    outputs_b = attention.forward(prefix + [future_b])
+
+    for left, right in zip(outputs_a[:2], outputs_b[:2]):
+        assert all(abs(a.data - b.data) < 1e-12 for a, b in zip(left, right))
+
+
 def test_transformer_shape_and_gradients():
     model = TransformerBlock(4, ff_dim=8, num_heads=2, seed=11)
-    sequence = [[Value(0.2), Value(-0.1), Value(0.3), Value(0.5)],
-                [Value(0.4), Value(0.3), Value(-0.2), Value(0.1)]]
+    sequence = [
+        [Value(0.2), Value(-0.1), Value(0.3), Value(0.5)],
+        [Value(0.4), Value(0.3), Value(-0.2), Value(0.1)],
+    ]
     outputs = model.forward(sequence)
     assert len(outputs) == 2
     assert all(len(token) == 4 for token in outputs)
