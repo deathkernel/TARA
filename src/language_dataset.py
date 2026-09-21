@@ -43,35 +43,51 @@ class CausalTextDataset:
             if len(window) >= 2:
                 yield window[:-1], window[1:]
 
-    def iter_batches(self, batch_size, shuffle=False, seed=0):
-        """Yield mini-batches of causal windows.
+    def _indices(self, shuffle=False, seed=0):
+        indices = list(range(len(self)))
+        if shuffle:
+            random.Random(seed).shuffle(indices)
+        return indices
 
-        Every item is an independent ``(inputs, targets)`` pair. Windows are
-        padded neither here nor in the model, so variable-length tail examples
-        remain explicit and no artificial training tokens are introduced.
-        """
+    def batch_at(self, batch_index, batch_size, shuffle=False, seed=0):
+        """Return one deterministic mini-batch without materializing all batches."""
+        if not isinstance(batch_index, int) or isinstance(batch_index, bool):
+            raise TypeError("batch_index must be an integer")
+        if batch_index < 0:
+            raise ValueError("batch_index must be non-negative")
         if not isinstance(batch_size, int) or isinstance(batch_size, bool):
             raise TypeError("batch_size must be an integer")
         if batch_size <= 0:
             raise ValueError("batch_size must be positive")
 
-        indices = list(range(len(self)))
-        if shuffle:
-            random.Random(seed).shuffle(indices)
+        indices = self._indices(shuffle=shuffle, seed=seed)
+        start = batch_index * batch_size
+        selected = indices[start:start + batch_size]
+        if not selected:
+            raise IndexError("batch index out of range")
+        return [self[index] for index in selected]
 
-        for start in range(0, len(indices), batch_size):
-            batch = [self[index] for index in indices[start:start + batch_size]]
-            if batch:
-                yield batch
+    def batch_count(self, batch_size):
+        """Return the number of mini-batches for the current dataset size."""
+        if not isinstance(batch_size, int) or isinstance(batch_size, bool):
+            raise TypeError("batch_size must be an integer")
+        if batch_size <= 0:
+            raise ValueError("batch_size must be positive")
+        return (len(self) + batch_size - 1) // batch_size
+
+    def iter_batches(self, batch_size, shuffle=False, seed=0):
+        """Yield mini-batches of causal windows."""
+        for batch_index in range(self.batch_count(batch_size)):
+            yield self.batch_at(
+                batch_index,
+                batch_size,
+                shuffle=shuffle,
+                seed=seed,
+            )
 
 
 def dataset_statistics(dataset, unk_id=None):
-    """Return transparent token/window statistics for an experiment.
-
-    ``unk_id`` is optional so callers can measure unknown-token rate when the
-    tokenizer exposes an explicit UNK token. The calculation is deterministic
-    and does not inspect model outputs.
-    """
+    """Return transparent token/window statistics for an experiment."""
     token_count = len(dataset.token_ids)
     window_count = len(dataset)
     unique_tokens = len(set(dataset.token_ids))
