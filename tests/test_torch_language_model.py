@@ -105,3 +105,21 @@ def test_fast_model_validates_loss_targets():
         model.loss(inputs, torch.tensor([[1, 2, 9]]))
     with pytest.raises(ValueError):
         model.loss(inputs, torch.tensor([[1, 2, -1]]))
+
+
+def test_fast_model_constructor_does_not_change_global_rng():
+    torch.manual_seed(123)
+    expected = torch.rand(5)
+
+    torch.manual_seed(123)
+    FastTinyLanguageModel(
+        vocab_size=9,
+        embedding_dim=8,
+        ff_dim=16,
+        num_heads=2,
+        max_context=8,
+        seed=5,
+    )
+    actual = torch.rand(5)
+
+    assert torch.equal(actual, expected)
