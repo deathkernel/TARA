@@ -9,6 +9,7 @@ This is deliberately tiny and educational: one Transformer block, one
 character tokenizer, and scalar reverse-mode autodiff.
 """
 
+import math
 import random
 
 from src.autograd import Value
@@ -88,3 +89,39 @@ class TinyLanguageModel:
         """Return the highest-probability next token for a context."""
         logits = self.forward(token_ids)[-1]
         return max(range(len(logits)), key=lambda index: logits[index].data)
+
+    def sample_next_token(self, token_ids, temperature=1.0, top_k=None, rng=None):
+        """Sample a next token using temperature and optional top-k filtering."""
+        if not token_ids:
+            raise ValueError("token_ids must not be empty")
+        if temperature <= 0:
+            raise ValueError("temperature must be positive")
+        if top_k is not None and top_k <= 0:
+            raise ValueError("top_k must be positive when provided")
+
+        logits = [value.data for value in self.forward(token_ids)[-1]]
+        scaled = [logit / temperature for logit in logits]
+
+        if top_k is not None:
+            top_k = min(top_k, len(scaled))
+            keep = set(sorted(range(len(scaled)), key=scaled.__getitem__, reverse=True)[:top_k])
+            filtered = [value if index in keep else float("-inf")
+                        for index, value in enumerate(scaled)]
+        else:
+            filtered = scaled
+
+        maximum = max(filtered)
+        weights = [math.exp(value - maximum) if math.isfinite(value) else 0.0
+                   for value in filtered]
+        total = sum(weights)
+        if total <= 0.0 or not math.isfinite(total):
+            raise ValueError("invalid sampling probability distribution")
+
+        rng = random if rng is None else rng
+        threshold = rng.random() * total
+        cumulative = 0.0
+        for index, weight in enumerate(weights):
+            cumulative += weight
+            if threshold < cumulative:
+                return index
+        return len(weights) - 1
