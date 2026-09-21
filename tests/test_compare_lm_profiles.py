@@ -1,14 +1,23 @@
-from experiments.compare_lm_profiles import TINY, SCALED, VOCAB_SIZE, parameter_count
+from experiments.compare_lm_profiles import (
+    TINY,
+    SCALED,
+    VOCAB_SIZE,
+    parameter_count,
+    profile_parameter_count,
+)
 from src.language_model import TinyLanguageModel
 
 
 def test_scaled_profile_has_more_parameters_than_tiny_profile():
-    # Capacity-only regression: construct the models directly. Building the
-    # tokenizer and causal datasets is unrelated to parameter-count behavior
-    # and made this test unnecessarily expensive on the scalar autodiff core.
-    tiny_model = TinyLanguageModel(VOCAB_SIZE, seed=7, **TINY)
-    scaled_model = TinyLanguageModel(VOCAB_SIZE, seed=7, **SCALED)
-    assert parameter_count(scaled_model) > parameter_count(tiny_model)
+    # Capacity-only regression is analytical: constructing the scaled model
+    # creates thousands of scalar autodiff objects for no reason.
+    assert profile_parameter_count(SCALED) > profile_parameter_count(TINY)
+
+
+def test_analytical_parameter_count_matches_tiny_model():
+    # Validate the formula against a real model once, using the tiny profile.
+    model = TinyLanguageModel(VOCAB_SIZE, seed=7, **TINY)
+    assert profile_parameter_count(TINY) == parameter_count(model)
 
 
 def test_profile_comparison_reports_finite_metrics():
