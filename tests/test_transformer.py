@@ -5,7 +5,7 @@ import pytest
 
 from src.autograd import Value
 from src.positional import add_sinusoidal_position
-from src.transformer import LayerNorm, MultiHeadCausalSelfAttention, TransformerBlock
+from src.transformer import LayerNorm, Linear, MultiHeadCausalSelfAttention, TransformerBlock
 
 
 def test_positional_encoding_changes_positions():
@@ -22,6 +22,21 @@ def test_layer_norm_is_close_to_zero_mean_and_unit_variance():
     variance = sum((value.data - mean) ** 2 for value in output) / 4.0
     assert abs(mean) < 1e-5
     assert abs(variance - 1.0) < 1e-4
+
+
+def test_layer_norm_rejects_non_positive_eps():
+    with pytest.raises(ValueError):
+        LayerNorm(4, eps=0.0)
+    with pytest.raises(ValueError):
+        LayerNorm(4, eps=-1e-5)
+
+
+def test_linear_rejects_wrong_input_dimension():
+    linear = Linear(3, 2, random.Random(3))
+    with pytest.raises(ValueError):
+        linear.forward([Value(1.0), Value(2.0)])
+    with pytest.raises(ValueError):
+        linear.forward([Value(1.0), Value(2.0), Value(3.0), Value(4.0)])
 
 
 def test_multi_head_attention_shape():
@@ -77,6 +92,15 @@ def test_transformer_shape_and_gradients():
 def test_transformer_rejects_incompatible_heads():
     with pytest.raises(ValueError):
         TransformerBlock(3, ff_dim=6, num_heads=2, seed=11)
+
+
+def test_transformer_rejects_non_positive_heads_and_ff_dim():
+    with pytest.raises(ValueError):
+        TransformerBlock(4, ff_dim=8, num_heads=0, seed=11)
+    with pytest.raises(ValueError):
+        TransformerBlock(4, ff_dim=0, num_heads=2, seed=11)
+    with pytest.raises(ValueError):
+        TransformerBlock(4, ff_dim=-2, num_heads=2, seed=11)
 
 
 def test_transformer_has_trainable_parameters():
