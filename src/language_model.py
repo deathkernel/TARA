@@ -5,7 +5,7 @@ Research basis:
 - GPT-style causal language modeling: predict the next token from the
   tokens at or before the current position.
 
-This is deliberately tiny and educational: one Transformer block, one
+This is deliberately tiny and educational: a small Transformer stack, one
 character tokenizer, and scalar reverse-mode autodiff.
 """
 
@@ -13,7 +13,7 @@ import math
 import random
 
 from src.embeddings import Embedding
-from src.transformer import Linear, TransformerBlock
+from src.transformer import Linear, TransformerStack
 
 
 def logsumexp(values):
@@ -38,7 +38,7 @@ def cross_entropy(logits, target_id):
 
 
 class TinyLanguageModel:
-    """One-block character language model with causal next-token prediction."""
+    """Small autoregressive language model with a configurable Transformer stack."""
 
     def __init__(
         self,
@@ -47,6 +47,7 @@ class TinyLanguageModel:
         ff_dim=16,
         seed=0,
         num_heads=None,
+        num_layers=1,
     ):
         if vocab_size <= 0:
             raise ValueError("vocab_size must be positive")
@@ -58,10 +59,11 @@ class TinyLanguageModel:
             embedding_dim=embedding_dim,
             seed=seed,
         )
-        self.transformer = TransformerBlock(
+        self.transformer = TransformerStack(
             embedding_dim,
             ff_dim=ff_dim,
             num_heads=num_heads,
+            num_layers=num_layers,
             seed=seed + 1,
         )
         self.lm_head = Linear(
