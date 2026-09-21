@@ -93,22 +93,21 @@ def build_experiment(corpus=CORPUS):
         num_layers=NUM_LAYERS,
         seed=7,
     )
-    statistics = {
-        "train": dataset_statistics(
-            train_dataset,
-            unk_id=tokenizer.stoi[tokenizer.UNK],
-        ),
-        "validation": dataset_statistics(
-            validation_dataset,
-            unk_id=tokenizer.stoi[tokenizer.UNK],
-        ),
+    return model, tokenizer, train_dataset, validation_dataset
+
+
+def corpus_statistics(tokenizer, train_dataset, validation_dataset):
+    """Return token/window statistics for the train/validation streams."""
+    unk_id = tokenizer.stoi[tokenizer.UNK]
+    return {
+        "train": dataset_statistics(train_dataset, unk_id=unk_id),
+        "validation": dataset_statistics(validation_dataset, unk_id=unk_id),
     }
-    return model, tokenizer, train_dataset, validation_dataset, statistics
 
 
 if __name__ == "__main__":
-    model, tokenizer, train_dataset, validation_dataset, statistics = build_experiment()
+    model, tokenizer, train_dataset, validation_dataset = build_experiment()
     print("vocab_size:", tokenizer.vocab_size)
-    print("statistics:", statistics)
+    print("statistics:", corpus_statistics(tokenizer, train_dataset, validation_dataset))
     print("train:", evaluate(model, train_dataset))
     print("validation:", evaluate(model, validation_dataset))
