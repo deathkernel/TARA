@@ -5,6 +5,7 @@ inputs = token_ids[:-1]
 targets = token_ids[1:]
 """
 
+from src.gradient_clipping import clip_grad_norm_
 from src.language_model import TinyLanguageModel
 from src.schedulers import CosineAnnealing
 from src.tokenizer import CharTokenizer
@@ -16,6 +17,7 @@ FF_DIM = 6
 STEPS = 80
 LEARNING_RATE = 0.03
 MIN_LEARNING_RATE = 0.003
+MAX_GRAD_NORM = 1.0
 CONTEXT_LENGTH = 12
 SEED = 7
 
@@ -58,11 +60,15 @@ def train(corpus=CORPUS, steps=STEPS, learning_rate=LEARNING_RATE):
         total_loss = total_loss / total_tokens
         total_loss.backward()
         current_lr = scheduler.get_lr(step)
+        gradient_norm = clip_grad_norm_(model.parameters(), MAX_GRAD_NORM)
         for parameter in model.parameters():
             parameter.data -= current_lr * parameter.grad
 
         if step % 10 == 0 or step == steps - 1:
-            print(f"step={step:3d} lr={current_lr:.6f} loss={total_loss.data:.6f}")
+            print(
+                f"step={step:3d} lr={current_lr:.6f} "
+                f"grad_norm={gradient_norm:.6f} loss={total_loss.data:.6f}"
+            )
 
     return model, tokenizer
 
