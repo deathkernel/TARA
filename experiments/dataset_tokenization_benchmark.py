@@ -34,7 +34,9 @@ def main():
         )
 
         char = CharTokenizer(train)
-        bpe = BPETokenizer(train, vocab_size=BPE_VOCAB_SIZE)
+        minimum_vocab = len(set(train)) + 1
+        bpe_vocab_size = max(BPE_VOCAB_SIZE, minimum_vocab)
+        bpe = BPETokenizer(train, vocab_size=bpe_vocab_size)
 
         train_chars = len(train)
         char_tokens = len(char.encode(train))
@@ -48,6 +50,7 @@ def main():
         print(f"  validation chars: {validation_chars}")
         print(f"  character tokens: {char_tokens}")
         print(f"  BPE tokens: {bpe_tokens}")
+        print(f"  BPE vocabulary: {bpe.vocab_size}")
         print(f"  BPE token/char: {bpe_tokens / train_chars:.4f}")
         print(f"  validation BPE tokens: {validation_bpe_tokens}")
         print(f"  setup time: {elapsed:.3f}s")
