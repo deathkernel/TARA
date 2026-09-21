@@ -41,7 +41,9 @@ def test_layer_norm_backpropagates_to_input_and_affine_parameters():
     layer_norm = LayerNorm(3)
     values = [Value(0.2), Value(-0.4), Value(0.8)]
     output = layer_norm.forward(values)
-    loss = output[0] + output[1] + output[2]
+    # A plain sum is intentionally avoided: with beta=0, normalized values
+    # sum to zero and that objective can legitimately have zero input gradient.
+    loss = output[0] + 2.0 * output[1] + 3.0 * output[2]
     loss.backward()
     assert any(value.grad != 0.0 for value in values)
     assert any(parameter.grad != 0.0 for parameter in layer_norm.parameters())
