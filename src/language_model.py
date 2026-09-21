@@ -12,19 +12,8 @@ character tokenizer, and scalar reverse-mode autodiff.
 import math
 import random
 
-from src.autograd import Value
 from src.embeddings import Embedding
 from src.transformer import Linear, TransformerBlock
-
-
-def _softmax(values):
-    """Numerically stable softmax over scalar Value objects."""
-    maximum = max(value.data for value in values)
-    shifted = [(value - maximum).exp() for value in values]
-    total = shifted[0]
-    for value in shifted[1:]:
-        total = total + value
-    return [value / total for value in shifted]
 
 
 def logsumexp(values):
@@ -51,12 +40,35 @@ def cross_entropy(logits, target_id):
 class TinyLanguageModel:
     """One-block character language model with causal next-token prediction."""
 
-    def __init__(self, vocab_size, embedding_dim=8, ff_dim=16, seed=0):
+    def __init__(
+        self,
+        vocab_size,
+        embedding_dim=8,
+        ff_dim=16,
+        seed=0,
+        num_heads=None,
+    ):
         if vocab_size <= 0:
             raise ValueError("vocab_size must be positive")
-        self.embedding = Embedding(vocab_size, embedding_dim=embedding_dim, seed=seed)
-        self.transformer = TransformerBlock(embedding_dim, ff_dim=ff_dim, seed=seed + 1)
-        self.lm_head = Linear(embedding_dim, vocab_size, random.Random(seed + 2))
+        if num_heads is None:
+            num_heads = 2 if embedding_dim % 2 == 0 else 1
+
+        self.embedding = Embedding(
+            vocab_size,
+            embedding_dim=embedding_dim,
+            seed=seed,
+        )
+        self.transformer = TransformerBlock(
+            embedding_dim,
+            ff_dim=ff_dim,
+            num_heads=num_heads,
+            seed=seed + 1,
+        )
+        self.lm_head = Linear(
+            embedding_dim,
+            vocab_size,
+            random.Random(seed + 2),
+        )
 
     def forward(self, token_ids):
         if not token_ids:
@@ -71,15 +83,21 @@ class TinyLanguageModel:
         if len(inputs) != len(targets):
             raise ValueError("inputs and targets must have the same length")
         logits = self.forward(inputs)
-        losses = [cross_entropy(row, target) for row, target in zip(logits, targets)]
+        losses = [
+            cross_entropy(row, target)
+            for row, target in zip(logits, targets)
+        ]
         total = losses[0]
         for value in losses[1:]:
             total = total + value
         return total / len(losses)
 
     def parameters(self):
-        return (self.embedding.parameters() + self.transformer.parameters() +
-                self.lm_head.parameters())
+        return (
+            self.embedding.parameters()
+            + self.transformer.parameters()
+            + self.lm_head.parameters()
+        )
 
     def zero_grad(self):
         for parameter in self.parameters():
@@ -104,15 +122,25 @@ class TinyLanguageModel:
 
         if top_k is not None:
             top_k = min(top_k, len(scaled))
-            keep = set(sorted(range(len(scaled)), key=scaled.__getitem__, reverse=True)[:top_k])
-            filtered = [value if index in keep else float("-inf")
-                        for index, value in enumerate(scaled)]
+            keep = set(
+                sorted(
+                    range(len(scaled)),
+                    key=scaled.__getitem__,
+                    reverse=True,
+                )[:top_k]
+            )
+            filtered = [
+                value if index in keep else float("-inf")
+                for index, value in enumerate(scaled)
+            ]
         else:
             filtered = scaled
 
         maximum = max(filtered)
-        weights = [math.exp(value - maximum) if math.isfinite(value) else 0.0
-                   for value in filtered]
+        weights = [
+            math.exp(value - maximum) if math.isfinite(value) else 0.0
+            for value in filtered
+        ]
         total = sum(weights)
         if total <= 0.0 or not math.isfinite(total):
             raise ValueError("invalid sampling probability distribution")
