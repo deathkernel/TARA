@@ -58,8 +58,22 @@ def test_adamw_rejects_invalid_configuration():
         AdamW([Value(1.0)], weight_decay=-1.0)
 
 
-def test_adamw_rejects_nonfinite_gradient():
+def test_adamw_failed_step_does_not_advance_state():
     parameter = Value(1.0)
+    parameter.grad = 0.0
+    optimizer = AdamW([parameter])
+    before = optimizer.state_dict()
     parameter.grad = float("nan")
     with pytest.raises(ValueError):
-        AdamW([parameter]).step()
+        optimizer.step()
+    assert optimizer.state_dict() == before
+    assert parameter.data == 1.0
+
+
+def test_adamw_rejects_invalid_state():
+    parameter = Value(1.0)
+    optimizer = AdamW([parameter])
+    state = optimizer.state_dict()
+    state.pop("beta1")
+    with pytest.raises(ValueError):
+        optimizer.load_state_dict(state)
