@@ -136,13 +136,22 @@ def evaluate(model, tokenizer, validation_corpus):
     return loss.data
 
 
-def generate(model, tokenizer, prompt, length=80):
+def generate(model, tokenizer, prompt, length=80, temperature=None, top_k=None, seed=0):
+    """Generate text with greedy decoding or controlled sampling."""
     ids = tokenizer.encode(prompt)
     if not ids:
         raise ValueError("prompt must not be empty")
+
+    rng = random.Random(seed)
     for _ in range(length):
         context = ids[-CONTEXT_LENGTH:]
-        ids.append(model.next_token(context))
+        if temperature is None:
+            next_id = model.next_token(context)
+        else:
+            next_id = model.sample_next_token(
+                context, temperature=temperature, top_k=top_k, rng=rng
+            )
+        ids.append(next_id)
     return tokenizer.decode(ids)
 
 
@@ -152,11 +161,18 @@ if __name__ == "__main__":
         max_chars=MAX_VALIDATION_CHARS, split="validation"
     )
     validation_loss = evaluate(model, tokenizer, validation_corpus)
+    prompt = validation_corpus[:20]
 
     print(f"\nTrain characters: {len(train_corpus)}")
     print(f"Validation characters: {len(validation_corpus)}")
     print(f"Vocabulary size: {tokenizer.vocab_size}")
     print(f"Validation loss: {validation_loss:.6f}")
 
-    print("\nGenerated from unseen validation prompt:")
-    print(generate(model, tokenizer, validation_corpus[:20]))
+    print("\nGreedy generation:")
+    print(generate(model, tokenizer, prompt))
+
+    print("\nTemperature=0.8, top-k=5 generation:")
+    print(generate(model, tokenizer, prompt, temperature=0.8, top_k=5, seed=42))
+
+    print("\nTemperature=1.0, top-k=5 generation:")
+    print(generate(model, tokenizer, prompt, temperature=1.0, top_k=5, seed=42))
