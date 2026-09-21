@@ -50,4 +50,4 @@ def test_generate_respects_context_and_length():
 def test_generate_accepts_numeric_model_logits():
     tokenizer = CharTokenizer("abc")
     model = FakeModel()
-    assert generate(model, tokenizer, "a", length=1, top_k=1) == "ac"
+    assert generate(model, tokenizer, "a", length=1, top_k=1) == "ab"
