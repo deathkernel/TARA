@@ -1,7 +1,12 @@
 import pytest
 
-from src.language_dataset import CausalTextDataset, build_causal_datasets, split_token_ids
-from src.tokenizer import CharTokenizer
+from src.language_dataset import (
+    CausalTextDataset,
+    build_causal_datasets,
+    build_train_validation_datasets,
+    split_token_ids,
+)
+from src.tokenizer import BPETokenizer, CharTokenizer
 
 
 def test_causal_dataset_returns_next_token_pairs():
@@ -25,6 +30,14 @@ def test_batches_have_requested_size_and_cover_all_examples():
     assert [len(batch) for batch in batches] == [3, 3, 1]
     flattened = [item for batch in batches for item in batch]
     assert flattened == [dataset[index] for index in range(len(dataset))]
+
+
+def test_batch_at_matches_iterator():
+    dataset = CausalTextDataset(list(range(12)), context_length=3)
+    batches = list(dataset.iter_batches(batch_size=4, shuffle=True, seed=11))
+    assert dataset.batch_count(4) == 3
+    for index, batch in enumerate(batches):
+        assert dataset.batch_at(index, 4, shuffle=True, seed=11) == batch
 
 
 def test_shuffled_batches_are_deterministic():
@@ -75,3 +88,15 @@ def test_build_causal_datasets_uses_tokenizer_once():
     )
     assert train.token_ids == tokenizer.encode("abcdefgh")
     assert validation.token_ids == tokenizer.encode("ij")
+
+
+def test_train_validation_pipeline_fits_tokenizer_only_on_train_text():
+    tokenizer, train, validation = build_train_validation_datasets(
+        lambda text: BPETokenizer(text, vocab_size=32),
+        "aaaaabbbbbcccccdddddeeeee",
+        context_length=2,
+        validation_fraction=0.2,
+    )
+    assert tokenizer.encode("x") == [tokenizer.stoi[tokenizer.UNK]]
+    assert train.token_ids
+    assert validation.token_ids
