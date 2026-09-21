@@ -17,6 +17,7 @@ from src.transformer import Linear, TransformerBlock
 
 
 def _softmax(values):
+    """Numerically stable softmax over scalar Value objects."""
     maximum = max(value.data for value in values)
     shifted = [(value - maximum).exp() for value in values]
     total = shifted[0]
@@ -25,14 +26,25 @@ def _softmax(values):
     return [value / total for value in shifted]
 
 
+def logsumexp(values):
+    """Numerically stable log(sum(exp(values))) for scalar Values."""
+    if not values:
+        raise ValueError("logsumexp requires at least one value")
+    maximum = max(value.data for value in values)
+    shifted = [(value - maximum).exp() for value in values]
+    total = shifted[0]
+    for value in shifted[1:]:
+        total = total + value
+    return total.log() + maximum
+
+
 def cross_entropy(logits, target_id):
-    """Negative log probability of one target token."""
+    """Stable negative log-likelihood for one target token."""
     if not logits:
         raise ValueError("logits must not be empty")
     if not 0 <= target_id < len(logits):
         raise IndexError("target_id out of vocabulary range")
-    probabilities = _softmax(logits)
-    return -probabilities[target_id].log()
+    return logsumexp(logits) - logits[target_id]
 
 
 class TinyLanguageModel:
@@ -53,6 +65,8 @@ class TinyLanguageModel:
         return [self.lm_head.forward(vector) for vector in hidden]
 
     def loss(self, inputs, targets):
+        if not inputs or not targets:
+            raise ValueError("inputs and targets must not be empty")
         if len(inputs) != len(targets):
             raise ValueError("inputs and targets must have the same length")
         logits = self.forward(inputs)
