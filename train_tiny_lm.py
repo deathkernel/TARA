@@ -33,6 +33,7 @@ def train(corpus=CORPUS, steps=STEPS, learning_rate=LEARNING_RATE):
     for step in range(steps):
         model.zero_grad()
         total_loss = None
+        total_tokens = 0
         for start in range(0, len(ids) - 1, CONTEXT_LENGTH):
             window = ids[start:start + CONTEXT_LENGTH + 1]
             if len(window) < 2:
@@ -40,8 +41,13 @@ def train(corpus=CORPUS, steps=STEPS, learning_rate=LEARNING_RATE):
             inputs = window[:-1]
             targets = window[1:]
             loss = model.loss(inputs, targets)
-            total_loss = loss if total_loss is None else total_loss + loss
-        total_loss = total_loss / max(1, (len(ids) - 2) // CONTEXT_LENGTH + 1)
+            weighted_loss = loss * len(targets)
+            total_loss = weighted_loss if total_loss is None else total_loss + weighted_loss
+            total_tokens += len(targets)
+
+        if total_tokens == 0:
+            raise ValueError("corpus must contain at least one target token")
+        total_loss = total_loss / total_tokens
         total_loss.backward()
         for parameter in model.parameters():
             parameter.data -= learning_rate * parameter.grad
