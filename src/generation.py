@@ -4,13 +4,15 @@ Research basis:
 - Temperature, top-k, and nucleus (top-p) filtering are standard decoding
   controls used in modern autoregressive language-model generation systems.
 
-TARA keeps the implementation small and dependency-free. Greedy decoding,
-temperature sampling, top-k filtering, and nucleus filtering are provided
-without changing learned model parameters.
+TARA keeps the implementation small. Decoding reads numeric logits without
+constructing training-time autodiff graphs, then applies standard sampling
+controls without changing learned model parameters.
 """
 
 import math
 import random
+
+from src.numeric_inference import forward_numeric
 
 
 def _validate_controls(temperature, top_k, top_p):
@@ -28,7 +30,7 @@ def sample_from_logits(logits, temperature=1.0, top_k=None, top_p=None, rng=None
         raise ValueError("logits must not be empty")
     _validate_controls(temperature, top_k, top_p)
 
-    scaled = [float(logit) / temperature for logit in logits]
+    scaled = [float(logit.data if hasattr(logit, "data") else logit) / temperature for logit in logits]
     candidates = list(range(len(scaled)))
 
     if top_k is not None:
@@ -41,6 +43,8 @@ def sample_from_logits(logits, temperature=1.0, top_k=None, top_p=None, rng=None
         maximum = max(scaled[index] for index in candidates)
         weights = [math.exp(scaled[index] - maximum) for index in candidates]
         total = sum(weights)
+        if total <= 0.0 or not math.isfinite(total):
+            raise ValueError("invalid sampling probability distribution")
         probabilities = [weight / total for weight in weights]
         kept = []
         cumulative = 0.0
@@ -74,7 +78,7 @@ def _logit_value(value):
 
 def generate(model, tokenizer, prompt, length=40, context_length=12,
              temperature=1.0, top_k=None, top_p=None, rng=None):
-    """Generate text using configurable decoding controls."""
+    """Generate text using graph-free model inference and decoding controls."""
     if length < 0:
         raise ValueError("length must be non-negative")
     if context_length <= 0:
@@ -85,7 +89,7 @@ def generate(model, tokenizer, prompt, length=40, context_length=12,
 
     for _ in range(length):
         context = ids[-context_length:]
-        logits = [_logit_value(value) for value in model.forward(context)[-1]]
+        logits = forward_numeric(model, context)[-1]
         next_id = sample_from_logits(
             logits, temperature=temperature, top_k=top_k, top_p=top_p, rng=rng
         )
