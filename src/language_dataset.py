@@ -9,6 +9,8 @@ The implementation stays dependency-free and keeps the complete token stream
 in memory so experiments remain easy to inspect on a normal PC.
 """
 
+import random
+
 
 class CausalTextDataset:
     """Expose fixed-length causal next-token windows from token IDs."""
@@ -33,12 +35,33 @@ class CausalTextDataset:
         return window[:-1], window[1:]
 
     def iter_windows(self):
-        """Yield non-overlapping context windows for efficient full-corpus passes."""
+        """Yield non-overlapping context windows for full-corpus passes."""
         for start in range(0, len(self.token_ids) - 1, self.context_length):
             end = min(start + self.context_length + 1, len(self.token_ids))
             window = self.token_ids[start:end]
             if len(window) >= 2:
                 yield window[:-1], window[1:]
+
+    def iter_batches(self, batch_size, shuffle=False, seed=0):
+        """Yield mini-batches of causal windows.
+
+        Every item is an independent ``(inputs, targets)`` pair. Windows are
+        padded neither here nor in the model, so variable-length tail examples
+        remain explicit and no artificial training tokens are introduced.
+        """
+        if not isinstance(batch_size, int) or isinstance(batch_size, bool):
+            raise TypeError("batch_size must be an integer")
+        if batch_size <= 0:
+            raise ValueError("batch_size must be positive")
+
+        indices = list(range(len(self)))
+        if shuffle:
+            random.Random(seed).shuffle(indices)
+
+        for start in range(0, len(indices), batch_size):
+            batch = [self[index] for index in indices[start:start + batch_size]]
+            if batch:
+                yield batch
 
 
 def split_token_ids(token_ids, validation_fraction=0.1):
