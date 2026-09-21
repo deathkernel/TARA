@@ -1,12 +1,16 @@
-"""Tiny character-level autoregressive language model for TARA.
+"""Small autoregressive language models for TARA.
 
 Research basis:
 - Vaswani et al. (2017), Attention Is All You Need.
-- GPT-style causal language modeling: predict the next token from the
+- GPT-style causal language modeling predicts the next token from the
   tokens at or before the current position.
+- Kaplan et al. (2020) motivates treating model size as one part of a
+  broader scaling problem involving data and compute.
 
-This is deliberately tiny and educational: a small Transformer stack, one
-character tokenizer, and scalar reverse-mode autodiff.
+TARA deliberately keeps the implementation inspectable and runnable on a
+single PC. ``TinyLanguageModel`` remains the educational baseline; the
+``SmallLanguageModel`` profile increases capacity without turning TARA into
+a datacenter-scale model.
 """
 
 import math
@@ -51,8 +55,14 @@ class TinyLanguageModel:
     ):
         if vocab_size <= 0:
             raise ValueError("vocab_size must be positive")
+        if embedding_dim <= 0 or ff_dim <= 0:
+            raise ValueError("embedding_dim and ff_dim must be positive")
+        if num_layers <= 0:
+            raise ValueError("num_layers must be positive")
         if num_heads is None:
             num_heads = 2 if embedding_dim % 2 == 0 else 1
+        if num_heads <= 0 or embedding_dim % num_heads != 0:
+            raise ValueError("embedding_dim must be divisible by num_heads")
 
         self.embedding = Embedding(
             vocab_size,
@@ -155,3 +165,32 @@ class TinyLanguageModel:
             if threshold < cumulative:
                 return index
         return len(weights) - 1
+
+
+class SmallLanguageModel(TinyLanguageModel):
+    """PC-oriented capacity profile for the next TARA scaling stage.
+
+    This is intentionally still small: it increases representation capacity
+    and depth while keeping the scalar educational implementation usable on a
+    normal PC. The profile is a starting point, not a claim that parameters
+    alone create intelligence; data quality, training and evaluation must
+    scale with it as well.
+    """
+
+    def __init__(
+        self,
+        vocab_size,
+        embedding_dim=32,
+        ff_dim=64,
+        seed=0,
+        num_heads=4,
+        num_layers=2,
+    ):
+        super().__init__(
+            vocab_size=vocab_size,
+            embedding_dim=embedding_dim,
+            ff_dim=ff_dim,
+            seed=seed,
+            num_heads=num_heads,
+            num_layers=num_layers,
+        )
