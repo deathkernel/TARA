@@ -9,6 +9,7 @@ Research basis:
 The experiment intentionally remains small enough for a normal PC.
 """
 
+from src.checkpoint import save_checkpoint
 from src.gradient_clipping import clip_grad_norm_
 from src.language_dataset import build_causal_datasets
 from src.language_model import TinyLanguageModel
@@ -33,13 +34,11 @@ def _mean_loss(model, dataset, batch_size):
     """Evaluate mean next-token loss without updating model parameters."""
     total_loss = 0.0
     total_tokens = 0
-
     for batch in dataset.iter_batches(batch_size, shuffle=False):
         for inputs, targets in batch:
             loss = model.loss(inputs, targets)
             total_loss += loss.data * len(targets)
             total_tokens += len(targets)
-
     if total_tokens == 0:
         raise ValueError("dataset must contain at least one target token")
     return total_loss / total_tokens
@@ -54,13 +53,18 @@ def _batch_loss(model, batch):
         weighted_loss = loss * len(targets)
         total_loss = weighted_loss if total_loss is None else total_loss + weighted_loss
         total_tokens += len(targets)
-
     if total_tokens == 0:
         raise ValueError("batch must contain at least one target token")
     return total_loss / total_tokens
 
 
-def train(corpus=CORPUS, steps=STEPS, learning_rate=LEARNING_RATE):
+def train(corpus=CORPUS, steps=STEPS, learning_rate=LEARNING_RATE,
+          checkpoint_path=None):
+    """Train TARA and validate on held-out text.
+
+    Returns the model and tokenizer, preserving the original training API.
+    When ``checkpoint_path`` is provided, the final model state is saved.
+    """
     tokenizer = CharTokenizer(corpus)
     train_dataset, validation_dataset = build_causal_datasets(
         tokenizer,
@@ -75,9 +79,7 @@ def train(corpus=CORPUS, steps=STEPS, learning_rate=LEARNING_RATE):
         seed=SEED,
     )
 
-    train_batches = list(
-        train_dataset.iter_batches(BATCH_SIZE, shuffle=False)
-    )
+    train_batches = list(train_dataset.iter_batches(BATCH_SIZE, shuffle=False))
     if not train_batches:
         raise ValueError("training dataset must contain at least one batch")
 
@@ -87,6 +89,7 @@ def train(corpus=CORPUS, steps=STEPS, learning_rate=LEARNING_RATE):
         min_lr=min(learning_rate, MIN_LEARNING_RATE),
     )
 
+    final_metrics = {}
     for step in range(steps):
         shuffled_batches = list(
             train_dataset.iter_batches(
@@ -108,6 +111,12 @@ def train(corpus=CORPUS, steps=STEPS, learning_rate=LEARNING_RATE):
 
         if step % 10 == 0 or step == steps - 1:
             validation_loss = _mean_loss(model, validation_dataset, BATCH_SIZE)
+            final_metrics = {
+                "train_loss": loss.data,
+                "val_loss": validation_loss,
+                "learning_rate": current_lr,
+                "gradient_norm": gradient_norm,
+            }
             print(
                 f"step={step:3d} lr={current_lr:.6f} "
                 f"grad_norm={gradient_norm:.6f} "
@@ -115,7 +124,16 @@ def train(corpus=CORPUS, steps=STEPS, learning_rate=LEARNING_RATE):
                 f"val_loss={validation_loss:.6f}"
             )
 
-    return model, tokenizer, train_dataset, validation_dataset
+    if checkpoint_path is not None:
+        save_checkpoint(
+            model,
+            checkpoint_path,
+            step=max(0, steps - 1),
+            scheduler=scheduler,
+            metrics=final_metrics,
+        )
+
+    return model, tokenizer
 
 
 def generate(model, tokenizer, prompt, length=40):
@@ -129,6 +147,6 @@ def generate(model, tokenizer, prompt, length=40):
 
 
 if __name__ == "__main__":
-    model, tokenizer, _, _ = train()
+    model, tokenizer = train()
     print("\nGenerated:")
     print(generate(model, tokenizer, "tara "))
