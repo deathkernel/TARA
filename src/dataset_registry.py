@@ -45,6 +45,8 @@ def list_datasets():
 
 def get_dataset_spec(name):
     """Return a registered dataset specification."""
+    if not isinstance(name, str):
+        raise TypeError("dataset name must be a string")
     key = name.strip().lower()
     if key not in DATASETS:
         available = ", ".join(sorted(DATASETS))
@@ -68,6 +70,8 @@ def describe_dataset(name):
 
 def load_text_slice(name, max_chars=4096, split="train"):
     """Stream one deterministic text slice without loading the full corpus."""
+    if not isinstance(max_chars, int) or isinstance(max_chars, bool):
+        raise TypeError("max_chars must be an integer")
     if max_chars <= 0:
         raise ValueError("max_chars must be positive")
 
@@ -106,7 +110,7 @@ def load_text_slice(name, max_chars=4096, split="train"):
 
     for example in dataset:
         text = example.get(spec.text_field, "")
-        if not text:
+        if not isinstance(text, str) or not text:
             continue
 
         remaining = max_chars - total
