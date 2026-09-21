@@ -5,11 +5,13 @@ Research basis:
 - Mini-batch gradient updates process a small group of examples per update.
 - Validation loss is measured on held-out tokens that are never used for
   parameter updates.
+- Training checkpoints persist model and progress state so a run can
+  continue after interruption.
 
 The experiment intentionally remains small enough for a normal PC.
 """
 
-from src.checkpoint import save_checkpoint
+from src.checkpoint import load_checkpoint, save_checkpoint
 from src.gradient_clipping import clip_grad_norm_
 from src.language_dataset import build_causal_datasets
 from src.language_model import TinyLanguageModel
@@ -59,12 +61,21 @@ def _batch_loss(model, batch):
 
 
 def train(corpus=CORPUS, steps=STEPS, learning_rate=LEARNING_RATE,
-          checkpoint_path=None):
-    """Train TARA and validate on held-out text.
+          checkpoint_path=None, resume_from=None, total_steps=None):
+    """Train TARA, optionally resuming from a previous checkpoint.
 
-    Returns the model and tokenizer, preserving the original training API.
-    When ``checkpoint_path`` is provided, the final model state is saved.
+    ``steps`` is the number of updates performed by this call. For an exact
+    interrupted-run continuation, pass the same ``total_steps`` to the first
+    and resumed calls so the cosine schedule is unchanged.
+
+    The checkpoint stores the last completed zero-based step. Resumed work
+    starts at the following step, preserving TARA's deterministic batch order.
     """
+    if steps < 0:
+        raise ValueError("steps must be non-negative")
+    if resume_from is not None and steps == 0:
+        raise ValueError("steps must be positive when resuming")
+
     tokenizer = CharTokenizer(corpus)
     train_dataset, validation_dataset = build_causal_datasets(
         tokenizer,
@@ -79,18 +90,45 @@ def train(corpus=CORPUS, steps=STEPS, learning_rate=LEARNING_RATE,
         seed=SEED,
     )
 
+    start_step = 0
+    saved_scheduler = None
+    if resume_from is not None:
+        state = load_checkpoint(model, resume_from)
+        start_step = state["step"] + 1
+        saved_scheduler = state.get("scheduler")
+        if saved_scheduler is None:
+            raise ValueError("checkpoint does not contain scheduler state")
+
+    if total_steps is None:
+        if saved_scheduler is not None:
+            total_steps = int(saved_scheduler["total_steps"])
+        else:
+            total_steps = steps
+    if total_steps <= 0:
+        raise ValueError("total_steps must be positive")
+    if start_step + steps > total_steps:
+        raise ValueError("training would exceed total_steps")
+
+    if saved_scheduler is not None:
+        learning_rate = float(saved_scheduler["initial_lr"])
+        min_learning_rate = float(saved_scheduler["min_lr"])
+        if int(saved_scheduler["total_steps"]) != total_steps:
+            raise ValueError("total_steps does not match checkpoint scheduler")
+    else:
+        min_learning_rate = min(learning_rate, MIN_LEARNING_RATE)
+
     train_batches = list(train_dataset.iter_batches(BATCH_SIZE, shuffle=False))
     if not train_batches:
         raise ValueError("training dataset must contain at least one batch")
 
     scheduler = CosineAnnealing(
         learning_rate,
-        total_steps=steps,
-        min_lr=min(learning_rate, MIN_LEARNING_RATE),
+        total_steps=total_steps,
+        min_lr=min_learning_rate,
     )
 
     final_metrics = {}
-    for step in range(steps):
+    for step in range(start_step, start_step + steps):
         shuffled_batches = list(
             train_dataset.iter_batches(
                 BATCH_SIZE,
@@ -109,7 +147,7 @@ def train(corpus=CORPUS, steps=STEPS, learning_rate=LEARNING_RATE,
         for parameter in model.parameters():
             parameter.data -= current_lr * parameter.grad
 
-        if step % 10 == 0 or step == steps - 1:
+        if step % 10 == 0 or step == start_step + steps - 1:
             validation_loss = _mean_loss(model, validation_dataset, BATCH_SIZE)
             final_metrics = {
                 "train_loss": loss.data,
@@ -124,11 +162,11 @@ def train(corpus=CORPUS, steps=STEPS, learning_rate=LEARNING_RATE,
                 f"val_loss={validation_loss:.6f}"
             )
 
-    if checkpoint_path is not None:
+    if checkpoint_path is not None and steps > 0:
         save_checkpoint(
             model,
             checkpoint_path,
-            step=max(0, steps - 1),
+            step=start_step + steps - 1,
             scheduler=scheduler,
             metrics=final_metrics,
         )
