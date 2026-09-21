@@ -2,7 +2,7 @@
 
 **TARA — Tiny Artificial Reasoning Architecture**
 
-TARA is a research-first neural-network project built from mathematical and implementation fundamentals. The long-term goal is a small, inspectable artificial reasoning system that can eventually connect perception, memory, reasoning, planning and controlled PC tools while remaining practical on a normal PC.
+TARA is a research-first neural-network project built from mathematical and implementation fundamentals. The goal is a small, inspectable artificial reasoning system that can connect a neural language core with perception, memory, reasoning, planning and, only after the AI/model architecture is complete, controlled PC tools.
 
 ## Research-first rule
 
@@ -10,80 +10,118 @@ TARA follows:
 
 **research → mathematical formulation → minimal experiment → own implementation → tests/benchmark → documentation**
 
-Primary references include back-propagation work by Rumelhart, Hinton & Williams, Goodfellow, Bengio & Courville's *Deep Learning*, Glorot & Bengio's initialization work, and Vaswani et al.'s *Attention Is All You Need*. Modern language-model ideas are introduced only after the underlying mechanisms are verified.
+Primary references include Rumelhart, Hinton & Williams on back-propagation, Goodfellow, Bengio & Courville's *Deep Learning*, Glorot & Bengio on initialization, Vaswani et al. on Transformers, and research on retrieval, deliberate reasoning, planning and agent loops.
 
 ## Current architecture
 
-TARA now has a small autoregressive neural path built from its own scalar autodiff engine:
+TARA has a small autoregressive neural path built from its own scalar autodiff engine:
 
 - Custom scalar reverse-mode automatic differentiation (`src/autograd.py`)
-- Fully connected MLP components and MSE training
-- Deterministic character tokenizer and embedding table
-- Numerically stable softmax and cross-entropy
+- MLP components and MSE training
+- Deterministic character and BPE/subword tokenization
+- Embedding table
+- Numerically stable softmax/logsumexp and cross-entropy
 - Learned Q/K/V causal self-attention
 - Multi-head causal self-attention
 - Sinusoidal positional encoding
-- Pre-norm LayerNorm with learnable gamma and beta
+- Pre-norm LayerNorm with learnable parameters
 - Residual attention and position-wise feed-forward network
 - GELU-style activation
-- Configurable stack of decoder-style Transformer blocks
-- Xavier/Glorot initialization for the MLP and Transformer linear projections
-- Tiny character-level autoregressive language model
-- Greedy, temperature, top-k and top-p generation controls
-- Training checkpoints and deterministic resume support
-- Language-model loss, perplexity, top-1 accuracy and token-count benchmarks
-- Bounded working memory and persistent long-term memory primitives
-- Deterministic lexical retrieval and relevance scoring
-- Memory access tracking, explicit updates, and deterministic least-used forgetting
-- Goal representation, explicit task decomposition and sequential planning
-- Deterministic step/goal verification and failure-triggered re-planning primitives
-- Automated tests for shapes, causality, gradients, normalization, initialization, language modeling, checkpointing, benchmarks, memory, retrieval, memory dynamics and reasoning
+- Configurable decoder-style Transformer stack
+- Xavier/Glorot initialization
+- Optimizer, learning-rate scheduling and gradient clipping
+- Tiny and PC-oriented small language-model profiles
+- Checkpointing and deterministic resume support
+- Greedy, temperature, top-k and top-p generation
+- Language-model loss, perplexity and next-token accuracy benchmarks
+- Training/validation diagnostics including predictive entropy
+- Bounded working memory and persistent long-term memory
+- Deterministic retrieval, relevance scoring and forgetting
+- Goal representation, task decomposition, planning, verification and re-planning
+- File/document, system-state and screen-state perception representations
+- Cognitive-state integration layer
+- Agent loop with observation, persistent memory, verification and recovery
+- Explicit permission, destructive-action confirmation and audit logging
+- Controlled repository self-testing and structured pytest evidence
 
-The language model is intentionally tiny and CPU-friendly. It is an educational implementation of the underlying mechanisms, not a reproduction of GPT, Gemini, or any frontier model.
+The language model is intentionally small and CPU-friendly. TARA is an educational/research implementation of the underlying mechanisms, not a reproduction of GPT, Gemini, or any frontier model.
+
+## Cognitive layers
+
+```text
+Input / Perception
+       ↓
+Working + Long-Term Memory
+       ↓
+Neural Language Core
+       ↓
+Reasoning / Planning
+       ↓
+Agent Control Loop
+       ↓
+Verification / Recovery
+       ↓
+Evaluation + Safety
+```
+
+The PC-tool layer is intentionally **not** part of the current AI completion milestone. It will be added only after the complete AI/model architecture is developed, tested and evaluated.
 
 ## Memory
 
-TARA's memory layer separates responsibilities:
+TARA separates:
 
-- **Working memory** — a bounded recent-context buffer for observations, intermediate thoughts or task state.
-- **Long-term memory** — persistent, human-readable storage for durable information.
-- **Retrieval** — deterministic lexical relevance scoring over memory keys and values, with ranked results and configurable limits/thresholds.
-- **Memory dynamics** — updates preserve access history, retrieval/recall increase usage counts, importance can be adjusted explicitly, and least-used memories can be removed deterministically when capacity must be reduced.
+- **Working memory** — bounded recent context.
+- **Long-term memory** — persistent human-readable storage.
+- **Retrieval** — deterministic lexical relevance scoring.
+- **Memory dynamics** — access tracking, explicit updates and deterministic least-used forgetting.
 
-The retrieval layer deliberately starts with transparent token overlap instead of a large embedding model or vector database. This keeps the mechanism inspectable and CPU-friendly while creating a clean interface for later learned retrieval. Retrieval-Augmented Generation demonstrates the value of combining model parameters with explicit non-parametric memory, while recent agent-memory research emphasizes memory formation, evolution and retrieval as dynamic processes.
+The current retriever is deliberately transparent rather than a large vector system. It is a baseline for later learned retrieval.
 
 ## Reasoning
 
-TARA's first reasoning layer is deliberately symbolic and deterministic. It does not pretend that a few rules constitute human-like reasoning; instead, it provides explicit interfaces that the neural core can later drive and that can be tested independently.
+TARA's reasoning layer is deliberately explicit and deterministic. It provides:
 
-- **Goal** — a structured desired outcome with explicit success conditions.
-- **Task** — one reasoning/planning unit, optionally linked to its parent goal.
-- **Decomposition** — converts a goal into ordered subtasks without hiding the intermediate structure.
-- **Plan** — tracks ordered tasks and the current execution position.
-- **Verification** — checks an expected step result or explicit goal-state conditions.
-- **Re-planning** — replaces a failed step and its remaining future path with an alternative deterministic path.
+- structured goals and success conditions
+- task decomposition
+- sequential plans
+- step and goal verification
+- failure-triggered re-planning
 
-The design is informed by research on deliberate reasoning and planning: Tree of Thoughts explores alternative reasoning paths and evaluates them; ReAct emphasizes explicit subgoal tracking and feedback between reasoning and action; RAP frames reasoning as planning over state-aware candidate paths. TARA uses these ideas as architectural references while keeping the implementation small and transparent.
+The design is informed by Tree of Thoughts, ReAct and reasoning-as-planning research, while remaining small enough to inspect and test.
 
-No PC automation is part of this phase. PC interaction is intentionally deferred until the complete AI/model architecture is developed and tested.
+## Perception and integration
 
-## Parameter initialization
+Perception converts externally observable inputs into bounded structured representations without performing actions:
 
-TARA uses Xavier/Glorot uniform initialization for its small tanh/GELU-style linear projections. The bound is:
+- text document state
+- normalized system facts
+- deterministic screen-element summaries
 
-`limit = sqrt(6 / (fan_in + fan_out))`
+The integration layer maintains goal, plan, observations and results. The agent layer can persist observations, retrieve relevant memories, select planned tasks, accept externally supplied results, verify them, advance successful steps and recover through explicit re-planning.
 
-The implementation lives in `src/initialization.py` so initialization is explicit, deterministic when given a seeded random generator, and independently testable.
+## Safety
 
-## Research notes
+Safety is a separate boundary around future tools. The current foundation uses:
 
-The Transformer architecture combines attention with position-wise feed-forward layers, residual connections and normalization; decoder self-attention is causally masked so a position cannot use future tokens. TARA keeps these core dependencies while reducing the model to a small, inspectable implementation.
+- default-deny permissions
+- explicit permission changes
+- confirmation gates for designated destructive actions
+- immutable authorization decisions
+- an audit log
 
-Causal language modeling trains the model to predict the next token from the available left context. A sequence is shifted by one position so the input at each location is used to predict its following target.
+No PC action is executed by these modules.
 
-Language-model evaluation uses held-out next-token loss together with perplexity and top-1 accuracy. Comparisons involving different tokenizers should be interpreted carefully because token-level perplexity depends on the vocabulary/segmentation; TARA therefore keeps benchmark experiments on a fixed tokenizer unless a later experiment explicitly studies tokenization.
+## Evaluation and self-testing
 
-Memory retrieval is currently a deliberately simple lexical baseline. It scores the fraction of unique query tokens found in a memory's key/value text, ranks by score, and uses insertion order as a deterministic tie-breaker. This is not semantic retrieval; it is a transparent baseline that can later be compared with vector or learned retrievers.
+TARA keeps measured evidence separate from implementation. Evaluation supports:
+
+- metric acceptance ranges
+- baseline comparisons
+- finite-difference gradient validation
+- failure classification
+- JSON-serializable reports
+
+The self-test runner executes only the repository's fixed `python -m pytest -q` suite and returns command, exit status and captured output. It does not execute arbitrary commands supplied by a model.
 
 ## Run locally
 
@@ -93,61 +131,37 @@ From the repository root:
 python -m pytest -q
 python train_xor.py
 python train_tiny_lm.py
+python experiments/scaled_lm_diagnostics.py
+python experiments/train_scaled_lm.py
 ```
-
-`train_xor.py` runs the small XOR learning experiment. `train_tiny_lm.py` trains the tiny character-level language model on its built-in local corpus and then generates text.
 
 ## Run automatically on GitHub
 
-TARA includes GitHub Actions workflows under `.github/workflows/`. The workflows install Python and run the test suite on GitHub-hosted runners.
-
-The test workflow runs automatically on pushes and pull requests. The workflow with `workflow_dispatch` can also be started manually from the **Actions** tab using **Run workflow**.
-
-## Verification status
-
-The scalar MLP milestone has a verified XOR experiment reaching approximately `5.27e-30` mean squared error with deterministic initialization. Attention, Transformer, LayerNorm, Transformer-stack, initialization, language-model, generation, checkpoint, training-resume, benchmark, memory, retrieval, memory-dynamics and reasoning tests are committed. GitHub Actions is used as an automated verification environment.
-
-## Long-term direction
-
-TARA's long-term architecture is intentionally staged:
-
-```text
-Perception
-    ↓
-Memory
-    ↓
-Neural Core
-    ↓
-Reasoning / Planning
-    ↓
-Tools
-    ↓
-Controlled PC interaction
-    ↓
-Observation / feedback
-    └──────────────→ Memory / Reasoning
-```
-
-The PC-automation layer will be added only after the complete AI/model architecture is developed and tested. Destructive or irreversible actions will require explicit safety controls.
+TARA includes GitHub Actions workflows under `.github/workflows/`. They install Python and run the test suite on GitHub-hosted runners. The workflow with `workflow_dispatch` can also be started manually from the **Actions** tab.
 
 ## Project structure
 
 ```text
 TARA/
-├── .github/
-│   └── workflows/
-│       ├── python-tests.yml
-│       └── tests.yml
+├── .github/workflows/
+├── experiments/
+│   ├── scaled_lm_diagnostics.py
+│   └── train_scaled_lm.py
 ├── src/
+│   ├── activations.py
+│   ├── agent.py
 │   ├── attention.py
 │   ├── autograd.py
 │   ├── checkpoint.py
 │   ├── dataset_registry.py
 │   ├── datasets.py
 │   ├── embeddings.py
+│   ├── evaluation.py
+│   ├── generation.py
 │   ├── gradcheck.py
 │   ├── gradient_clipping.py
 │   ├── initialization.py
+│   ├── integration.py
 │   ├── language_benchmarks.py
 │   ├── language_dataset.py
 │   ├── language_model.py
@@ -156,16 +170,17 @@ TARA/
 │   ├── memory.py
 │   ├── metrics.py
 │   ├── mlp.py
+│   ├── perception.py
 │   ├── positional.py
 │   ├── reasoning.py
+│   ├── safety.py
 │   ├── schedulers.py
+│   ├── self_test.py
 │   ├── text_dataset.py
 │   ├── tokenizer.py
 │   └── transformer.py
 ├── tests/
-├── experiments/
 ├── train_neuron.py
-├── train_xor.py
 ├── train_tiny_lm.py
 ├── requirements.txt
 └── README.md
@@ -186,14 +201,14 @@ TARA/
 9. ✅ Transformer block
 10. ✅ Configurable Transformer stack
 11. ✅ Research-based parameter initialization
-12. ✅ Better optimizer
+12. ✅ Optimizer
 13. ✅ Learning-rate scheduling
 14. ✅ Gradient clipping
 
 ### Phase 2 — Language Intelligence
 
-15. ✅ Better tokenizer / subword tokenizer
-16. ✅ Better local corpus pipeline
+15. ✅ BPE/subword tokenizer
+16. ✅ Local corpus pipeline
 17. ✅ Batching and validation
 18. ✅ Training metrics and checkpoints
 19. ✅ Generation controls and evaluation
@@ -215,36 +230,54 @@ TARA/
 
 ### Phase 5 — Perception
 
-29. ⬜ File/document perception
-30. ⬜ System-state perception
-31. ⬜ Screen-state representation
+29. ✅ File/document perception
+30. ✅ System-state perception
+31. ✅ Screen-state representation
 
-### Phase 6 — PC Tools
+### Phase 6 — AI Cognitive Integration
 
-32. ⬜ File tools
-33. ⬜ Terminal tools
-34. ⬜ Application tools
-35. ⬜ Browser tools
-36. ⬜ Controlled keyboard/mouse tools
+32. ✅ Cognitive state container
+33. ✅ Perception/memory/reasoning integration boundary
+34. ✅ Structured state snapshots
 
-### Phase 7 — Agent Loop
+### Phase 7 — Agent / Brain Loop
 
-37. ⬜ Observe → Remember → Reason → Plan → Act → Observe
-38. ⬜ Tool selection
-39. ⬜ Persistent task state
+35. ✅ Observe
+36. ✅ Remember / retrieve
+37. ✅ Select next planned task
+38. ✅ Verify result and advance
+39. ✅ Failure recovery and re-planning
 
-### Phase 8 — Safety
+### Phase 8 — Safety Foundation
 
-40. ⬜ Permissions
-41. ⬜ Destructive-action confirmation
-42. ⬜ Action logging
-43. ⬜ Emergency stop / rollback where possible
+40. ✅ Default-deny permissions
+41. ✅ Destructive-action confirmation
+42. ✅ Action-decision audit logging
 
-### Phase 9 — Self-testing
+### Phase 9 — AI Self-testing and Evaluation
 
-44. ⬜ Automatic test execution
-45. ⬜ Failure analysis
-46. ⬜ Regression testing
-47. ⬜ Action verification
+43. ✅ Automatic repository test execution
+44. ✅ Structured failure evidence
+45. ✅ Regression/metric comparison primitives
+46. ✅ Mathematical gradient evidence
+47. ✅ Deterministic self-test coverage
 
-TARA stays intentionally small: the objective is to understand and implement the core ideas ourselves, then gradually connect them into a useful reasoning-and-tool system rather than imitating frontier-model scale.
+### Phase 10 — Scientific Scaling
+
+48. ⬜ Train and benchmark the PC-oriented scaled model
+49. ⬜ Compare capacity against the tiny baseline
+50. ⬜ Evaluate data/capacity/compute trade-offs
+51. ⬜ Improve training data and language evaluation
+
+### Post-AI Phase — PC Tools
+
+Only after the AI/model architecture is complete and evaluated:
+
+52. ⬜ File tools
+53. ⬜ Terminal tools
+54. ⬜ Application/browser tools
+55. ⬜ Controlled keyboard/mouse interaction
+56. ⬜ Tool selection and execution verification
+57. ⬜ Emergency stop / rollback where possible
+
+TARA stays intentionally small. The objective is to understand and implement the core mechanisms ourselves, validate them mathematically and empirically, then connect them into a useful reasoning-and-tool system rather than imitate frontier-model scale.
