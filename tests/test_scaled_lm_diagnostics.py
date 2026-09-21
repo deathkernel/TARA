@@ -9,8 +9,8 @@ def test_scaled_experiment_builds_with_bpe_and_expected_capacity():
     assert model.transformer.num_layers == 2
     assert model.transformer.blocks[0].num_heads == 4
     assert model.embedding.embedding_dim == 32
-    assert train_dataset.examples
-    assert validation_dataset.examples
+    assert len(train_dataset) > 0
+    assert len(validation_dataset) > 0
 
 
 def test_diagnostics_are_finite_and_have_valid_ranges():
