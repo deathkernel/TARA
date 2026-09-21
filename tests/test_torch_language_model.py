@@ -74,3 +74,34 @@ def test_fast_model_rejects_long_context():
     )
     with pytest.raises(ValueError):
         model(torch.zeros((1, 5), dtype=torch.long))
+
+
+def test_fast_model_rejects_empty_sequences():
+    model = FastTinyLanguageModel(vocab_size=9, embedding_dim=8, ff_dim=16, num_heads=2)
+    empty = torch.empty((1, 0), dtype=torch.long)
+    with pytest.raises(ValueError):
+        model(empty)
+    with pytest.raises(ValueError):
+        model.next_token(empty)
+    with pytest.raises(ValueError):
+        model.loss(empty, empty)
+
+
+def test_fast_model_validates_constructor_arguments():
+    with pytest.raises(ValueError):
+        FastTinyLanguageModel(vocab_size=9, embedding_dim=8, ff_dim=16, num_heads=0)
+    with pytest.raises(ValueError):
+        FastTinyLanguageModel(vocab_size=9, embedding_dim=8, ff_dim=0, num_heads=2)
+    with pytest.raises(ValueError):
+        FastTinyLanguageModel(vocab_size=9, embedding_dim=8, ff_dim=16, num_heads=2, max_context=0)
+
+
+def test_fast_model_validates_loss_targets():
+    model = FastTinyLanguageModel(vocab_size=9, embedding_dim=8, ff_dim=16, num_heads=2)
+    inputs = torch.tensor([[0, 1, 2]])
+    with pytest.raises(ValueError):
+        model.loss(inputs, torch.tensor([[1, 2]]))
+    with pytest.raises(ValueError):
+        model.loss(inputs, torch.tensor([[1, 2, 9]]))
+    with pytest.raises(ValueError):
+        model.loss(inputs, torch.tensor([[1, 2, -1]]))
