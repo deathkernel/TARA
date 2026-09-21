@@ -17,6 +17,7 @@ import math
 import random
 
 from src.embeddings import Embedding
+from src.numeric_inference import forward_numeric
 from src.transformer import Linear, TransformerStack
 
 
@@ -44,15 +45,7 @@ def cross_entropy(logits, target_id):
 class TinyLanguageModel:
     """Small autoregressive language model with a configurable Transformer stack."""
 
-    def __init__(
-        self,
-        vocab_size,
-        embedding_dim=8,
-        ff_dim=16,
-        seed=0,
-        num_heads=None,
-        num_layers=1,
-    ):
+    def __init__(self, vocab_size, embedding_dim=8, ff_dim=16, seed=0, num_heads=None, num_layers=1):
         if vocab_size <= 0:
             raise ValueError("vocab_size must be positive")
         if embedding_dim <= 0 or ff_dim <= 0:
@@ -63,24 +56,11 @@ class TinyLanguageModel:
             num_heads = 2 if embedding_dim % 2 == 0 else 1
         if num_heads <= 0 or embedding_dim % num_heads != 0:
             raise ValueError("embedding_dim must be divisible by num_heads")
-
-        self.embedding = Embedding(
-            vocab_size,
-            embedding_dim=embedding_dim,
-            seed=seed,
-        )
+        self.embedding = Embedding(vocab_size, embedding_dim=embedding_dim, seed=seed)
         self.transformer = TransformerStack(
-            embedding_dim,
-            ff_dim=ff_dim,
-            num_heads=num_heads,
-            num_layers=num_layers,
-            seed=seed + 1,
+            embedding_dim, ff_dim=ff_dim, num_heads=num_heads, num_layers=num_layers, seed=seed + 1
         )
-        self.lm_head = Linear(
-            embedding_dim,
-            vocab_size,
-            random.Random(seed + 2),
-        )
+        self.lm_head = Linear(embedding_dim, vocab_size, random.Random(seed + 2))
 
     def forward(self, token_ids):
         if not token_ids:
@@ -89,27 +69,24 @@ class TinyLanguageModel:
         hidden = self.transformer.forward(vectors)
         return [self.lm_head.forward(vector) for vector in hidden]
 
+    def forward_numeric(self, token_ids):
+        """Run the same model weights without constructing an autograd graph."""
+        return forward_numeric(self, token_ids)
+
     def loss(self, inputs, targets):
         if not inputs or not targets:
             raise ValueError("inputs and targets must not be empty")
         if len(inputs) != len(targets):
             raise ValueError("inputs and targets must have the same length")
         logits = self.forward(inputs)
-        losses = [
-            cross_entropy(row, target)
-            for row, target in zip(logits, targets)
-        ]
+        losses = [cross_entropy(row, target) for row, target in zip(logits, targets)]
         total = losses[0]
         for value in losses[1:]:
             total = total + value
         return total / len(losses)
 
     def parameters(self):
-        return (
-            self.embedding.parameters()
-            + self.transformer.parameters()
-            + self.lm_head.parameters()
-        )
+        return self.embedding.parameters() + self.transformer.parameters() + self.lm_head.parameters()
 
     def zero_grad(self):
         for parameter in self.parameters():
@@ -117,8 +94,8 @@ class TinyLanguageModel:
 
     def next_token(self, token_ids):
         """Return the highest-probability next token for a context."""
-        logits = self.forward(token_ids)[-1]
-        return max(range(len(logits)), key=lambda index: logits[index].data)
+        logits = self.forward_numeric(token_ids)[-1]
+        return max(range(len(logits)), key=logits.__getitem__)
 
     def sample_next_token(self, token_ids, temperature=1.0, top_k=None, rng=None):
         """Sample a next token using temperature and optional top-k filtering."""
@@ -128,35 +105,19 @@ class TinyLanguageModel:
             raise ValueError("temperature must be positive")
         if top_k is not None and top_k <= 0:
             raise ValueError("top_k must be positive when provided")
-
-        logits = [value.data for value in self.forward(token_ids)[-1]]
+        logits = list(self.forward_numeric(token_ids)[-1])
         scaled = [logit / temperature for logit in logits]
-
         if top_k is not None:
             top_k = min(top_k, len(scaled))
-            keep = set(
-                sorted(
-                    range(len(scaled)),
-                    key=scaled.__getitem__,
-                    reverse=True,
-                )[:top_k]
-            )
-            filtered = [
-                value if index in keep else float("-inf")
-                for index, value in enumerate(scaled)
-            ]
+            keep = set(sorted(range(len(scaled)), key=scaled.__getitem__, reverse=True)[:top_k])
+            filtered = [value if index in keep else float("-inf") for index, value in enumerate(scaled)]
         else:
             filtered = scaled
-
         maximum = max(filtered)
-        weights = [
-            math.exp(value - maximum) if math.isfinite(value) else 0.0
-            for value in filtered
-        ]
+        weights = [math.exp(value - maximum) if math.isfinite(value) else 0.0 for value in filtered]
         total = sum(weights)
         if total <= 0.0 or not math.isfinite(total):
             raise ValueError("invalid sampling probability distribution")
-
         rng = random if rng is None else rng
         threshold = rng.random() * total
         cumulative = 0.0
@@ -168,24 +129,9 @@ class TinyLanguageModel:
 
 
 class SmallLanguageModel(TinyLanguageModel):
-    """PC-oriented capacity profile for the next TARA scaling stage.
+    """PC-oriented capacity profile for the next TARA scaling stage."""
 
-    This is intentionally still small: it increases representation capacity
-    and depth while keeping the scalar educational implementation usable on a
-    normal PC. The profile is a starting point, not a claim that parameters
-    alone create intelligence; data quality, training and evaluation must
-    scale with it as well.
-    """
-
-    def __init__(
-        self,
-        vocab_size,
-        embedding_dim=32,
-        ff_dim=64,
-        seed=0,
-        num_heads=4,
-        num_layers=2,
-    ):
+    def __init__(self, vocab_size, embedding_dim=32, ff_dim=64, seed=0, num_heads=4, num_layers=2):
         super().__init__(
             vocab_size=vocab_size,
             embedding_dim=embedding_dim,
