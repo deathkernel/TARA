@@ -67,6 +67,11 @@ def sample_from_logits(logits, temperature=1.0, top_k=None, top_p=None, rng=None
     return candidates[-1]
 
 
+def _logit_value(value):
+    """Return a numeric logit from either TARA Values or plain numbers."""
+    return float(value.data) if hasattr(value, "data") else float(value)
+
+
 def generate(model, tokenizer, prompt, length=40, context_length=12,
              temperature=1.0, top_k=None, top_p=None, rng=None):
     """Generate text using configurable decoding controls."""
@@ -80,7 +85,7 @@ def generate(model, tokenizer, prompt, length=40, context_length=12,
 
     for _ in range(length):
         context = ids[-context_length:]
-        logits = [value.data for value in model.forward(context)[-1]]
+        logits = [_logit_value(value) for value in model.forward(context)[-1]]
         next_id = sample_from_logits(
             logits, temperature=temperature, top_k=top_k, top_p=top_p, rng=rng
         )
