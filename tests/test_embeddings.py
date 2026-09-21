@@ -13,3 +13,11 @@ def test_embedding_rejects_invalid_token():
     embedding = Embedding(vocab_size=3, embedding_dim=2)
     with pytest.raises(IndexError):
         embedding.forward(3)
+
+
+def test_embedding_rejects_non_integer_token():
+    embedding = Embedding(vocab_size=3, embedding_dim=2)
+    with pytest.raises(TypeError):
+        embedding.forward(1.5)
+    with pytest.raises(TypeError):
+        embedding.forward(True)
