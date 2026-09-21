@@ -4,9 +4,9 @@ Research basis:
 - Temperature, top-k, and nucleus (top-p) filtering are standard decoding
   controls used in modern autoregressive language-model generation systems.
 
-TARA keeps the implementation small. Decoding reads numeric logits without
-constructing training-time autodiff graphs, then applies standard sampling
-controls without changing learned model parameters.
+TARA uses graph-free numeric inference when a model exposes it. Generic models
+without that interface continue to work through their ordinary ``forward``
+method, preserving the small utility's reusable interface.
 """
 
 import math
@@ -29,7 +29,6 @@ def sample_from_logits(logits, temperature=1.0, top_k=None, top_p=None, rng=None
     if not logits:
         raise ValueError("logits must not be empty")
     _validate_controls(temperature, top_k, top_p)
-
     scaled = [float(logit.data if hasattr(logit, "data") else logit) / temperature for logit in logits]
     candidates = list(range(len(scaled)))
 
@@ -60,7 +59,6 @@ def sample_from_logits(logits, temperature=1.0, top_k=None, top_p=None, rng=None
     total = sum(weights)
     if total <= 0.0 or not math.isfinite(total):
         raise ValueError("invalid sampling probability distribution")
-
     rng = random if rng is None else rng
     threshold = rng.random() * total
     cumulative = 0.0
@@ -71,14 +69,16 @@ def sample_from_logits(logits, temperature=1.0, top_k=None, top_p=None, rng=None
     return candidates[-1]
 
 
-def _logit_value(value):
-    """Return a numeric logit from either TARA Values or plain numbers."""
-    return float(value.data) if hasattr(value, "data") else float(value)
+def _model_logits(model, context):
+    """Get one model output row, preferring graph-free TARA inference."""
+    if hasattr(model, "forward_numeric"):
+        return forward_numeric(model, context)[-1]
+    return model.forward(context)[-1]
 
 
 def generate(model, tokenizer, prompt, length=40, context_length=12,
              temperature=1.0, top_k=None, top_p=None, rng=None):
-    """Generate text using graph-free model inference and decoding controls."""
+    """Generate text using numeric inference when available."""
     if length < 0:
         raise ValueError("length must be non-negative")
     if context_length <= 0:
@@ -89,7 +89,7 @@ def generate(model, tokenizer, prompt, length=40, context_length=12,
 
     for _ in range(length):
         context = ids[-context_length:]
-        logits = forward_numeric(model, context)[-1]
+        logits = _model_logits(model, context)
         next_id = sample_from_logits(
             logits, temperature=temperature, top_k=top_k, top_p=top_p, rng=rng
         )
