@@ -1,6 +1,7 @@
 import pytest
 
-from src.evaluation import MetricResult, build_report, classify_failures, compare_baseline, compare_metric
+from src.autograd import Value
+from src.evaluation import MetricResult, build_report, classify_failures, compare_baseline, compare_metric, run_gradient_check
 
 
 def test_metric_passes_inside_explicit_interval():
@@ -46,3 +47,18 @@ def test_failure_classification_and_report_preserve_measurements():
     assert report["passed"] is False
     assert report["failure_count"] == 1
     assert report["metadata"] == {"seed": 7}
+
+
+def test_run_gradient_check_records_numerical_evidence():
+    parameter = Value(2.0)
+
+    def loss_fn():
+        return parameter * parameter
+
+    loss = loss_fn()
+    loss.backward()
+    report = run_gradient_check(loss_fn, [parameter], epsilon=1e-6, tolerance=1e-5)
+    assert report["passed"] is True
+    assert report["parameter_count"] == 1
+    assert report["max_relative_error"] < 1e-5
+    assert report["diagnostics"][0]["analytic"] == pytest.approx(4.0)
