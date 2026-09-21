@@ -1,5 +1,6 @@
 """Small embedding layer for TARA's language-learning path."""
 
+import operator
 import random
 
 from src.autograd import Value
@@ -18,6 +19,12 @@ class Embedding:
         ]
 
     def forward(self, token_id):
+        if isinstance(token_id, bool):
+            raise TypeError("token_id must be an integer")
+        try:
+            token_id = operator.index(token_id)
+        except TypeError as exc:
+            raise TypeError("token_id must be an integer") from exc
         if not 0 <= token_id < len(self.table):
             raise IndexError("token_id out of vocabulary range")
         return self.table[token_id]
