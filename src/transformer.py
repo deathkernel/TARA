@@ -19,11 +19,15 @@ class Linear:
     def __init__(self, nin, nout, rng):
         if nin <= 0 or nout <= 0:
             raise ValueError("linear dimensions must be positive")
+        self.nin = nin
+        self.nout = nout
         limit = (1.0 / nin) ** 0.5
         self.w = [[Value(rng.uniform(-limit, limit)) for _ in range(nin)] for _ in range(nout)]
         self.b = [Value(0.0) for _ in range(nout)]
 
     def forward(self, x):
+        if len(x) != self.nin:
+            raise ValueError(f"expected input dimension {self.nin}, got {len(x)}")
         output = []
         for row, bias in zip(self.w, self.b):
             value = bias
@@ -42,6 +46,8 @@ class LayerNorm:
     def __init__(self, dimension, eps=1e-5):
         if dimension <= 0:
             raise ValueError("dimension must be positive")
+        if eps <= 0:
+            raise ValueError("eps must be positive")
         self.dimension = dimension
         self.eps = eps
         self.gamma = [Value(1.0) for _ in range(dimension)]
@@ -169,9 +175,14 @@ class TransformerBlock:
     def __init__(self, embedding_dim, ff_dim=None, num_heads=2, seed=0):
         if embedding_dim <= 0:
             raise ValueError("embedding_dim must be positive")
+        if num_heads <= 0:
+            raise ValueError("num_heads must be positive")
         if embedding_dim % num_heads != 0:
             raise ValueError("embedding_dim must be divisible by num_heads")
-        ff_dim = ff_dim or (embedding_dim * 2)
+        if ff_dim is None:
+            ff_dim = embedding_dim * 2
+        if ff_dim <= 0:
+            raise ValueError("ff_dim must be positive")
         rng = random.Random(seed)
         self.embedding_dim = embedding_dim
         self.num_heads = num_heads
