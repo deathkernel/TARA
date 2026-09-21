@@ -12,8 +12,6 @@ spending time on full LM training.
 from pathlib import Path
 import sys
 
-# Allow direct execution from the repository root:
-# `python experiments/bpe_vocab_sweep.py`
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -30,15 +28,18 @@ def main():
     text = load_tinystories_text(max_chars=TEXT_CHARS, split="train")
     char = CharTokenizer(text)
     char_tokens = len(char.encode(text))
+    minimum_vocab = len(set(text)) + 1
 
     print("TARA BPE vocabulary-size sweep")
     print(f"Training text characters: {len(text)}")
     print(f"Character tokens: {char_tokens}")
+    print(f"Minimum BPE vocabulary for this corpus: {minimum_vocab}")
     print()
     print("vocab_size | tokens | token/char | compression")
     print("-----------+--------+------------+------------")
 
-    for vocab_size in BPE_VOCAB_SIZES:
+    for requested_size in BPE_VOCAB_SIZES:
+        vocab_size = max(requested_size, minimum_vocab)
         tokenizer = BPETokenizer(text, vocab_size=vocab_size)
         token_count = len(tokenizer.encode(text))
         ratio = token_count / char_tokens
