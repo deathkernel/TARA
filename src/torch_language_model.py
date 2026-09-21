@@ -87,6 +87,12 @@ class CausalSelfAttention(nn.Module):
 class TransformerBlock(nn.Module):
     def __init__(self, dimension, ff_dimension, num_heads):
         super().__init__()
+        if dimension <= 0 or ff_dimension <= 0:
+            raise ValueError("dimension and ff_dimension must be positive")
+        if num_heads <= 0:
+            raise ValueError("num_heads must be positive")
+        if dimension % num_heads:
+            raise ValueError("dimension must be divisible by num_heads")
         self.norm1 = nn.LayerNorm(dimension)
         self.attention = CausalSelfAttention(dimension, num_heads)
         self.norm2 = nn.LayerNorm(dimension)
@@ -128,17 +134,19 @@ class FastTinyLanguageModel(nn.Module):
         if embedding_dim % num_heads:
             raise ValueError("embedding_dim must be divisible by num_heads")
 
-        torch.manual_seed(seed)
+        with torch.random.fork_rng(devices=[]):
+            torch.manual_seed(seed)
+            self.embedding = nn.Embedding(vocab_size, embedding_dim)
+            self.position = SinusoidalPositions(max_context, embedding_dim)
+            self.transformer = TransformerBlock(
+                embedding_dim,
+                ff_dim,
+                num_heads,
+            )
+            self.lm_head = nn.Linear(embedding_dim, vocab_size)
+
         self.vocab_size = vocab_size
         self.max_context = max_context
-        self.embedding = nn.Embedding(vocab_size, embedding_dim)
-        self.position = SinusoidalPositions(max_context, embedding_dim)
-        self.transformer = TransformerBlock(
-            embedding_dim,
-            ff_dim,
-            num_heads,
-        )
-        self.lm_head = nn.Linear(embedding_dim, vocab_size)
 
     def forward(self, token_ids):
         if token_ids.ndim != 2:
