@@ -2,6 +2,7 @@
 
 Research references:
 - Rumelhart, Hinton & Williams (1986), back-propagation.
+- Glorot & Bengio (2010), Xavier/Glorot initialization.
 - Karpathy's micrograd, used only as a conceptual reference.
 
 TARA implements its own neural-network components on top of src.autograd.Value.
@@ -10,6 +11,7 @@ TARA implements its own neural-network components on top of src.autograd.Value.
 import random
 
 from src.autograd import Value
+from src.initialization import xavier_uniform
 
 
 class Neuron:
@@ -19,7 +21,7 @@ class Neuron:
         if nin <= 0:
             raise ValueError("nin must be positive")
         rng = rng or random.Random()
-        self.w = [Value(rng.uniform(-1.0, 1.0)) for _ in range(nin)]
+        self.w = [Value(xavier_uniform(rng, nin, 1)) for _ in range(nin)]
         self.b = Value(0.0)
         self.nonlin = nonlin
 
