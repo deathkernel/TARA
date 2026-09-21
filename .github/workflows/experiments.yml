@@ -1,0 +1,28 @@
+name: TARA experiments
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "experiments/compare_trained_profiles.py"
+      - "experiments/run_profile_seeds.py"
+      - "experiments/scaled_lm_diagnostics.py"
+      - "src/**"
+      - "requirements.txt"
+
+jobs:
+  trained-profile-comparison:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install -r requirements.txt
+      - name: Run three-seed Tiny vs Scaled experiment
+        run: python -m experiments.run_profile_seeds > profile_results.json
+      - name: Publish experiment output
+        uses: actions/upload-artifact@v4
+        with:
+          name: trained-profile-results
+          path: profile_results.json
