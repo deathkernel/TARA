@@ -16,8 +16,6 @@ import random
 import sys
 import time
 
-# Allow both `python -m experiments.tokenizer_lm_comparison` and the simpler
-# `python experiments/tokenizer_lm_comparison.py` from the repository root.
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -101,9 +99,10 @@ def train_and_evaluate(tokenizer, train_text, validation_text):
     elapsed = time.perf_counter() - start
 
     model.zero_grad()
-    validation_loss = model.loss(
-        validation_windows[0][0], validation_windows[0][1]
-    ).data
+    validation_loss = sum(
+        model.loss(inputs, targets).data
+        for inputs, targets in validation_windows
+    ) / len(validation_windows)
     return model, validation_loss, elapsed
 
 
@@ -111,9 +110,12 @@ def main():
     train_text = load_tinystories_text(max_chars=MAX_TRAIN_CHARS, split="train")
     validation_text = load_tinystories_text(max_chars=MAX_VALIDATION_CHARS, split="validation")
 
+    minimum_bpe_vocab = len(set(train_text.encode("utf-8"))) + 1
+    bpe_vocab_size = max(BPE_VOCAB_SIZE, minimum_bpe_vocab)
+
     experiments = [
         ("character", CharTokenizer(train_text)),
-        ("bpe", BPETokenizer(train_text, vocab_size=BPE_VOCAB_SIZE)),
+        ("bpe", BPETokenizer(train_text, vocab_size=bpe_vocab_size)),
     ]
 
     print("TARA tokenizer + language-model comparison")
@@ -129,7 +131,7 @@ def main():
         model, validation_loss, elapsed = train_and_evaluate(
             tokenizer, train_text, validation_text
         )
-        print(f"Validation loss (first validation window): {validation_loss:.6f}")
+        print(f"Validation loss (mean over windows): {validation_loss:.6f}")
         print(f"Training time: {elapsed:.3f}s")
         prompt = validation_text[:20]
         ids = tokenizer.encode(prompt)
