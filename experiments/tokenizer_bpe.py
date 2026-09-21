@@ -5,6 +5,15 @@ compression and token pieces so we can decide whether BPE is worth integrating
 into TARA's language-model training path.
 """
 
+from pathlib import Path
+import sys
+
+# Allow both `python -m experiments.tokenizer_bpe` and the simpler
+# `python experiments/tokenizer_bpe.py` from the repository root.
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 from src.text_dataset import load_tinystories_text
 from src.tokenizer import BPETokenizer, CharTokenizer
 
