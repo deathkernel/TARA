@@ -1,7 +1,7 @@
 """Matched-budget trained comparison of TARA's tiny and scaled profiles.
 
 The experiment isolates model capacity by keeping the corpus, tokenizer,
-training updates, batch size, seed, optimizer, scheduler, and clipping fixed.
+training updates, batch size, optimizer, scheduler, and clipping fixed.
 Both profiles therefore receive the same number of parameter-update steps.
 
 Results are descriptive: a larger model is not assumed to be better before
@@ -46,13 +46,13 @@ def _build_data(corpus):
     return tokenizer, train, validation
 
 
-def train_profile(config, steps=STEPS, corpus=CORPUS):
+def train_profile(config, steps=STEPS, corpus=CORPUS, seed=SEED):
     """Train one profile under the shared experimental budget."""
     if steps <= 0:
         raise ValueError("steps must be positive")
 
     tokenizer, train, validation = _build_data(corpus)
-    model = TinyLanguageModel(tokenizer.vocab_size, seed=SEED, **config)
+    model = TinyLanguageModel(tokenizer.vocab_size, seed=seed, **config)
     optimizer = AdamW(model.parameters(), learning_rate=LEARNING_RATE, weight_decay=0.0)
     scheduler = CosineAnnealing(
         LEARNING_RATE,
@@ -65,7 +65,7 @@ def train_profile(config, steps=STEPS, corpus=CORPUS):
     history = []
 
     for step in range(steps):
-        batches = list(train.iter_batches(BATCH_SIZE, shuffle=True, seed=SEED + step))
+        batches = list(train.iter_batches(BATCH_SIZE, shuffle=True, seed=seed + step))
         batch = batches[step % len(batches)]
         model.zero_grad()
         total_loss = None
@@ -100,18 +100,18 @@ def train_profile(config, steps=STEPS, corpus=CORPUS):
             "learning_rate": LEARNING_RATE,
             "min_learning_rate": MIN_LEARNING_RATE,
             "max_grad_norm": MAX_GRAD_NORM,
-            "seed": SEED,
+            "seed": seed,
             "optimizer": "AdamW",
             "weight_decay": 0.0,
         },
     }
 
 
-def compare(steps=STEPS, corpus=CORPUS):
+def compare(steps=STEPS, corpus=CORPUS, seed=SEED):
     """Train tiny and scaled profiles under one controlled budget."""
     return {
-        "tiny": train_profile(TINY, steps=steps, corpus=corpus),
-        "scaled": train_profile(SCALED, steps=steps, corpus=corpus),
+        "tiny": train_profile(TINY, steps=steps, corpus=corpus, seed=seed),
+        "scaled": train_profile(SCALED, steps=steps, corpus=corpus, seed=seed),
     }
 
 
