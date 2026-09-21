@@ -47,14 +47,17 @@ class SGD:
         lr = self.learning_rate if learning_rate is None else float(learning_rate)
         if lr <= 0:
             raise ValueError("learning_rate must be positive")
-        self.step_count += 1
+        gradients = []
         squared_norm = 0.0
         for parameter in self.parameters:
             gradient = float(parameter.grad)
             if not math.isfinite(gradient):
                 raise ValueError("gradient must be finite")
+            gradients.append(gradient)
             squared_norm += gradient * gradient
+        for parameter, gradient in zip(self.parameters, gradients):
             parameter.data -= lr * gradient
+        self.step_count += 1
         return math.sqrt(squared_norm)
 
 
@@ -91,10 +94,15 @@ def _run(name, optimizer_kind, steps=STEPS, corpus=CORPUS):
     initial_train = evaluate(model, train, BATCH_SIZE)
     initial_validation = evaluate(model, validation, BATCH_SIZE)
     history = []
+    batch_count = train.batch_count(BATCH_SIZE)
 
     for step in range(steps):
-        batches = list(train.iter_batches(BATCH_SIZE, shuffle=True, seed=SEED + step))
-        batch = batches[step % len(batches)]
+        batch = train.batch_at(
+            step % batch_count,
+            BATCH_SIZE,
+            shuffle=True,
+            seed=SEED + step,
+        )
         model.zero_grad()
         total_loss = None
         total_tokens = 0
