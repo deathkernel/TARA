@@ -1,7 +1,7 @@
 """Train TARA's PC-friendly scaled language model and report diagnostics.
 
-This is an experiment, not the production agent. It uses the existing local
-optimizer logic and records objective metrics before generation changes.
+This is an experiment, not the production agent. It uses a research-based
+adaptive optimizer and records objective metrics before generation changes.
 """
 
 from experiments.scaled_lm_diagnostics import (
@@ -18,13 +18,15 @@ from experiments.scaled_lm_diagnostics import (
 )
 
 from src.gradient_clipping import clip_grad_norm_
+from src.optimizers import AdamW
 from src.schedulers import CosineAnnealing
 
 
 STEPS = 100
 BATCH_SIZE = 4
-LEARNING_RATE = 0.01
-MIN_LEARNING_RATE = 0.001
+LEARNING_RATE = 0.001
+MIN_LEARNING_RATE = 0.0001
+WEIGHT_DECAY = 0.01
 MAX_GRAD_NORM = 1.0
 SEED = 7
 
@@ -39,9 +41,15 @@ def train(steps=STEPS):
         total_steps=steps,
         min_lr=MIN_LEARNING_RATE,
     )
+    optimizer = AdamW(
+        model.parameters(),
+        learning_rate=LEARNING_RATE,
+        weight_decay=WEIGHT_DECAY,
+    )
 
     initial_train = evaluate(model, train_dataset, BATCH_SIZE)
     initial_validation = evaluate(model, validation_dataset, BATCH_SIZE)
+    history = []
 
     for step in range(steps):
         batches = list(train_dataset.iter_batches(BATCH_SIZE, shuffle=True, seed=SEED + step))
@@ -56,10 +64,16 @@ def train(steps=STEPS):
             total_tokens += len(targets)
         loss = total_loss / total_tokens
         loss.backward()
-        clip_grad_norm_(model.parameters(), MAX_GRAD_NORM)
+        gradient_norm = clip_grad_norm_(model.parameters(), MAX_GRAD_NORM)
         learning_rate = scheduler.get_lr(step)
-        for parameter in model.parameters():
-            parameter.data -= learning_rate * parameter.grad
+        optimizer.step(learning_rate=learning_rate)
+
+        history.append({
+            "step": step,
+            "loss": loss.data,
+            "learning_rate": learning_rate,
+            "gradient_norm": gradient_norm,
+        })
 
     final_train = evaluate(model, train_dataset, BATCH_SIZE)
     final_validation = evaluate(model, validation_dataset, BATCH_SIZE)
@@ -70,6 +84,8 @@ def train(steps=STEPS):
         "initial_validation": initial_validation,
         "final_train": final_train,
         "final_validation": final_validation,
+        "history": history,
+        "optimizer": optimizer.state_dict(),
         "config": {
             "vocab_size": VOCAB_SIZE,
             "embedding_dim": EMBEDDING_DIM,
@@ -82,6 +98,8 @@ def train(steps=STEPS):
             "batch_size": BATCH_SIZE,
             "learning_rate": LEARNING_RATE,
             "min_learning_rate": MIN_LEARNING_RATE,
+            "weight_decay": WEIGHT_DECAY,
+            "optimizer": "AdamW",
         },
     }
 
@@ -91,4 +109,3 @@ if __name__ == "__main__":
     print("Initial train:", result["initial_train"])
     print("Final train:", result["final_train"])
     print("Initial validation:", result["initial_validation"])
-    print("Final validation:", result["final_validation"])
