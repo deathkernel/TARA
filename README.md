@@ -35,8 +35,9 @@ TARA now has a small autoregressive neural path built from its own scalar autodi
 - Bounded working memory and persistent long-term memory primitives
 - Deterministic lexical retrieval and relevance scoring
 - Memory access tracking, explicit updates, and deterministic least-used forgetting
-- Backward-compatible persistence for the original memory JSON format
-- Automated tests for shapes, causality, gradients, normalization, initialization, language modeling, checkpointing, benchmarks, memory, retrieval and memory dynamics
+- Goal representation, explicit task decomposition and sequential planning
+- Deterministic step/goal verification and failure-triggered re-planning primitives
+- Automated tests for shapes, causality, gradients, normalization, initialization, language modeling, checkpointing, benchmarks, memory, retrieval, memory dynamics and reasoning
 
 The language model is intentionally tiny and CPU-friendly. It is an educational implementation of the underlying mechanisms, not a reproduction of GPT, Gemini, or any frontier model.
 
@@ -50,6 +51,21 @@ TARA's memory layer separates responsibilities:
 - **Memory dynamics** — updates preserve access history, retrieval/recall increase usage counts, importance can be adjusted explicitly, and least-used memories can be removed deterministically when capacity must be reduced.
 
 The retrieval layer deliberately starts with transparent token overlap instead of a large embedding model or vector database. This keeps the mechanism inspectable and CPU-friendly while creating a clean interface for later learned retrieval. Retrieval-Augmented Generation demonstrates the value of combining model parameters with explicit non-parametric memory, while recent agent-memory research emphasizes memory formation, evolution and retrieval as dynamic processes.
+
+## Reasoning
+
+TARA's first reasoning layer is deliberately symbolic and deterministic. It does not pretend that a few rules constitute human-like reasoning; instead, it provides explicit interfaces that the neural core can later drive and that can be tested independently.
+
+- **Goal** — a structured desired outcome with explicit success conditions.
+- **Task** — one reasoning/planning unit, optionally linked to its parent goal.
+- **Decomposition** — converts a goal into ordered subtasks without hiding the intermediate structure.
+- **Plan** — tracks ordered tasks and the current execution position.
+- **Verification** — checks an expected step result or explicit goal-state conditions.
+- **Re-planning** — replaces a failed step and its remaining future path with an alternative deterministic path.
+
+The design is informed by research on deliberate reasoning and planning: Tree of Thoughts explores alternative reasoning paths and evaluates them; ReAct emphasizes explicit subgoal tracking and feedback between reasoning and action; RAP frames reasoning as planning over state-aware candidate paths. TARA uses these ideas as architectural references while keeping the implementation small and transparent.
+
+No PC automation is part of this phase. PC interaction is intentionally deferred until the complete AI/model architecture is developed and tested.
 
 ## Parameter initialization
 
@@ -89,7 +105,7 @@ The test workflow runs automatically on pushes and pull requests. The workflow w
 
 ## Verification status
 
-The scalar MLP milestone has a verified XOR experiment reaching approximately `5.27e-30` mean squared error with deterministic initialization. Attention, Transformer, LayerNorm, Transformer-stack, initialization, language-model, generation, checkpoint, training-resume, benchmark, memory, retrieval and memory-dynamics tests are committed. GitHub Actions is used as an automated verification environment.
+The scalar MLP milestone has a verified XOR experiment reaching approximately `5.27e-30` mean squared error with deterministic initialization. Attention, Transformer, LayerNorm, Transformer-stack, initialization, language-model, generation, checkpoint, training-resume, benchmark, memory, retrieval, memory-dynamics and reasoning tests are committed. GitHub Actions is used as an automated verification environment.
 
 ## Long-term direction
 
@@ -112,7 +128,7 @@ Observation / feedback
     └──────────────→ Memory / Reasoning
 ```
 
-The PC-automation layer will be added only after the neural, memory, reasoning and tool interfaces are well-defined and tested. Destructive or irreversible actions will require explicit safety controls.
+The PC-automation layer will be added only after the complete AI/model architecture is developed and tested. Destructive or irreversible actions will require explicit safety controls.
 
 ## Project structure
 
@@ -141,6 +157,7 @@ TARA/
 │   ├── metrics.py
 │   ├── mlp.py
 │   ├── positional.py
+│   ├── reasoning.py
 │   ├── schedulers.py
 │   ├── text_dataset.py
 │   ├── tokenizer.py
@@ -190,11 +207,11 @@ TARA/
 
 ### Phase 4 — Reasoning
 
-24. ⬜ Goal representation
-25. ⬜ Task decomposition
-26. ⬜ Planning
-27. ⬜ Verification
-28. ⬜ Error recovery and re-planning
+24. ✅ Goal representation
+25. ✅ Task decomposition
+26. ✅ Planning
+27. ✅ Verification
+28. ✅ Error recovery and re-planning
 
 ### Phase 5 — Perception
 
