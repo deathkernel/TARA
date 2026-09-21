@@ -44,7 +44,7 @@ def build_profile(config, corpus=CORPUS):
         validation_fraction=VALIDATION_FRACTION,
     )
     model = TinyLanguageModel(tokenizer.vocab_size, seed=SEED, **config)
-    return model, train, validation
+    return model, tokenizer, train, validation
 
 
 def train_profile(config, steps, corpus=CORPUS):
@@ -52,7 +52,7 @@ def train_profile(config, steps, corpus=CORPUS):
     if steps <= 0:
         raise ValueError("steps must be positive")
 
-    model, train_dataset, validation_dataset = build_profile(config, corpus)
+    model, tokenizer, train_dataset, validation_dataset = build_profile(config, corpus)
     scheduler = CosineAnnealing(
         LEARNING_RATE,
         total_steps=steps,
@@ -100,6 +100,8 @@ def train_profile(config, steps, corpus=CORPUS):
         epoch += 1
 
     return {
+        "model": model,
+        "tokenizer": tokenizer,
         "parameters": parameter_count(model),
         "initial_train": initial_train,
         "initial_validation": initial_validation,
