@@ -14,7 +14,9 @@ class Value:
         self.data = float(data)
         self.grad = 0.0
         self._backward = lambda: None
-        self._prev = set(_children)
+        # Keep operand order stable. A set makes graph traversal dependent on
+        # object identity/hash order and can introduce tiny run-to-run drift.
+        self._prev = tuple(_children)
         self._op = _op
 
     def __add__(self, other):
