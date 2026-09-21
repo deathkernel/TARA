@@ -19,6 +19,30 @@ def test_iter_windows_covers_stream_without_dropping_tail():
     ]
 
 
+def test_batches_have_requested_size_and_cover_all_examples():
+    dataset = CausalTextDataset(list(range(8)), context_length=2)
+    batches = list(dataset.iter_batches(batch_size=3))
+    assert [len(batch) for batch in batches] == [3, 3, 1]
+    flattened = [item for batch in batches for item in batch]
+    assert flattened == [dataset[index] for index in range(len(dataset))]
+
+
+def test_shuffled_batches_are_deterministic():
+    dataset = CausalTextDataset(list(range(8)), context_length=2)
+    first = list(dataset.iter_batches(batch_size=3, shuffle=True, seed=11))
+    second = list(dataset.iter_batches(batch_size=3, shuffle=True, seed=11))
+    assert first == second
+    assert first != list(dataset.iter_batches(batch_size=3, shuffle=True, seed=12))
+
+
+def test_batch_rejects_invalid_size():
+    dataset = CausalTextDataset([1, 2, 3], context_length=2)
+    with pytest.raises(ValueError):
+        list(dataset.iter_batches(batch_size=0))
+    with pytest.raises(TypeError):
+        list(dataset.iter_batches(batch_size=1.5))
+
+
 def test_dataset_rejects_invalid_inputs():
     with pytest.raises(ValueError):
         CausalTextDataset([1], context_length=2)
