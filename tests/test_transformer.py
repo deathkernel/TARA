@@ -4,6 +4,7 @@ import random
 import pytest
 
 from src.autograd import Value
+from src.gradcheck import check_parameter_gradients
 from src.positional import add_sinusoidal_position
 from src.transformer import (
     LayerNorm,
@@ -41,8 +42,6 @@ def test_layer_norm_backpropagates_to_input_and_affine_parameters():
     layer_norm = LayerNorm(3)
     values = [Value(0.2), Value(-0.4), Value(0.8)]
     output = layer_norm.forward(values)
-    # A plain sum is intentionally avoided: with beta=0, normalized values
-    # sum to zero and that objective can legitimately have zero input gradient.
     loss = output[0] + 2.0 * output[1] + 3.0 * output[2]
     loss.backward()
     assert any(value.grad != 0.0 for value in values)
@@ -58,36 +57,23 @@ def test_linear_rejects_wrong_input_dimension():
 
 
 def test_multi_head_attention_shape():
-    attention = MultiHeadCausalSelfAttention(
-        4,
-        num_heads=2,
-        rng=random.Random(3),
-    )
-    sequence = [
-        [Value(0.1), Value(0.2), Value(0.3), Value(0.4)]
-        for _ in range(3)
-    ]
+    attention = MultiHeadCausalSelfAttention(4, num_heads=2, rng=random.Random(3))
+    sequence = [[Value(0.1), Value(0.2), Value(0.3), Value(0.4)] for _ in range(3)]
     outputs = attention.forward(sequence)
     assert len(outputs) == 3
     assert all(len(token) == 4 for token in outputs)
 
 
 def test_attention_is_causal():
-    attention = MultiHeadCausalSelfAttention(
-        4,
-        num_heads=2,
-        rng=random.Random(3),
-    )
+    attention = MultiHeadCausalSelfAttention(4, num_heads=2, rng=random.Random(3))
     prefix = [
         [Value(0.1), Value(0.2), Value(0.3), Value(0.4)],
         [Value(0.4), Value(0.3), Value(0.2), Value(0.1)],
     ]
     future_a = [Value(0.2), Value(0.8), Value(-0.4), Value(0.7)]
     future_b = [Value(-2.0), Value(3.0), Value(1.5), Value(-4.0)]
-
     outputs_a = attention.forward(prefix + [future_a])
     outputs_b = attention.forward(prefix + [future_b])
-
     for left, right in zip(outputs_a[:2], outputs_b[:2]):
         assert all(abs(a.data - b.data) < 1e-12 for a, b in zip(left, right))
 
@@ -105,6 +91,31 @@ def test_transformer_shape_and_gradients():
     loss.backward()
     assert any(parameter.grad != 0.0 for parameter in model.parameters())
     assert all(math.isfinite(parameter.data) for parameter in model.parameters())
+
+
+def test_transformer_block_representative_parameters_match_finite_difference():
+    model = TransformerBlock(2, ff_dim=4, num_heads=1, seed=19)
+    sequence = [[Value(0.2), Value(-0.3)], [Value(0.4), Value(0.1)]]
+
+    model.zero_grad()
+    objective = sum(value * value for value in model.forward(sequence)[-1])
+    objective.backward()
+
+    parameters = [
+        model.norm1.gamma[0],
+        model.attention.heads[0].wq[0][0],
+        model.attention.heads[0].wv[0][1],
+        model.ff1.w[0][0],
+        model.ff2.w[1][0],
+    ]
+    diagnostics = check_parameter_gradients(
+        lambda: sum(value * value for value in model.forward(sequence)[-1]).data,
+        parameters,
+        epsilon=1e-6,
+        tolerance=1e-4,
+    )
+    assert len(diagnostics) == len(parameters)
+    assert max(item["relative_error"] for item in diagnostics) < 1e-4
 
 
 def test_transformer_stack_preserves_shape_and_adds_parameters():
