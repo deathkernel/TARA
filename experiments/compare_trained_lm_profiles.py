@@ -11,6 +11,7 @@ from experiments.scaled_lm_diagnostics import CORPUS, evaluate
 from src.language_dataset import build_causal_datasets
 from src.language_model import TinyLanguageModel
 from src.gradient_clipping import clip_grad_norm_
+from src.optimizers import AdamW
 from src.schedulers import CosineAnnealing
 from src.tokenizer import BPETokenizer
 
@@ -23,9 +24,10 @@ VOCAB_SIZE = 64
 CONTEXT_LENGTH = 64
 VALIDATION_FRACTION = 0.2
 BATCH_SIZE = 4
-LEARNING_RATE = 0.01
-MIN_LEARNING_RATE = 0.001
+LEARNING_RATE = 0.001
+MIN_LEARNING_RATE = 0.0001
 MAX_GRAD_NORM = 1.0
+WEIGHT_DECAY = 0.01
 SEED = 7
 
 
@@ -47,7 +49,7 @@ def build_profile(config, corpus=CORPUS):
 
 
 def train_profile(config, steps, corpus=CORPUS):
-    """Train one profile and return metrics before and after the budget."""
+    """Train one profile with the same optimizer protocol as scaled training."""
     if steps <= 0:
         raise ValueError("steps must be positive")
 
@@ -57,18 +59,23 @@ def train_profile(config, steps, corpus=CORPUS):
         total_steps=steps,
         min_lr=MIN_LEARNING_RATE,
     )
+    optimizer = AdamW(
+        model.parameters(),
+        learning_rate=LEARNING_RATE,
+        weight_decay=WEIGHT_DECAY,
+    )
     initial_train = evaluate(model, train_dataset, BATCH_SIZE)
     initial_validation = evaluate(model, validation_dataset, BATCH_SIZE)
+    history = []
+    batch_count = train_dataset.batch_count(BATCH_SIZE)
 
     for step in range(steps):
-        batches = list(
-            train_dataset.iter_batches(
-                BATCH_SIZE,
-                shuffle=True,
-                seed=SEED + step,
-            )
+        batch = train_dataset.batch_at(
+            step % batch_count,
+            BATCH_SIZE,
+            shuffle=True,
+            seed=SEED + step,
         )
-        batch = batches[step % len(batches)]
         model.zero_grad()
         total_loss = None
         total_tokens = 0
@@ -79,10 +86,15 @@ def train_profile(config, steps, corpus=CORPUS):
             total_tokens += len(targets)
         loss = total_loss / total_tokens
         loss.backward()
-        clip_grad_norm_(model.parameters(), MAX_GRAD_NORM)
+        gradient_norm = clip_grad_norm_(model.parameters(), MAX_GRAD_NORM)
         learning_rate = scheduler.get_lr(step)
-        for parameter in model.parameters():
-            parameter.data -= learning_rate * parameter.grad
+        optimizer.step(learning_rate=learning_rate)
+        history.append({
+            "step": step,
+            "loss": loss.data,
+            "learning_rate": learning_rate,
+            "gradient_norm": gradient_norm,
+        })
 
     return {
         "parameters": parameter_count(model),
@@ -90,6 +102,8 @@ def train_profile(config, steps, corpus=CORPUS):
         "initial_validation": initial_validation,
         "final_train": evaluate(model, train_dataset, BATCH_SIZE),
         "final_validation": evaluate(model, validation_dataset, BATCH_SIZE),
+        "history": history,
+        "optimizer": optimizer.state_dict(),
         "steps": steps,
     }
 
