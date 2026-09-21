@@ -1,7 +1,6 @@
 from src.checkpoint import load_checkpoint
 from src.language_dataset import CausalTextDataset
 from src.language_model import TinyLanguageModel
-from src.schedulers import CosineAnnealing
 from train_tiny_lm import _batch_loss, _mean_loss
 
 
@@ -27,10 +26,14 @@ def test_validation_loss_does_not_change_parameters():
 
 def test_training_checkpoint_contains_final_metadata(tmp_path):
     from train_tiny_lm import train
+    from src.tokenizer import CharTokenizer
 
     path = tmp_path / "final.json"
     train(steps=1, checkpoint_path=path)
-    state_model = TinyLanguageModel(vocab_size=12, embedding_dim=3, ff_dim=6, seed=7)
+    tokenizer = CharTokenizer("tara learns. tara reasons. ")
+    state_model = TinyLanguageModel(
+        vocab_size=tokenizer.vocab_size, embedding_dim=3, ff_dim=6, seed=7
+    )
     state = load_checkpoint(state_model, path)
     assert state["step"] == 0
     assert "val_loss" in state["metrics"]
