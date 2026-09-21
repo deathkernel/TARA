@@ -31,3 +31,6 @@ jobs:
 
       - name: Run XOR experiment
         run: python train_xor.py
+
+      - name: Run tiny language-model experiment
+        run: python train_tiny_lm.py
