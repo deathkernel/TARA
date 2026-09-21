@@ -29,10 +29,22 @@ TARA now has a small autoregressive neural path built from its own scalar autodi
 - Configurable stack of decoder-style Transformer blocks
 - Xavier/Glorot initialization for the MLP and Transformer linear projections
 - Tiny character-level autoregressive language model
-- Greedy and temperature/top-k next-token sampling
-- Automated tests for shapes, causality, gradients, normalization, initialization and language-model behavior
+- Greedy, temperature, top-k and top-p generation controls
+- Training checkpoints and deterministic resume support
+- Language-model loss, perplexity, top-1 accuracy and token-count benchmarks
+- Bounded working memory and persistent long-term memory primitives
+- Automated tests for shapes, causality, gradients, normalization, initialization, language modeling, checkpointing, benchmarks and memory
 
 The language model is intentionally tiny and CPU-friendly. It is an educational implementation of the underlying mechanisms, not a reproduction of GPT, Gemini, or any frontier model.
+
+## Memory
+
+TARA's first memory layer separates two responsibilities:
+
+- **Working memory** — a bounded recent-context buffer for observations, intermediate thoughts or task state.
+- **Long-term memory** — a persistent, human-readable JSON key/value store for durable information.
+
+The interface is deliberately simple before adding learned retrieval or relevance scoring. External-memory research such as Neural Turing Machines motivates explicit memory interfaces, while Retrieval-Augmented Generation demonstrates how non-parametric memory can complement model parameters.
 
 ## Parameter initialization
 
@@ -46,9 +58,9 @@ The implementation lives in `src/initialization.py` so initialization is explici
 
 The Transformer architecture combines attention with position-wise feed-forward layers, residual connections and normalization; decoder self-attention is causally masked so a position cannot use future tokens. TARA keeps these core dependencies while reducing the model to a small, inspectable implementation.
 
-Xavier/Glorot initialization was introduced to keep signal scales better behaved through layers during training. He initialization is a related activation-specific method designed particularly around rectifier nonlinearities; TARA currently uses Xavier/Glorot because its main small projections use tanh/GELU-style nonlinearities.
-
 Causal language modeling trains the model to predict the next token from the available left context. A sequence is shifted by one position so the input at each location is used to predict its following target.
+
+Language-model evaluation uses held-out next-token loss together with perplexity and top-1 accuracy. Comparisons involving different tokenizers should be interpreted carefully because token-level perplexity depends on the vocabulary/segmentation; TARA therefore keeps benchmark experiments on a fixed tokenizer unless a later experiment explicitly studies tokenization.
 
 ## Run locally
 
@@ -70,7 +82,7 @@ The test workflow runs automatically on pushes and pull requests. The workflow w
 
 ## Verification status
 
-The scalar MLP milestone has a verified XOR experiment reaching approximately `5.27e-30` mean squared error with deterministic initialization. Attention, Transformer, LayerNorm, Transformer-stack, initialization and language-model tests are committed. GitHub Actions is used as an automated verification environment.
+The scalar MLP milestone has a verified XOR experiment reaching approximately `5.27e-30` mean squared error with deterministic initialization. Attention, Transformer, LayerNorm, Transformer-stack, initialization, language-model, generation, checkpoint, training-resume, benchmark and memory tests are committed. GitHub Actions is used as an automated verification environment.
 
 ## Long-term direction
 
@@ -106,32 +118,27 @@ TARA/
 ├── src/
 │   ├── attention.py
 │   ├── autograd.py
+│   ├── checkpoint.py
+│   ├── dataset_registry.py
 │   ├── datasets.py
 │   ├── embeddings.py
 │   ├── gradcheck.py
+│   ├── gradient_clipping.py
 │   ├── initialization.py
+│   ├── language_benchmarks.py
+│   ├── language_dataset.py
 │   ├── language_model.py
 │   ├── layers.py
 │   ├── losses.py
+│   ├── memory.py
 │   ├── metrics.py
 │   ├── mlp.py
 │   ├── positional.py
+│   ├── schedulers.py
+│   ├── text_dataset.py
 │   ├── tokenizer.py
-│   ├── training.py
 │   └── transformer.py
 ├── tests/
-│   ├── test_attention.py
-│   ├── test_autograd.py
-│   ├── test_datasets.py
-│   ├── test_embeddings.py
-│   ├── test_gradcheck.py
-│   ├── test_initialization.py
-│   ├── test_language_model.py
-│   ├── test_metrics.py
-│   ├── test_mlp.py
-│   ├── test_tokenizer.py
-│   ├── test_transformer.py
-│   └── test_xor.py
 ├── experiments/
 ├── train_neuron.py
 ├── train_xor.py
@@ -155,22 +162,22 @@ TARA/
 9. ✅ Transformer block
 10. ✅ Configurable Transformer stack
 11. ✅ Research-based parameter initialization
-12. ⬜ Better optimizer
-13. ⬜ Learning-rate scheduling
-14. ⬜ Gradient clipping
+12. ✅ Better optimizer
+13. ✅ Learning-rate scheduling
+14. ✅ Gradient clipping
 
 ### Phase 2 — Language Intelligence
 
-15. ⬜ Better tokenizer / subword tokenizer
-16. ⬜ Better local corpus pipeline
-17. ⬜ Batching and validation
-18. ⬜ Training metrics and checkpoints
-19. ⬜ Generation controls and evaluation
+15. ✅ Better tokenizer / subword tokenizer
+16. ✅ Better local corpus pipeline
+17. ✅ Batching and validation
+18. ✅ Training metrics and checkpoints
+19. ✅ Generation controls and evaluation
 
 ### Phase 3 — Memory
 
-20. ⬜ Working memory
-21. ⬜ Long-term memory
+20. ✅ Working memory
+21. ✅ Long-term memory
 22. ⬜ Retrieval and relevance scoring
 23. ⬜ Memory update / forgetting
 
