@@ -2,15 +2,16 @@
 
 Research reference: Vaswani et al. (2017), Attention Is All You Need.
 This version includes LayerNorm, multi-head causal self-attention, residual
-connections, a GELU-style feed-forward network, and a small configurable
-stack of decoder-style blocks while keeping the model PC-friendly and fully
-compatible with TARA's scalar autodiff engine.
+connections, a GELU-style feed-forward network, a small configurable stack,
+and Xavier/Glorot initialization while keeping the model PC-friendly and
+fully compatible with TARA's scalar autodiff engine.
 """
 
 import math
 import random
 
 from src.autograd import Value
+from src.initialization import xavier_uniform
 from src.positional import add_sinusoidal_position
 
 
@@ -22,8 +23,10 @@ class Linear:
             raise ValueError("linear dimensions must be positive")
         self.nin = nin
         self.nout = nout
-        limit = (1.0 / nin) ** 0.5
-        self.w = [[Value(rng.uniform(-limit, limit)) for _ in range(nin)] for _ in range(nout)]
+        self.w = [
+            [Value(xavier_uniform(rng, nin, nout)) for _ in range(nin)]
+            for _ in range(nout)
+        ]
         self.b = [Value(0.0) for _ in range(nout)]
 
     def forward(self, x):
@@ -68,8 +71,10 @@ class LayerNorm:
             variance = variance + value * value
         variance = variance / self.dimension
         inv_std = (variance + self.eps) ** -0.5
-        return [self.gamma[i] * centered[i] * inv_std + self.beta[i]
-                for i in range(self.dimension)]
+        return [
+            self.gamma[i] * centered[i] * inv_std + self.beta[i]
+            for i in range(self.dimension)
+        ]
 
     def parameters(self):
         return self.gamma + self.beta
@@ -79,15 +84,20 @@ class CausalSelfAttentionHead:
     """One scaled dot-product causal attention head."""
 
     def __init__(self, embedding_dim, head_dim, rng):
-        limit = 1.0 / math.sqrt(embedding_dim)
         self.embedding_dim = embedding_dim
         self.head_dim = head_dim
-        self.wq = [[Value(rng.uniform(-limit, limit)) for _ in range(embedding_dim)]
-                   for _ in range(head_dim)]
-        self.wk = [[Value(rng.uniform(-limit, limit)) for _ in range(embedding_dim)]
-                   for _ in range(head_dim)]
-        self.wv = [[Value(rng.uniform(-limit, limit)) for _ in range(embedding_dim)]
-                   for _ in range(head_dim)]
+        self.wq = [
+            [Value(xavier_uniform(rng, embedding_dim, head_dim)) for _ in range(embedding_dim)]
+            for _ in range(head_dim)
+        ]
+        self.wk = [
+            [Value(xavier_uniform(rng, embedding_dim, head_dim)) for _ in range(embedding_dim)]
+            for _ in range(head_dim)
+        ]
+        self.wv = [
+            [Value(xavier_uniform(rng, embedding_dim, head_dim)) for _ in range(embedding_dim)]
+            for _ in range(head_dim)
+        ]
         self.bq = [Value(0.0) for _ in range(head_dim)]
         self.bk = [Value(0.0) for _ in range(head_dim)]
         self.bv = [Value(0.0) for _ in range(head_dim)]
@@ -114,6 +124,8 @@ class CausalSelfAttentionHead:
     def forward(self, sequence):
         if not sequence:
             raise ValueError("sequence must not be empty")
+        if any(len(token) != self.embedding_dim for token in sequence):
+            raise ValueError("all token vectors must match embedding_dim")
         queries = [self._project(token, self.wq, self.bq) for token in sequence]
         keys = [self._project(token, self.wk, self.bk) for token in sequence]
         values = [self._project(token, self.wv, self.bv) for token in sequence]
@@ -137,8 +149,12 @@ class CausalSelfAttentionHead:
         return outputs
 
     def parameters(self):
-        return ([p for row in self.wq for p in row] + [p for row in self.wk for p in row] +
-                [p for row in self.wv for p in row] + self.bq + self.bk + self.bv)
+        return (
+            [p for row in self.wq for p in row]
+            + [p for row in self.wk for p in row]
+            + [p for row in self.wv for p in row]
+            + self.bq + self.bk + self.bv
+        )
 
 
 class MultiHeadCausalSelfAttention:
@@ -150,8 +166,10 @@ class MultiHeadCausalSelfAttention:
         self.embedding_dim = embedding_dim
         self.num_heads = num_heads
         head_dim = embedding_dim // num_heads
-        self.heads = [CausalSelfAttentionHead(embedding_dim, head_dim, rng)
-                      for _ in range(num_heads)]
+        self.heads = [
+            CausalSelfAttentionHead(embedding_dim, head_dim, rng)
+            for _ in range(num_heads)
+        ]
         self.output = Linear(embedding_dim, embedding_dim, rng)
 
     def forward(self, sequence):
@@ -203,7 +221,9 @@ class TransformerBlock:
     def _gelu(value):
         """Standard tanh approximation to GELU, expressed with Value ops."""
         coefficient = math.sqrt(2.0 / math.pi)
-        return 0.5 * value * (1.0 + (coefficient * (value + 0.044715 * value ** 3)).tanh())
+        return 0.5 * value * (
+            1.0 + (coefficient * (value + 0.044715 * value ** 3)).tanh()
+        )
 
     def forward(self, sequence):
         if not sequence:
@@ -213,8 +233,10 @@ class TransformerBlock:
 
         normalized = [self.norm1.forward(token) for token in sequence]
         attended = self.attention.forward(normalized)
-        after_attention = [[a + b for a, b in zip(residual, update)]
-                           for residual, update in zip(sequence, attended)]
+        after_attention = [
+            [a + b for a, b in zip(residual, update)]
+            for residual, update in zip(sequence, attended)
+        ]
 
         output = []
         for residual in after_attention:
@@ -225,8 +247,13 @@ class TransformerBlock:
         return output
 
     def parameters(self):
-        return (self.norm1.parameters() + self.attention.parameters() +
-                self.norm2.parameters() + self.ff1.parameters() + self.ff2.parameters())
+        return (
+            self.norm1.parameters()
+            + self.attention.parameters()
+            + self.norm2.parameters()
+            + self.ff1.parameters()
+            + self.ff2.parameters()
+        )
 
     def zero_grad(self):
         for parameter in self.parameters():
