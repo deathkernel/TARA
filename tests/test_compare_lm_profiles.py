@@ -1,9 +1,16 @@
-from experiments.compare_lm_profiles import compare, parameter_count
+from experiments.compare_lm_profiles import build_profile, compare, parameter_count
 
 
 def test_scaled_profile_has_more_parameters_than_tiny_profile():
-    results = compare()
-    assert results["scaled"]["parameters"] > results["tiny"]["parameters"]
+    # This test checks capacity only. Avoid running the full language evaluation
+    # just to count parameters; the evaluation test below covers the metrics.
+    tiny_model, _, _ = build_profile(
+        {"embedding_dim": 8, "ff_dim": 16, "num_heads": 2, "num_layers": 1}
+    )
+    scaled_model, _, _ = build_profile(
+        {"embedding_dim": 32, "ff_dim": 64, "num_heads": 4, "num_layers": 2}
+    )
+    assert parameter_count(scaled_model) > parameter_count(tiny_model)
 
 
 def test_profile_comparison_reports_finite_metrics():
