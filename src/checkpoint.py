@@ -16,12 +16,14 @@ from pathlib import Path
 
 def save_checkpoint(model, path, step, scheduler=None, metrics=None, optimizer=None):
     """Save model parameters and optional optimizer/scheduler metadata."""
-    if step < 0:
-        raise ValueError("step must be non-negative")
+    if not isinstance(step, int) or isinstance(step, bool) or step < 0:
+        raise ValueError("step must be a non-negative integer")
     parameters = [float(parameter.data) for parameter in model.parameters()]
+    if any(not math.isfinite(value) for value in parameters):
+        raise ValueError("cannot checkpoint non-finite model parameters")
     payload = {
         "format_version": 2 if optimizer is not None else 1,
-        "step": int(step),
+        "step": step,
         "parameters": parameters,
         "metrics": dict(metrics or {}),
     }
@@ -54,14 +56,15 @@ def load_checkpoint(model, path, optimizer=None):
     if not isinstance(step, int) or isinstance(step, bool) or step < 0:
         raise ValueError("checkpoint step must be a non-negative integer")
 
-    for parameter, value in zip(model_parameters, parameters):
-        parameter.data = float(value)
-
     optimizer_state = payload.get("optimizer")
     if optimizer is not None:
         if optimizer_state is None:
             raise ValueError("checkpoint does not contain optimizer state")
+        # Validate the complete optimizer state before mutating model values.
         optimizer.load_state_dict(optimizer_state)
+
+    for parameter, value in zip(model_parameters, parameters):
+        parameter.data = float(value)
 
     return {
         "step": step,
