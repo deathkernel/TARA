@@ -9,9 +9,10 @@ This is deliberately tiny and educational: one Transformer block, one
 character tokenizer, and scalar reverse-mode autodiff.
 """
 
+import random
+
 from src.autograd import Value
 from src.embeddings import Embedding
-from src.tokenizer import CharTokenizer
 from src.transformer import Linear, TransformerBlock
 
 
@@ -42,7 +43,7 @@ class TinyLanguageModel:
             raise ValueError("vocab_size must be positive")
         self.embedding = Embedding(vocab_size, embedding_dim=embedding_dim, seed=seed)
         self.transformer = TransformerBlock(embedding_dim, ff_dim=ff_dim, seed=seed + 1)
-        self.lm_head = Linear(embedding_dim, vocab_size, __import__('random').Random(seed + 2))
+        self.lm_head = Linear(embedding_dim, vocab_size, random.Random(seed + 2))
 
     def forward(self, token_ids):
         if not token_ids:
