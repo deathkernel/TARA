@@ -1,19 +1,19 @@
-from experiments.compare_lm_profiles import build_profile, compare, parameter_count
+from experiments.compare_lm_profiles import TINY, SCALED, VOCAB_SIZE, parameter_count
+from src.language_model import TinyLanguageModel
 
 
 def test_scaled_profile_has_more_parameters_than_tiny_profile():
-    # This test checks capacity only. Avoid running the full language evaluation
-    # just to count parameters; the evaluation test below covers the metrics.
-    tiny_model, _, _ = build_profile(
-        {"embedding_dim": 8, "ff_dim": 16, "num_heads": 2, "num_layers": 1}
-    )
-    scaled_model, _, _ = build_profile(
-        {"embedding_dim": 32, "ff_dim": 64, "num_heads": 4, "num_layers": 2}
-    )
+    # Capacity-only regression: construct the models directly. Building the
+    # tokenizer and causal datasets is unrelated to parameter-count behavior
+    # and made this test unnecessarily expensive on the scalar autodiff core.
+    tiny_model = TinyLanguageModel(VOCAB_SIZE, seed=7, **TINY)
+    scaled_model = TinyLanguageModel(VOCAB_SIZE, seed=7, **SCALED)
     assert parameter_count(scaled_model) > parameter_count(tiny_model)
 
 
 def test_profile_comparison_reports_finite_metrics():
+    from experiments.compare_lm_profiles import compare
+
     results = compare()
     for result in results.values():
         assert result["parameters"] > 0
