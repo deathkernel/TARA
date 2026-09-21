@@ -16,9 +16,31 @@ TARA does **not** lock itself to one language, algorithm, or implementation styl
 
 ## Current architecture
 
-TARA has a small autoregressive neural path built from its own scalar autodiff engine:
+```text
+Input / Perception
+       ↓
+Working + Long-Term Memory
+       ↓
+Neural Language Core
+       ↓
+Reasoning / Planning
+       ↓
+Agent Control Loop
+       ↓
+Verification / Recovery
+       ↓
+Scientific Evaluation
+       ↓
+Integrated TARA Brain
+       ↓
+[Future: permissioned PC tools]
+```
 
-- Custom scalar reverse-mode automatic differentiation (`src/autograd.py`)
+The language path is a small autoregressive Transformer built from TARA's own scalar autodiff engine. Evaluation and generation use a separate NumPy numeric-inference path so the CPU does not allocate training computation graphs.
+
+## Completed AI/model layers
+
+- Custom scalar reverse-mode automatic differentiation
 - MLP components and MSE training
 - Deterministic character and BPE/subword tokenization
 - Embedding table
@@ -37,7 +59,7 @@ TARA has a small autoregressive neural path built from its own scalar autodiff e
 - Checkpointing and deterministic resume support
 - Greedy, temperature, top-k and top-p generation
 - Language-model loss, perplexity and next-token accuracy benchmarks
-- Training/validation diagnostics including predictive entropy and corpus statistics
+- Train/validation and separate held-out evaluation
 - Bounded working memory and persistent long-term memory
 - Deterministic retrieval, relevance scoring and forgetting
 - Goal representation, task decomposition, planning, verification and re-planning
@@ -45,66 +67,30 @@ TARA has a small autoregressive neural path built from its own scalar autodiff e
 - Cognitive-state integration layer
 - Agent loop with observation, persistent memory, verification and recovery
 - Explicit permission, destructive-action confirmation and audit logging
-- Controlled repository self-testing and structured pytest evidence
+- Scientific scaling experiments with matched training budgets
+- Integrated `TARABrain` boundary connecting language, perception, memory, reasoning and agent control without executing external actions
 
 The language model is intentionally small and CPU-friendly. TARA is an educational/research implementation of the underlying mechanisms, not a reproduction of GPT, Gemini, or any frontier model.
 
-## Cognitive layers
+## Scientific scaling
 
-```text
-Input / Perception
-       ↓
-Working + Long-Term Memory
-       ↓
-Neural Language Core
-       ↓
-Reasoning / Planning
-       ↓
-Agent Control Loop
-       ↓
-Verification / Recovery
-       ↓
-Evaluation + Safety
+Phase 10 now has a matched-budget experiment comparing the tiny and PC-oriented scaled profiles. The protocol keeps corpus construction, tokenizer training, seed, batch size, context length, optimizer family, learning-rate schedule, gradient clipping and update count aligned. It records parameter count, token-budget proxy, train/validation loss, held-out loss/accuracy and gradient statistics.
+
+Run it with:
+
+```bash
+python experiments/scientific_scaling.py
 ```
 
-The PC-tool layer is intentionally **not** part of the current AI completion milestone. It will be added only after the complete AI/model architecture is developed, tested and evaluated.
+The experiment reports measurements; it does not declare a universal "better" profile. Capacity, data and compute are evaluated together.
 
-## Memory
+## Integrated brain
 
-TARA separates:
+`src/brain.py` provides the final pre-tool cognitive boundary. `TARABrain` can observe, remember/retrieve, set goals, create plans, generate language, verify externally supplied results and recover through re-planning. It deliberately does **not** execute shell commands, browser actions, keyboard/mouse input or other PC actions.
 
-- **Working memory** — bounded recent context.
-- **Long-term memory** — persistent human-readable storage.
-- **Retrieval** — deterministic lexical relevance scoring.
-- **Memory dynamics** — access tracking, explicit updates and deterministic least-used forgetting.
+## Safety and future tools
 
-The current retriever is deliberately transparent rather than a large vector system. It is a baseline for later learned retrieval.
-
-## Reasoning
-
-TARA's reasoning layer is deliberately explicit and deterministic. It provides:
-
-- structured goals and success conditions
-- task decomposition
-- sequential plans
-- step and goal verification
-- failure-triggered re-planning
-
-The design is informed by Tree of Thoughts, ReAct and reasoning-as-planning research, while remaining small enough to inspect and test.
-
-## Perception and integration
-
-Perception converts externally observable inputs into bounded structured representations without performing actions:
-
-- text document state
-- normalized system facts
-- deterministic screen-element summaries
-
-The integration layer maintains goal, plan, observations and results. The agent layer can persist observations, retrieve relevant memories, select planned tasks, accept externally supplied results, verify them, advance successful steps and recover through explicit re-planning.
-
-## Safety
-
-Safety is a separate boundary around future tools. The current foundation uses:
+Safety remains a separate boundary around future tools. The current foundation uses:
 
 - default-deny permissions
 - explicit permission changes
@@ -112,20 +98,7 @@ Safety is a separate boundary around future tools. The current foundation uses:
 - immutable authorization decisions
 - an audit log
 
-No PC action is executed by these modules.
-
-## Evaluation and self-testing
-
-TARA keeps measured evidence separate from implementation. Evaluation supports:
-
-- metric acceptance ranges
-- baseline comparisons
-- finite-difference gradient validation
-- failure classification
-- JSON-serializable reports
-- corpus statistics and held-out evaluation
-
-The self-test runner executes only the repository's fixed `python -m pytest -q` suite and returns command, exit status and captured output. It does not execute arbitrary commands supplied by a model.
+No PC action is executed by the current brain. Tool execution begins only after the complete AI/model architecture has been developed, tested and evaluated.
 
 ## Run locally
 
@@ -138,58 +111,7 @@ python train_tiny_lm.py
 python experiments/scaled_lm_diagnostics.py
 python experiments/train_scaled_lm.py
 python experiments/heldout_generalization.py
-```
-
-## Run automatically on GitHub
-
-TARA includes GitHub Actions workflows under `.github/workflows/`. They install Python and run the test suite on GitHub-hosted runners. The workflow with `workflow_dispatch` can also be started manually from the **Actions** tab.
-
-## Project structure
-
-```text
-TARA/
-├── .github/workflows/
-├── experiments/
-│   ├── heldout_generalization.py
-│   ├── scaled_lm_diagnostics.py
-│   └── train_scaled_lm.py
-├── src/
-│   ├── activations.py
-│   ├── agent.py
-│   ├── autograd.py
-│   ├── checkpoint.py
-│   ├── dataset_registry.py
-│   ├── datasets.py
-│   ├── embeddings.py
-│   ├── evaluation.py
-│   ├── generation.py
-│   ├── gradcheck.py
-│   ├── gradient_clipping.py
-│   ├── initialization.py
-│   ├── integration.py
-│   ├── language_benchmarks.py
-│   ├── language_dataset.py
-│   ├── language_model.py
-│   ├── layers.py
-│   ├── losses.py
-│   ├── memory.py
-│   ├── metrics.py
-│   ├── mlp.py
-│   ├── optimizers.py
-│   ├── perception.py
-│   ├── positional.py
-│   ├── reasoning.py
-│   ├── safety.py
-│   ├── schedulers.py
-│   ├── self_test.py
-│   ├── text_dataset.py
-│   ├── tokenizer.py
-│   └── transformer.py
-├── tests/
-├── train_neuron.py
-├── train_tiny_lm.py
-├── requirements.txt
-└── README.md
+python experiments/scientific_scaling.py
 ```
 
 ## Roadmap
@@ -270,21 +192,32 @@ TARA/
 
 ### Phase 10 — Scientific Scaling
 
-48. ⬜ Train and benchmark the PC-oriented scaled model
-49. ⬜ Compare capacity against the tiny baseline
-50. ⬜ Evaluate data/capacity/compute trade-offs
-51. ⬜ Improve training data and language evaluation
-52. ⬜ Compare training optimizers under a matched experimental budget
+48. ✅ Train and benchmark the PC-oriented scaled model
+49. ✅ Compare capacity against the tiny baseline
+50. ✅ Evaluate data/capacity/compute trade-offs
+51. ✅ Improve training data and language evaluation
+52. ✅ Compare training optimizers under a matched experimental budget
+53. ✅ Separate held-out evaluation from training/validation measurements
+54. ✅ Record a reproducible scaling protocol and compute-budget proxy
 
-### Post-AI Phase — PC Tools
+### Phase 11 — Full Brain Integration
 
-Only after the AI/model architecture is complete and evaluated:
+55. ✅ Connect language generation to the cognitive state boundary
+56. ✅ Connect observation and long-term retrieval to response generation
+57. ✅ Connect goals, planning, verification and recovery to one brain interface
+58. ✅ Keep inference non-autograd and CPU-friendly
+59. ✅ Add integration regression tests
+60. ✅ Freeze the pre-tool AI/model architecture for final validation
 
-53. ⬜ File tools
-54. ⬜ Terminal tools
-55. ⬜ Application/browser tools
-56. ⬜ Controlled keyboard/mouse interaction
-57. ⬜ Tool selection and execution verification
-58. ⬜ Emergency stop / rollback where possible
+### Phase 12 — PC Automation / Tools — intentionally deferred
+
+Only after the AI/model architecture is complete and final validation is run:
+
+61. ⬜ File tools
+62. ⬜ Terminal tools
+63. ⬜ Application/browser tools
+64. ⬜ Controlled keyboard/mouse interaction
+65. ⬜ Tool selection and execution verification
+66. ⬜ Emergency stop / rollback where possible
 
 TARA stays intentionally small. The objective is to understand and implement the core mechanisms ourselves, validate them mathematically and empirically, then connect them into a useful reasoning-and-tool system rather than imitate frontier-model scale.
