@@ -20,7 +20,7 @@ from experiments.scaled_lm_diagnostics import (
     evaluate,
 )
 from src.gradient_clipping import clip_grad_norm_
-from src.language_dataset import build_causal_datasets
+from src.language_dataset import build_train_validation_datasets
 from src.language_model import TinyLanguageModel
 from src.optimizers import AdamW
 from src.schedulers import CosineAnnealing
@@ -62,14 +62,12 @@ class SGD:
 
 
 def _build_data(corpus):
-    tokenizer = BPETokenizer(corpus, vocab_size=VOCAB_SIZE)
-    train, validation = build_causal_datasets(
-        tokenizer,
+    return build_train_validation_datasets(
+        lambda train_text: BPETokenizer(train_text, vocab_size=VOCAB_SIZE),
         corpus,
         context_length=CONTEXT_LENGTH,
         validation_fraction=VALIDATION_FRACTION,
     )
-    return tokenizer, train, validation
 
 
 def _run(name, optimizer_kind, steps=STEPS, corpus=CORPUS):
