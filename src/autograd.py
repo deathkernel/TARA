@@ -53,6 +53,16 @@ class Value:
         out._backward = _backward
         return out
 
+    def log(self):
+        """Natural logarithm with its local derivative."""
+        if self.data <= 0.0:
+            raise ValueError("log requires a positive value")
+        out = Value(math.log(self.data), (self,), "log")
+        def _backward():
+            self.grad += (1.0 / self.data) * out.grad
+        out._backward = _backward
+        return out
+
     def __neg__(self):
         return self * -1
 
