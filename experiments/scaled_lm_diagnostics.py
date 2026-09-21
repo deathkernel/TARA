@@ -1,13 +1,13 @@
 """Measure whether TARA's scaled language model is learning useful structure.
 
 This experiment is deliberately diagnostic rather than a decoding hack. It
-tracks training/validation loss, next-token accuracy, and prediction entropy
-so model scaling can be evaluated scientifically before changing generation.
+tracks objective metrics and corpus statistics so scaling and data quality can
+be evaluated scientifically before changing generation.
 """
 
 import math
 
-from src.language_dataset import build_causal_datasets
+from src.language_dataset import build_causal_datasets, dataset_statistics
 from src.language_model import TinyLanguageModel
 from src.tokenizer import BPETokenizer
 
@@ -19,7 +19,13 @@ CORPUS = (
     "tara checks predictions against evidence. "
     "tara stores useful information in memory. "
     "tara can decompose a difficult goal into smaller steps. "
-) * 8
+    "a model should learn patterns from varied examples, not one repeated phrase. "
+    "good training data can contain questions, answers, descriptions, and short explanations. "
+    "context helps a prediction depend on earlier tokens. "
+    "evidence helps a reasoning system compare an answer with what it observed. "
+    "a useful memory keeps important information and can forget stale details. "
+    "a planner can divide a difficult task into smaller goals and verify each result. "
+)
 VOCAB_SIZE = 64
 EMBEDDING_DIM = 32
 FF_DIM = 64
@@ -87,11 +93,22 @@ def build_experiment(corpus=CORPUS):
         num_layers=NUM_LAYERS,
         seed=7,
     )
-    return model, tokenizer, train_dataset, validation_dataset
+    statistics = {
+        "train": dataset_statistics(
+            train_dataset,
+            unk_id=tokenizer.stoi[tokenizer.UNK],
+        ),
+        "validation": dataset_statistics(
+            validation_dataset,
+            unk_id=tokenizer.stoi[tokenizer.UNK],
+        ),
+    }
+    return model, tokenizer, train_dataset, validation_dataset, statistics
 
 
 if __name__ == "__main__":
-    model, tokenizer, train_dataset, validation_dataset = build_experiment()
+    model, tokenizer, train_dataset, validation_dataset, statistics = build_experiment()
     print("vocab_size:", tokenizer.vocab_size)
+    print("statistics:", statistics)
     print("train:", evaluate(model, train_dataset))
     print("validation:", evaluate(model, validation_dataset))
