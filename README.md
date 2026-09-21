@@ -33,18 +33,23 @@ TARA now has a small autoregressive neural path built from its own scalar autodi
 - Training checkpoints and deterministic resume support
 - Language-model loss, perplexity, top-1 accuracy and token-count benchmarks
 - Bounded working memory and persistent long-term memory primitives
-- Automated tests for shapes, causality, gradients, normalization, initialization, language modeling, checkpointing, benchmarks and memory
+- Deterministic lexical retrieval and relevance scoring
+- Memory access tracking, explicit updates, and deterministic least-used forgetting
+- Backward-compatible persistence for the original memory JSON format
+- Automated tests for shapes, causality, gradients, normalization, initialization, language modeling, checkpointing, benchmarks, memory, retrieval and memory dynamics
 
 The language model is intentionally tiny and CPU-friendly. It is an educational implementation of the underlying mechanisms, not a reproduction of GPT, Gemini, or any frontier model.
 
 ## Memory
 
-TARA's first memory layer separates two responsibilities:
+TARA's memory layer separates responsibilities:
 
 - **Working memory** — a bounded recent-context buffer for observations, intermediate thoughts or task state.
-- **Long-term memory** — a persistent, human-readable JSON key/value store for durable information.
+- **Long-term memory** — persistent, human-readable storage for durable information.
+- **Retrieval** — deterministic lexical relevance scoring over memory keys and values, with ranked results and configurable limits/thresholds.
+- **Memory dynamics** — updates preserve access history, retrieval/recall increase usage counts, importance can be adjusted explicitly, and least-used memories can be removed deterministically when capacity must be reduced.
 
-The interface is deliberately simple before adding learned retrieval or relevance scoring. External-memory research such as Neural Turing Machines motivates explicit memory interfaces, while Retrieval-Augmented Generation demonstrates how non-parametric memory can complement model parameters.
+The retrieval layer deliberately starts with transparent token overlap instead of a large embedding model or vector database. This keeps the mechanism inspectable and CPU-friendly while creating a clean interface for later learned retrieval. Retrieval-Augmented Generation demonstrates the value of combining model parameters with explicit non-parametric memory, while recent agent-memory research emphasizes memory formation, evolution and retrieval as dynamic processes.
 
 ## Parameter initialization
 
@@ -61,6 +66,8 @@ The Transformer architecture combines attention with position-wise feed-forward 
 Causal language modeling trains the model to predict the next token from the available left context. A sequence is shifted by one position so the input at each location is used to predict its following target.
 
 Language-model evaluation uses held-out next-token loss together with perplexity and top-1 accuracy. Comparisons involving different tokenizers should be interpreted carefully because token-level perplexity depends on the vocabulary/segmentation; TARA therefore keeps benchmark experiments on a fixed tokenizer unless a later experiment explicitly studies tokenization.
+
+Memory retrieval is currently a deliberately simple lexical baseline. It scores the fraction of unique query tokens found in a memory's key/value text, ranks by score, and uses insertion order as a deterministic tie-breaker. This is not semantic retrieval; it is a transparent baseline that can later be compared with vector or learned retrievers.
 
 ## Run locally
 
@@ -82,7 +89,7 @@ The test workflow runs automatically on pushes and pull requests. The workflow w
 
 ## Verification status
 
-The scalar MLP milestone has a verified XOR experiment reaching approximately `5.27e-30` mean squared error with deterministic initialization. Attention, Transformer, LayerNorm, Transformer-stack, initialization, language-model, generation, checkpoint, training-resume, benchmark and memory tests are committed. GitHub Actions is used as an automated verification environment.
+The scalar MLP milestone has a verified XOR experiment reaching approximately `5.27e-30` mean squared error with deterministic initialization. Attention, Transformer, LayerNorm, Transformer-stack, initialization, language-model, generation, checkpoint, training-resume, benchmark, memory, retrieval and memory-dynamics tests are committed. GitHub Actions is used as an automated verification environment.
 
 ## Long-term direction
 
@@ -178,8 +185,8 @@ TARA/
 
 20. ✅ Working memory
 21. ✅ Long-term memory
-22. ⬜ Retrieval and relevance scoring
-23. ⬜ Memory update / forgetting
+22. ✅ Retrieval and relevance scoring
+23. ✅ Memory update / forgetting
 
 ### Phase 4 — Reasoning
 
