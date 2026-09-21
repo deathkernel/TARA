@@ -44,4 +44,10 @@ def test_generate_respects_context_and_length():
         temperature=1.0, top_k=1, rng=random.Random(1)
     )
     assert len(output) == 4
-    assert model.calls == [[0], [0, 2], [2, 2]]
+    assert model.calls == [[1], [1, 2], [2, 2]]
+
+
+def test_generate_accepts_numeric_model_logits():
+    tokenizer = CharTokenizer("abc")
+    model = FakeModel()
+    assert generate(model, tokenizer, "a", length=1, top_k=1) == "ac"
