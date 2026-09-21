@@ -59,7 +59,6 @@ class CausalTextDataset:
             raise TypeError("batch_size must be an integer")
         if batch_size <= 0:
             raise ValueError("batch_size must be positive")
-
         indices = self._indices(shuffle=shuffle, seed=seed)
         start = batch_index * batch_size
         selected = indices[start:start + batch_size]
@@ -145,6 +144,37 @@ def build_causal_datasets(tokenizer, text, context_length, validation_fraction=0
         validation_fraction=validation_fraction,
     )
     return (
+        CausalTextDataset(train_ids, context_length),
+        CausalTextDataset(validation_ids, context_length),
+    )
+
+
+def build_train_validation_datasets(tokenizer_factory, text, context_length, validation_fraction=0.1):
+    """Fit a tokenizer on training text only, then encode train and validation.
+
+    ``tokenizer_factory`` receives the training text and must return an object
+    with ``encode``. This avoids fitting subword vocabulary on validation text.
+    The split is made at a deterministic character boundary before tokenization.
+    """
+    if not callable(tokenizer_factory):
+        raise TypeError("tokenizer_factory must be callable")
+    if not text:
+        raise ValueError("text must not be empty")
+    if not 0.0 < validation_fraction < 1.0:
+        raise ValueError("validation_fraction must be between 0 and 1")
+
+    split_index = int(len(text) * (1.0 - validation_fraction))
+    split_index = min(max(split_index, 1), len(text) - 1)
+    train_text = text[:split_index]
+    validation_text = text[split_index:]
+    if len(train_text) < 2 or len(validation_text) < 2:
+        raise ValueError("split must leave enough text in each partition")
+
+    tokenizer = tokenizer_factory(train_text)
+    train_ids = tokenizer.encode(train_text)
+    validation_ids = tokenizer.encode(validation_text)
+    return (
+        tokenizer,
         CausalTextDataset(train_ids, context_length),
         CausalTextDataset(validation_ids, context_length),
     )
