@@ -9,7 +9,7 @@ This makes the comparison descriptive rather than declaring a universally
 import math
 
 from experiments.scaled_lm_diagnostics import (
-    BATCH_SIZE if False else CORPUS,
+    CORPUS,
     CONTEXT_LENGTH,
     EMBEDDING_DIM,
     FF_DIM,
