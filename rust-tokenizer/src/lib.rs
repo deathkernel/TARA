@@ -116,6 +116,7 @@ impl BpeTokenizer {
 #[cfg(test)]
 mod tests {
     use super::BpeTokenizer;
+    use std::time::Instant;
 
     #[test]
     fn round_trip_unicode() {
@@ -130,5 +131,26 @@ mod tests {
         let text = "abababababababababab";
         let tokenizer = BpeTokenizer::train(text, 260);
         assert!(tokenizer.encode(text).len() < text.as_bytes().len());
+    }
+
+    #[test]
+    fn benchmark_small_corpus() {
+        let text = "TARA learns language. ".repeat(2_000);
+        let started = Instant::now();
+        let tokenizer = BpeTokenizer::train(&text, 512);
+        let encoded = tokenizer.encode(&text);
+        let elapsed = started.elapsed();
+
+        println!("benchmark bytes: {}", text.len());
+        println!("benchmark tokens: {}", encoded.len());
+        println!(
+            "benchmark token/byte: {:.4}",
+            encoded.len() as f64 / text.len() as f64
+        );
+        println!("benchmark vocab: {}", tokenizer.vocab.len());
+        println!("benchmark elapsed_ms: {:.3}", elapsed.as_secs_f64() * 1000.0);
+
+        assert!(!encoded.is_empty());
+        assert!(tokenizer.decode(&encoded) == text);
     }
 }
