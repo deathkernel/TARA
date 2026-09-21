@@ -117,6 +117,14 @@ class FastTinyLanguageModel(nn.Module):
         super().__init__()
         if vocab_size <= 0:
             raise ValueError("vocab_size must be positive")
+        if embedding_dim <= 0:
+            raise ValueError("embedding_dim must be positive")
+        if ff_dim <= 0:
+            raise ValueError("ff_dim must be positive")
+        if num_heads <= 0:
+            raise ValueError("num_heads must be positive")
+        if max_context <= 0:
+            raise ValueError("max_context must be positive")
         if embedding_dim % num_heads:
             raise ValueError("embedding_dim must be divisible by num_heads")
 
@@ -135,6 +143,8 @@ class FastTinyLanguageModel(nn.Module):
     def forward(self, token_ids):
         if token_ids.ndim != 2:
             raise ValueError("token_ids must have shape [batch, sequence]")
+        if token_ids.shape[1] == 0:
+            raise ValueError("token_ids must contain at least one token")
         if token_ids.shape[1] > self.max_context:
             raise ValueError("sequence exceeds max_context")
 
@@ -144,6 +154,15 @@ class FastTinyLanguageModel(nn.Module):
         return self.lm_head(x)
 
     def loss(self, inputs, targets):
+        if inputs.ndim != 2 or targets.ndim != 2:
+            raise ValueError("inputs and targets must have shape [batch, sequence]")
+        if inputs.shape != targets.shape:
+            raise ValueError("inputs and targets must have the same shape")
+        if inputs.shape[1] == 0:
+            raise ValueError("inputs and targets must contain at least one token")
+        if torch.any(targets < 0) or torch.any(targets >= self.vocab_size):
+            raise ValueError("targets contain token ids outside the vocabulary")
+
         logits = self(inputs)
         return F.cross_entropy(
             logits.reshape(-1, self.vocab_size),
@@ -154,5 +173,7 @@ class FastTinyLanguageModel(nn.Module):
     def next_token(self, token_ids):
         if token_ids.ndim != 2:
             raise ValueError("token_ids must have shape [batch, sequence]")
+        if token_ids.shape[1] == 0:
+            raise ValueError("token_ids must contain at least one token")
         logits = self(token_ids)[:, -1, :]
         return logits.argmax(dim=-1)
