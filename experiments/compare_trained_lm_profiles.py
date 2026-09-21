@@ -67,34 +67,38 @@ def train_profile(config, steps, corpus=CORPUS):
     initial_train = evaluate(model, train_dataset, BATCH_SIZE)
     initial_validation = evaluate(model, validation_dataset, BATCH_SIZE)
     history = []
-    batch_count = train_dataset.batch_count(BATCH_SIZE)
+    step = 0
+    epoch = 0
 
-    for step in range(steps):
-        batch = train_dataset.batch_at(
-            step % batch_count,
+    while step < steps:
+        for batch in train_dataset.iter_batches(
             BATCH_SIZE,
             shuffle=True,
-            seed=SEED + step,
-        )
-        model.zero_grad()
-        total_loss = None
-        total_tokens = 0
-        for inputs, targets in batch:
-            loss = model.loss(inputs, targets)
-            weighted = loss * len(targets)
-            total_loss = weighted if total_loss is None else total_loss + weighted
-            total_tokens += len(targets)
-        loss = total_loss / total_tokens
-        loss.backward()
-        gradient_norm = clip_grad_norm_(model.parameters(), MAX_GRAD_NORM)
-        learning_rate = scheduler.get_lr(step)
-        optimizer.step(learning_rate=learning_rate)
-        history.append({
-            "step": step,
-            "loss": loss.data,
-            "learning_rate": learning_rate,
-            "gradient_norm": gradient_norm,
-        })
+            seed=SEED + epoch,
+        ):
+            if step >= steps:
+                break
+            model.zero_grad()
+            total_loss = None
+            total_tokens = 0
+            for inputs, targets in batch:
+                loss = model.loss(inputs, targets)
+                weighted = loss * len(targets)
+                total_loss = weighted if total_loss is None else total_loss + weighted
+                total_tokens += len(targets)
+            loss = total_loss / total_tokens
+            loss.backward()
+            gradient_norm = clip_grad_norm_(model.parameters(), MAX_GRAD_NORM)
+            learning_rate = scheduler.get_lr(step)
+            optimizer.step(learning_rate=learning_rate)
+            history.append({
+                "step": step,
+                "loss": loss.data,
+                "learning_rate": learning_rate,
+                "gradient_norm": gradient_norm,
+            })
+            step += 1
+        epoch += 1
 
     return {
         "parameters": parameter_count(model),
