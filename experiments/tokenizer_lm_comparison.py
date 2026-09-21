@@ -11,8 +11,16 @@ This is a controlled educational experiment, not a benchmark against
 production language models.
 """
 
+from pathlib import Path
 import random
+import sys
 import time
+
+# Allow both `python -m experiments.tokenizer_lm_comparison` and the simpler
+# `python experiments/tokenizer_lm_comparison.py` from the repository root.
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from src.language_model import TinyLanguageModel
 from src.text_dataset import load_tinystories_text
