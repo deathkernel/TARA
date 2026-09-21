@@ -1,9 +1,9 @@
 """Matched-budget optimizer comparison for TARA's PC-friendly language model.
 
-The experiment keeps model, corpus, batch size, update count, seed, gradient
-clipping, and learning-rate schedule fixed. Only the optimizer changes.
-This makes the comparison descriptive rather than declaring a universally
-"best" optimizer.
+The experiment keeps model, corpus, batch size, update count, seed, learning
+rate schedule, and gradient clipping fixed. AdamW weight decay is disabled in
+this experiment so the optimizer algorithm itself is the main difference.
+Results are descriptive; this experiment does not declare a universal winner.
 """
 
 import math
@@ -30,15 +30,13 @@ STEPS = 40
 BATCH_SIZE = 4
 MAX_GRAD_NORM = 1.0
 SEED = 7
-ADAMW_LR = 0.001
-ADAMW_WEIGHT_DECAY = 0.01
-SGD_LR = 0.03
+LEARNING_RATE = 0.001
 
 
 class SGD:
     """Minimal dependency-free SGD baseline for a matched experiment."""
 
-    def __init__(self, parameters, learning_rate):
+    def __init__(self, parameters, learning_rate=LEARNING_RATE):
         self.parameters = list(parameters)
         if learning_rate <= 0:
             raise ValueError("learning_rate must be positive")
@@ -82,16 +80,11 @@ def _run(name, optimizer_kind, steps=STEPS, corpus=CORPUS):
         seed=SEED,
     )
 
+    scheduler = CosineAnnealing(LEARNING_RATE, total_steps=steps, min_lr=LEARNING_RATE * 0.1)
     if optimizer_kind == "AdamW":
-        optimizer = AdamW(
-            model.parameters(),
-            learning_rate=ADAMW_LR,
-            weight_decay=ADAMW_WEIGHT_DECAY,
-        )
-        scheduler = CosineAnnealing(ADAMW_LR, total_steps=steps, min_lr=ADAMW_LR * 0.1)
+        optimizer = AdamW(model.parameters(), learning_rate=LEARNING_RATE, weight_decay=0.0)
     elif optimizer_kind == "SGD":
-        optimizer = SGD(model.parameters(), learning_rate=SGD_LR)
-        scheduler = CosineAnnealing(SGD_LR, total_steps=steps, min_lr=SGD_LR * 0.1)
+        optimizer = SGD(model.parameters(), learning_rate=LEARNING_RATE)
     else:
         raise ValueError("unknown optimizer")
 
@@ -112,14 +105,14 @@ def _run(name, optimizer_kind, steps=STEPS, corpus=CORPUS):
             total_tokens += len(targets)
         loss = total_loss / total_tokens
         loss.backward()
-        clipped_norm = clip_grad_norm_(model.parameters(), MAX_GRAD_NORM)
+        gradient_norm = clip_grad_norm_(model.parameters(), MAX_GRAD_NORM)
         learning_rate = scheduler.get_lr(step)
         optimizer.step(learning_rate=learning_rate)
         history.append({
             "step": step,
             "loss": loss.data,
             "learning_rate": learning_rate,
-            "gradient_norm": clipped_norm,
+            "gradient_norm": gradient_norm,
         })
 
     return {
@@ -134,13 +127,15 @@ def _run(name, optimizer_kind, steps=STEPS, corpus=CORPUS):
             "batch_size": BATCH_SIZE,
             "max_grad_norm": MAX_GRAD_NORM,
             "seed": SEED,
+            "learning_rate": LEARNING_RATE,
+            "weight_decay": 0.0,
             "model": "same TinyLanguageModel scaled profile",
         },
     }
 
 
 def compare(steps=STEPS, corpus=CORPUS):
-    """Run SGD and AdamW under the same update budget."""
+    """Run SGD and AdamW under the same update and hyperparameter budget."""
     if steps <= 0:
         raise ValueError("steps must be positive")
     return {
