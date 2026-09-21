@@ -1,0 +1,13 @@
+[package]
+name = "tara-tokenizer"
+version = "0.1.0"
+edition = "2021"
+description = "Tiny dependency-free educational BPE tokenizer for TARA"
+
+[lib]
+name = "tara_tokenizer"
+path = "src/lib.rs"
+
+[[bin]]
+name = "tara-tokenizer"
+path = "src/main.rs"
