@@ -12,6 +12,8 @@ class Embedding:
     def __init__(self, vocab_size, embedding_dim=8, seed=0):
         if vocab_size <= 0 or embedding_dim <= 0:
             raise ValueError("vocab_size and embedding_dim must be positive")
+        self.vocab_size = int(vocab_size)
+        self.embedding_dim = int(embedding_dim)
         rng = random.Random(seed)
         self.table = [
             [Value(rng.uniform(-0.1, 0.1)) for _ in range(embedding_dim)]
