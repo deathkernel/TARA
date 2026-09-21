@@ -50,10 +50,15 @@ def train(steps=STEPS):
     initial_train = evaluate(model, train_dataset, BATCH_SIZE)
     initial_validation = evaluate(model, validation_dataset, BATCH_SIZE)
     history = []
+    batch_count = train_dataset.batch_count(BATCH_SIZE)
 
     for step in range(steps):
-        batches = list(train_dataset.iter_batches(BATCH_SIZE, shuffle=True, seed=SEED + step))
-        batch = batches[step % len(batches)]
+        batch = train_dataset.batch_at(
+            step % batch_count,
+            BATCH_SIZE,
+            shuffle=True,
+            seed=SEED + step,
+        )
         model.zero_grad()
         total_loss = None
         total_tokens = 0
