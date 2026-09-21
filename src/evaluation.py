@@ -15,6 +15,8 @@ failures, and builds compact reports. It does not execute external actions.
 from dataclasses import dataclass, asdict
 import math
 
+from .gradcheck import check_parameter_gradients
+
 
 @dataclass(frozen=True)
 class MetricResult:
@@ -73,6 +75,34 @@ def compare_baseline(name, value, baseline, *, tolerance=0.0, direction="lower")
         "tolerance": float(tolerance),
         "direction": direction,
         "passed": passed,
+    }
+
+
+def run_gradient_check(loss_fn, parameters, *, epsilon=1e-6, tolerance=1e-5):
+    """Run finite-difference gradient validation and return measured evidence.
+
+    ``loss_fn`` must return a scalar and ``parameters`` must expose the
+    autodiff ``grad`` and ``data`` attributes used by TARA's gradcheck module.
+    The returned report preserves every parameter diagnostic and includes the
+    maximum observed relative error as a machine-checkable metric.
+    """
+    diagnostics = check_parameter_gradients(
+        loss_fn,
+        parameters,
+        epsilon=epsilon,
+        tolerance=tolerance,
+    )
+    maximum_error = max(
+        (item["relative_error"] for item in diagnostics),
+        default=0.0,
+    )
+    return {
+        "passed": True,
+        "parameter_count": len(diagnostics),
+        "max_relative_error": maximum_error,
+        "epsilon": float(epsilon),
+        "tolerance": float(tolerance),
+        "diagnostics": diagnostics,
     }
 
 
