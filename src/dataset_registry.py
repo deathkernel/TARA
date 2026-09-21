@@ -38,6 +38,11 @@ DATASETS = {
 }
 
 
+def list_datasets():
+    """Return registered dataset keys."""
+    return sorted(DATASETS)
+
+
 def get_dataset_spec(name):
     """Return a registered dataset specification."""
     key = name.strip().lower()
@@ -47,12 +52,30 @@ def get_dataset_spec(name):
     return DATASETS[key]
 
 
+def describe_dataset(name):
+    """Return a serializable description for compatibility with older code."""
+    spec = get_dataset_spec(name)
+    config = "wikitext-2-raw-v1" if name.strip().lower() == "wikitext2" else None
+    return {
+        "dataset_id": spec.dataset_id,
+        "config": config,
+        "description": spec.role,
+        "train_split": spec.train_split,
+        "validation_split": spec.validation_split,
+        "text_field": spec.text_field,
+    }
+
+
 def load_text_slice(name, max_chars=4096, split="train"):
     """Stream one deterministic text slice without loading the full corpus."""
     if max_chars <= 0:
         raise ValueError("max_chars must be positive")
+
     spec = get_dataset_spec(name)
-    if split not in {spec.train_split, spec.validation_split}:
+    allowed_splits = {spec.train_split}
+    if spec.validation_split is not None:
+        allowed_splits.add(spec.validation_split)
+    if split not in allowed_splits:
         raise ValueError(f"unsupported split {split!r} for {spec.name}")
 
     try:
@@ -63,20 +86,39 @@ def load_text_slice(name, max_chars=4096, split="train"):
             "Install it with: python -m pip install datasets"
         ) from exc
 
-    dataset = load_dataset(spec.dataset_id, "wikitext-2-raw-v1" if name.lower() == "wikitext2" else None,
-                           split=split, streaming=True)
+    config = "wikitext-2-raw-v1" if name.strip().lower() == "wikitext2" else None
+    if config is None:
+        dataset = load_dataset(
+            spec.dataset_id,
+            split=split,
+            streaming=True,
+        )
+    else:
+        dataset = load_dataset(
+            spec.dataset_id,
+            config,
+            split=split,
+            streaming=True,
+        )
+
     chunks = []
     total = 0
+
     for example in dataset:
         text = example.get(spec.text_field, "")
         if not text:
             continue
+
         remaining = max_chars - total
         chunks.append(text[:remaining])
         total += min(len(text), remaining)
+
         if total >= max_chars:
             break
+
     result = "\n".join(chunks)[:max_chars]
     if not result:
-        raise ValueError(f"{spec.name} returned no text for split {split!r}")
+        raise ValueError(
+            f"{spec.name} returned no text for split {split!r}"
+        )
     return result
