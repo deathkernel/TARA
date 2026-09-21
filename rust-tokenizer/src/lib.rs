@@ -92,19 +92,19 @@ impl BpeTokenizer {
         symbols
     }
 
-    pub fn decode(&self, ids: &[u32]) -> String {
+    pub fn decode(&self, ids: &[u32]) -> Result<String, String> {
         let mut bytes = Vec::new();
 
         for &id in ids {
             let piece = self
                 .vocab
                 .get(id as usize)
-                .expect("token id outside vocabulary");
+                .ok_or_else(|| format!("token id {id} is outside the vocabulary"))?;
             bytes.extend_from_slice(piece);
         }
 
         String::from_utf8(bytes)
-            .expect("tokenizer vocabulary should reconstruct valid UTF-8")
+            .map_err(|_| "tokenizer vocabulary contains invalid UTF-8".to_string())
     }
 }
 
@@ -118,7 +118,7 @@ mod tests {
         let text = "hello hello नमस्ते";
         let tokenizer = BpeTokenizer::train(text, 300);
         let encoded = tokenizer.encode(text);
-        assert_eq!(tokenizer.decode(&encoded), text);
+        assert_eq!(tokenizer.decode(&encoded).unwrap(), text);
     }
 
     #[test]
@@ -126,6 +126,22 @@ mod tests {
         let text = "abababababababababab";
         let tokenizer = BpeTokenizer::train(text, 260);
         assert!(tokenizer.encode(text).len() < text.as_bytes().len());
+    }
+
+    #[test]
+    fn decode_rejects_invalid_token_id() {
+        let tokenizer = BpeTokenizer::train("hello", 256);
+        let error = tokenizer.decode(&[999]).unwrap_err();
+        assert!(error.contains("outside the vocabulary"));
+    }
+
+    #[test]
+    fn decode_rejects_invalid_utf8() {
+        let tokenizer = BpeTokenizer {
+            vocab: vec![vec![0xff]],
+            merges: Vec::new(),
+        };
+        assert!(tokenizer.decode(&[0]).is_err());
     }
 
     #[test]
@@ -185,6 +201,6 @@ mod tests {
 
         assert!(!train_ids.is_empty());
         assert!(!validation_ids.is_empty());
-        assert_eq!(tokenizer.decode(&validation_ids), validation_text);
+        assert_eq!(tokenizer.decode(&validation_ids).unwrap(), validation_text);
     }
 }
