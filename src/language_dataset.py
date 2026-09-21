@@ -10,6 +10,7 @@ in memory so experiments remain easy to inspect on a normal PC.
 """
 
 import random
+from collections import Counter
 
 
 class CausalTextDataset:
@@ -62,6 +63,40 @@ class CausalTextDataset:
             batch = [self[index] for index in indices[start:start + batch_size]]
             if batch:
                 yield batch
+
+
+def dataset_statistics(dataset, unk_id=None):
+    """Return transparent token/window statistics for an experiment.
+
+    ``unk_id`` is optional so callers can measure unknown-token rate when the
+    tokenizer exposes an explicit UNK token. The calculation is deterministic
+    and does not inspect model outputs.
+    """
+    token_count = len(dataset.token_ids)
+    window_count = len(dataset)
+    unique_tokens = len(set(dataset.token_ids))
+    unknown_tokens = (
+        sum(token == unk_id for token in dataset.token_ids)
+        if unk_id is not None
+        else None
+    )
+    return {
+        "token_count": token_count,
+        "unique_tokens": unique_tokens,
+        "window_count": window_count,
+        "context_length": dataset.context_length,
+        "unknown_tokens": unknown_tokens,
+        "unknown_rate": (
+            unknown_tokens / token_count if unknown_tokens is not None and token_count else None
+        ),
+    }
+
+
+def token_frequency(token_ids, limit=10):
+    """Return the most frequent token IDs for corpus inspection."""
+    if limit <= 0:
+        raise ValueError("limit must be positive")
+    return Counter(token_ids).most_common(limit)
 
 
 def split_token_ids(token_ids, validation_fraction=0.1):
