@@ -1,6 +1,6 @@
 import math
 
-from experiments.scaled_lm_diagnostics import build_experiment, evaluate
+from experiments.scaled_lm_diagnostics import build_experiment, corpus_statistics, evaluate
 
 
 def test_scaled_experiment_builds_with_bpe_and_expected_capacity():
@@ -22,3 +22,14 @@ def test_diagnostics_are_finite_and_have_valid_ranges():
         assert math.isfinite(metrics["entropy"])
         assert metrics["entropy"] >= 0.0
         assert metrics["tokens"] > 0
+
+
+def test_corpus_statistics_are_explicit_and_finite():
+    model, tokenizer, train_dataset, validation_dataset = build_experiment()
+    statistics = corpus_statistics(tokenizer, train_dataset, validation_dataset)
+    for split in ("train", "validation"):
+        values = statistics[split]
+        assert values["token_count"] > 0
+        assert values["unique_tokens"] > 0
+        assert values["window_count"] > 0
+        assert 0.0 <= values["unknown_rate"] <= 1.0
