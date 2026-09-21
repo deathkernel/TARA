@@ -7,7 +7,7 @@ be evaluated scientifically before changing generation.
 
 import math
 
-from src.language_dataset import build_causal_datasets, dataset_statistics
+from src.language_dataset import build_train_validation_datasets, dataset_statistics
 from src.language_model import TinyLanguageModel
 from src.numeric_inference import forward_numeric
 from src.tokenizer import BPETokenizer
@@ -85,10 +85,9 @@ def evaluate(model, dataset, batch_size=4):
 
 
 def build_experiment(corpus=CORPUS):
-    """Construct the PC-friendly scaled model and BPE causal datasets."""
-    tokenizer = BPETokenizer(corpus, vocab_size=VOCAB_SIZE)
-    train_dataset, validation_dataset = build_causal_datasets(
-        tokenizer,
+    """Construct the PC-friendly scaled model with a train-only BPE vocabulary."""
+    tokenizer, train_dataset, validation_dataset = build_train_validation_datasets(
+        lambda train_text: BPETokenizer(train_text, vocab_size=VOCAB_SIZE),
         corpus,
         context_length=CONTEXT_LENGTH,
         validation_fraction=VALIDATION_FRACTION,
