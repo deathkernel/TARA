@@ -38,9 +38,18 @@ class Value:
     def __pow__(self, exponent):
         if not isinstance(exponent, (int, float)):
             raise TypeError("exponent must be int or float")
+        if self.data == 0.0 and exponent < 0:
+            raise ValueError("zero cannot be raised to a negative power")
+        if self.data < 0.0 and not float(exponent).is_integer():
+            raise ValueError("negative bases require an integer exponent")
+
         out = Value(self.data**exponent, (self,), f"**{exponent}")
+
         def _backward():
+            if exponent == 0 or self.data == 0.0:
+                return
             self.grad += exponent * self.data ** (exponent - 1) * out.grad
+
         out._backward = _backward
         return out
 
@@ -102,8 +111,6 @@ class Value:
 
     def backward(self):
         """Run reverse-mode autodiff from this scalar output."""
-        # Use an iterative graph traversal to avoid Python recursion overhead
-        # and recursion-depth failures on larger computation graphs.
         topo = []
         visited = set()
         stack = [(self, False)]
