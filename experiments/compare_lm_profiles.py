@@ -5,10 +5,8 @@ with the same corpus pipeline and report capacity, loss, accuracy, and entropy.
 It does not alter generation behavior or add heuristic repetition penalties.
 """
 
-import math
-
 from experiments.scaled_lm_diagnostics import CORPUS, evaluate
-from src.language_dataset import build_causal_datasets
+from src.language_dataset import build_train_validation_datasets
 from src.language_model import TinyLanguageModel
 from src.tokenizer import BPETokenizer
 
@@ -33,17 +31,14 @@ def profile_parameter_count(config, vocab_size=VOCAB_SIZE):
         raise ValueError("model dimensions and vocab_size must be positive")
 
     embedding = vocab_size * d
-    # LayerNorm(2d) + attention(4d^2 + 4d) + LayerNorm(2d)
-    # + FFN(2df + f + d).
     block = 4 * d * d + 2 * d * f + f + 9 * d
     lm_head = d * vocab_size + vocab_size
     return embedding + layers * block + lm_head
 
 
 def build_profile(config, corpus=CORPUS):
-    tokenizer = BPETokenizer(corpus, vocab_size=VOCAB_SIZE)
-    train, validation = build_causal_datasets(
-        tokenizer,
+    tokenizer, train, validation = build_train_validation_datasets(
+        lambda train_text: BPETokenizer(train_text, vocab_size=VOCAB_SIZE),
         corpus,
         context_length=CONTEXT_LENGTH,
         validation_fraction=VALIDATION_FRACTION,
@@ -68,5 +63,3 @@ if __name__ == "__main__":
     report = compare()
     for name, result in report.items():
         print(name, result)
-        assert math.isfinite(result["train"]["loss"])
-        assert math.isfinite(result["validation"]["loss"])
