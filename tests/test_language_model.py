@@ -1,4 +1,5 @@
 import math
+import random
 
 from src.autograd import Value
 from src.language_model import TinyLanguageModel, cross_entropy
@@ -33,3 +34,25 @@ def test_next_token_is_valid():
     model = TinyLanguageModel(vocab_size=6, embedding_dim=3, ff_dim=6, seed=9)
     token = model.next_token([0, 1])
     assert 0 <= token < 6
+
+
+def test_sample_next_token_is_valid_and_reproducible():
+    model = TinyLanguageModel(vocab_size=6, embedding_dim=3, ff_dim=6, seed=9)
+    token_a = model.sample_next_token([0, 1], temperature=0.8, top_k=3, rng=random.Random(42))
+    token_b = model.sample_next_token([0, 1], temperature=0.8, top_k=3, rng=random.Random(42))
+    assert token_a == token_b
+    assert 0 <= token_a < 6
+
+
+def test_sample_next_token_rejects_invalid_temperature_and_top_k():
+    model = TinyLanguageModel(vocab_size=6, embedding_dim=3, ff_dim=6, seed=9)
+    try:
+        model.sample_next_token([0, 1], temperature=0.0)
+        assert False
+    except ValueError:
+        pass
+    try:
+        model.sample_next_token([0, 1], top_k=0)
+        assert False
+    except ValueError:
+        pass
