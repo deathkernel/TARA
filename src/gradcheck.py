@@ -7,13 +7,18 @@ Centered finite differences are used to compare numerical and autodiff gradients
 
 def numerical_gradient(loss_fn, parameter, epsilon=1e-6):
     """Estimate d(loss_fn)/d(parameter) with a centered finite difference."""
+    if epsilon <= 0:
+        raise ValueError("epsilon must be positive")
+
     original = parameter.data
-    parameter.data = original + epsilon
-    plus = float(loss_fn())
-    parameter.data = original - epsilon
-    minus = float(loss_fn())
-    parameter.data = original
-    return (plus - minus) / (2.0 * epsilon)
+    try:
+        parameter.data = original + epsilon
+        plus = float(loss_fn())
+        parameter.data = original - epsilon
+        minus = float(loss_fn())
+        return (plus - minus) / (2.0 * epsilon)
+    finally:
+        parameter.data = original
 
 
 def relative_error(analytic, numerical, floor=1e-12):
