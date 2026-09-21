@@ -22,6 +22,9 @@ import sys
 class TestRun:
     """Structured evidence from one test-suite execution."""
 
+    # Prevent pytest from mistaking this production data class for a test class.
+    __test__ = False
+
     command: tuple[str, ...]
     returncode: int
     stdout: str
