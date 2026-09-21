@@ -1,9 +1,10 @@
 """Small decoder-style Transformer components for TARA.
 
 Research reference: Vaswani et al. (2017), Attention Is All You Need.
-This version adds LayerNorm, multi-head causal self-attention, residual
-connections, and a GELU-style feed-forward network while keeping the model
-small and fully compatible with TARA's scalar autodiff engine.
+This version includes LayerNorm, multi-head causal self-attention, residual
+connections, a GELU-style feed-forward network, and a small configurable
+stack of decoder-style blocks while keeping the model PC-friendly and fully
+compatible with TARA's scalar autodiff engine.
 """
 
 import math
@@ -111,6 +112,8 @@ class CausalSelfAttentionHead:
         return [value / total for value in shifted]
 
     def forward(self, sequence):
+        if not sequence:
+            raise ValueError("sequence must not be empty")
         queries = [self._project(token, self.wq, self.bq) for token in sequence]
         keys = [self._project(token, self.wk, self.bk) for token in sequence]
         values = [self._project(token, self.wv, self.bv) for token in sequence]
@@ -152,6 +155,10 @@ class MultiHeadCausalSelfAttention:
         self.output = Linear(embedding_dim, embedding_dim, rng)
 
     def forward(self, sequence):
+        if not sequence:
+            raise ValueError("sequence must not be empty")
+        if any(len(token) != self.embedding_dim for token in sequence):
+            raise ValueError("all token vectors must match embedding_dim")
         per_head = [head.forward(sequence) for head in self.heads]
         combined = []
         for position in range(len(sequence)):
@@ -194,7 +201,7 @@ class TransformerBlock:
 
     @staticmethod
     def _gelu(value):
-        # Standard tanh approximation to GELU, expressed with Value ops.
+        """Standard tanh approximation to GELU, expressed with Value ops."""
         coefficient = math.sqrt(2.0 / math.pi)
         return 0.5 * value * (1.0 + (coefficient * (value + 0.044715 * value ** 3)).tanh())
 
@@ -204,11 +211,10 @@ class TransformerBlock:
         if any(len(token) != self.embedding_dim for token in sequence):
             raise ValueError("all token vectors must match embedding_dim")
 
-        x = add_sinusoidal_position(sequence)
-        normalized = [self.norm1.forward(token) for token in x]
+        normalized = [self.norm1.forward(token) for token in sequence]
         attended = self.attention.forward(normalized)
         after_attention = [[a + b for a, b in zip(residual, update)]
-                           for residual, update in zip(x, attended)]
+                           for residual, update in zip(sequence, attended)]
 
         output = []
         for residual in after_attention:
@@ -221,6 +227,41 @@ class TransformerBlock:
     def parameters(self):
         return (self.norm1.parameters() + self.attention.parameters() +
                 self.norm2.parameters() + self.ff1.parameters() + self.ff2.parameters())
+
+    def zero_grad(self):
+        for parameter in self.parameters():
+            parameter.grad = 0.0
+
+
+class TransformerStack:
+    """A small stack of pre-norm causal Transformer blocks."""
+
+    def __init__(self, embedding_dim, ff_dim=None, num_heads=2, num_layers=1, seed=0):
+        if num_layers <= 0:
+            raise ValueError("num_layers must be positive")
+        rng = random.Random(seed)
+        self.embedding_dim = embedding_dim
+        self.num_layers = num_layers
+        self.blocks = [
+            TransformerBlock(
+                embedding_dim,
+                ff_dim=ff_dim,
+                num_heads=num_heads,
+                seed=rng.randrange(2**32),
+            )
+            for _ in range(num_layers)
+        ]
+
+    def forward(self, sequence):
+        if not sequence:
+            raise ValueError("sequence must not be empty")
+        output = add_sinusoidal_position(sequence)
+        for block in self.blocks:
+            output = block.forward(output)
+        return output
+
+    def parameters(self):
+        return [parameter for block in self.blocks for parameter in block.parameters()]
 
     def zero_grad(self):
         for parameter in self.parameters():
