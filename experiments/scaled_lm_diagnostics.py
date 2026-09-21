@@ -9,6 +9,7 @@ import math
 
 from src.language_dataset import build_causal_datasets, dataset_statistics
 from src.language_model import TinyLanguageModel
+from src.numeric_inference import forward_numeric
 from src.tokenizer import BPETokenizer
 
 
@@ -36,14 +37,20 @@ VALIDATION_FRACTION = 0.2
 
 
 def _softmax(logits):
+    if not logits or any(not math.isfinite(value) for value in logits):
+        raise ValueError("logits must be finite and non-empty")
     maximum = max(logits)
     weights = [math.exp(value - maximum) for value in logits]
     total = sum(weights)
+    if not math.isfinite(total) or total <= 0.0:
+        raise ValueError("invalid probability distribution")
     return [weight / total for weight in weights]
 
 
 def evaluate(model, dataset, batch_size=4):
     """Return loss, next-token accuracy, and mean predictive entropy."""
+    if batch_size <= 0:
+        raise ValueError("batch_size must be positive")
     total_loss = 0.0
     correct = 0
     token_count = 0
@@ -51,11 +58,12 @@ def evaluate(model, dataset, batch_size=4):
 
     for batch in dataset.iter_batches(batch_size, shuffle=False):
         for inputs, targets in batch:
-            logits = model.forward(inputs)
+            logits = forward_numeric(model, inputs)
             for row, target in zip(logits, targets):
-                values = [value.data for value in row]
-                probabilities = _softmax(values)
-                prediction = max(range(len(values)), key=values.__getitem__)
+                probabilities = _softmax(row)
+                prediction = max(range(len(row)), key=row.__getitem__)
+                if not 0 <= target < len(row):
+                    raise IndexError("target token is outside model vocabulary")
                 target_probability = max(probabilities[target], 1e-30)
                 total_loss += -math.log(target_probability)
                 correct += int(prediction == target)
