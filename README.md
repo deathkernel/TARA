@@ -12,44 +12,46 @@ TARA follows:
 
 Primary references include back-propagation work by Rumelhart, Hinton & Williams, Goodfellow, Bengio & Courville's *Deep Learning*, and Vaswani et al.'s *Attention Is All You Need*. Modern language-model ideas are introduced only after the underlying mechanisms are verified.
 
-## Current milestone: tiny Transformer block
+## Current milestone: tiny next-token language model
 
-TARA now contains the main building pieces needed to study a small decoder-style Transformer path:
+TARA now has a complete minimal path from characters to autoregressive next-token prediction:
 
 - Custom scalar reverse-mode automatic differentiation (`src/autograd.py`)
 - Fully connected MLP components and MSE training
-- Character/token embedding layer
+- Deterministic character tokenizer and embedding table
 - Numerically stable softmax
 - Learned single-head Q/K/V causal self-attention (`src/attention.py`)
 - Sinusoidal positional encoding (`src/positional.py`)
 - Residual attention projection and position-wise feed-forward network (`src/transformer.py`)
-- Deterministic unit tests for attention and Transformer invariants
-- XOR convergence and numerical gradient-check experiments
+- Tiny character-level language model with a vocabulary projection (`src/language_model.py`)
+- Cross-entropy next-token loss and greedy next-token prediction
+- Unit tests for attention, Transformer structure, language-model shapes and backpropagation
 
-The Transformer block intentionally uses **one attention head** and currently omits LayerNorm. These are deliberate simplifications for inspectability and CPU-friendly execution, not claims that the block reproduces a production GPT/Gemini architecture.
+The language model is intentionally tiny and CPU-friendly. It is an educational implementation of the autoregressive mechanism, not a reproduction of GPT, Gemini, or any frontier model.
 
 ## Research notes
 
-The original Transformer uses attention plus position-wise feed-forward layers, with residual connections and LayerNorm; decoder self-attention is causally masked so a position cannot use future tokens. TARA implements the causal attention mechanism, residual path, positional information, and feed-forward path in a much smaller scalar-autograd form. citeturn0search5
+The Transformer architecture combines attention with position-wise feed-forward layers, residual connections and normalization; decoder self-attention is causally masked so a position cannot use future tokens. TARA keeps the causal dependency while reducing the architecture to one head and one small block for inspectability. citeturn0academia14turn0search7
 
-The standard scaled dot-product attention uses learned query, key and value projections and scales dot products by the square root of the key dimension. TARA's single-head implementation follows that core equation while keeping the dimensions tiny. citeturn0search8
+Causal language modeling trains the model to predict the next token from the available left context. A sequence is shifted by one position so the input at each location is used to predict its following target. citeturn0search11turn0academia12
 
-Gemini 1.5 is a modern multimodal Transformer-family system with a very different scale and engineering envelope. It is used here as a research reference for understanding modern model direction, not as a blueprint to reproduce at home. citeturn0academia1
+Scaled dot-product attention uses learned query, key and value projections and scales the dot product by the square root of the key dimension. TARA follows this core mechanism with tiny scalar-autograd matrices. citeturn0search10turn0academia14
 
-## Verification
+## Verification status
 
-The earlier scalar MLP milestone has a verified XOR experiment reaching approximately `5.27e-30` mean squared error with deterministic initialization. The new attention/Transformer tests have been added to the repository; they should be run locally before treating this milestone as fully verified.
+The scalar MLP milestone has a verified XOR experiment reaching approximately `5.27e-30` mean squared error with deterministic initialization. The attention, Transformer and language-model tests are committed, but they must be run locally before their runtime results are claimed as verified.
 
 ## Project structure
 
 ```text
 TARA/
 ├── src/
-│   ├── autograd.py
 │   ├── attention.py
+│   ├── autograd.py
 │   ├── datasets.py
 │   ├── embeddings.py
 │   ├── gradcheck.py
+│   ├── language_model.py
 │   ├── layers.py
 │   ├── losses.py
 │   ├── metrics.py
@@ -64,6 +66,7 @@ TARA/
 │   ├── test_datasets.py
 │   ├── test_embeddings.py
 │   ├── test_gradcheck.py
+│   ├── test_language_model.py
 │   ├── test_metrics.py
 │   ├── test_mlp.py
 │   ├── test_tokenizer.py
@@ -85,9 +88,9 @@ TARA/
 5. ✅ Tokenization and embeddings
 6. ✅ Single-head causal self-attention
 7. ✅ Tiny Transformer block
-8. ⬜ Tiny next-token language model
-9. ⬜ Minimal local text generation/chat loop
-10. ⬜ Research notes, final verification and cleanup
+8. ✅ Tiny next-token language-model core
+9. ⬜ Tiny local training experiment and text generation
+10. ⬜ Final research notes, verification and cleanup
 11. ⬜ Optional voice layer, kept separate from the neural-network core
 
-TARA stays intentionally small: the objective is to understand and implement the core ideas ourselves, not to imitate the scale of frontier systems. The original Transformer paper establishes the architectural foundation, while later systems such as Gemini demonstrate how far Transformer-based models can be scaled and extended. citeturn0academia0turn0academia1
+TARA stays intentionally small: the objective is to understand and implement the core ideas ourselves, not to imitate the scale of frontier systems.
