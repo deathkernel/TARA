@@ -1,5 +1,7 @@
 from math import isclose, tanh
 
+import pytest
+
 from src.autograd import Value
 
 
@@ -40,6 +42,24 @@ def test_power_and_division():
     out.backward()
     assert out.data == 8.0
     assert x.grad == 12.0
+
+
+def test_zero_power_has_zero_gradient():
+    x = Value(0.0)
+    out = x**0
+    out.backward()
+    assert out.data == 1.0
+    assert x.grad == 0.0
+
+
+def test_zero_negative_power_is_rejected():
+    with pytest.raises(ValueError, match="negative power"):
+        Value(0.0) ** -1
+
+
+def test_negative_base_fractional_power_is_rejected():
+    with pytest.raises(ValueError, match="integer exponent"):
+        Value(-2.0) ** 0.5
 
 
 def test_chain_rule():
