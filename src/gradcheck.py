@@ -13,9 +13,11 @@ def numerical_gradient(loss_fn, parameter, epsilon=1e-6):
     original = parameter.data
     try:
         parameter.data = original + epsilon
-        plus = float(loss_fn())
+        plus = loss_fn()
+        plus = float(plus.data if hasattr(plus, "data") else plus)
         parameter.data = original - epsilon
-        minus = float(loss_fn())
+        minus = loss_fn()
+        minus = float(minus.data if hasattr(minus, "data") else minus)
         return (plus - minus) / (2.0 * epsilon)
     finally:
         parameter.data = original
