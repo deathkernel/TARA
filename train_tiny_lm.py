@@ -6,6 +6,7 @@ targets = token_ids[1:]
 """
 
 from src.language_model import TinyLanguageModel
+from src.schedulers import CosineAnnealing
 from src.tokenizer import CharTokenizer
 
 
@@ -14,6 +15,7 @@ EMBEDDING_DIM = 3
 FF_DIM = 6
 STEPS = 80
 LEARNING_RATE = 0.03
+MIN_LEARNING_RATE = 0.003
 CONTEXT_LENGTH = 12
 SEED = 7
 
@@ -29,6 +31,12 @@ def train(corpus=CORPUS, steps=STEPS, learning_rate=LEARNING_RATE):
     ids = tokenizer.encode(corpus)
     if len(ids) < 2:
         raise ValueError("corpus must contain at least two tokens")
+
+    scheduler = CosineAnnealing(
+        learning_rate,
+        total_steps=steps,
+        min_lr=min(learning_rate, MIN_LEARNING_RATE),
+    )
 
     for step in range(steps):
         model.zero_grad()
@@ -49,11 +57,12 @@ def train(corpus=CORPUS, steps=STEPS, learning_rate=LEARNING_RATE):
             raise ValueError("corpus must contain at least one target token")
         total_loss = total_loss / total_tokens
         total_loss.backward()
+        current_lr = scheduler.get_lr(step)
         for parameter in model.parameters():
-            parameter.data -= learning_rate * parameter.grad
+            parameter.data -= current_lr * parameter.grad
 
         if step % 10 == 0 or step == steps - 1:
-            print(f"step={step:3d} loss={total_loss.data:.6f}")
+            print(f"step={step:3d} lr={current_lr:.6f} loss={total_loss.data:.6f}")
 
     return model, tokenizer
 
