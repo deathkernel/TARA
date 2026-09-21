@@ -10,7 +10,9 @@ TARA follows:
 
 **research → mathematical formulation → minimal experiment → own implementation → tests/benchmark → documentation**
 
-Primary references include Rumelhart, Hinton & Williams on back-propagation, Goodfellow, Bengio & Courville's *Deep Learning*, Glorot & Bengio on initialization, Vaswani et al. on Transformers, and research on retrieval, deliberate reasoning, planning and agent loops.
+Primary references include Rumelhart, Hinton & Williams on back-propagation, Goodfellow, Bengio & Courville's *Deep Learning*, Glorot & Bengio on initialization, Vaswani et al. on Transformers, Kingma & Ba on Adam, Loshchilov & Hutter on AdamW, and research on retrieval, deliberate reasoning, planning and agent loops.
+
+TARA does **not** lock itself to one language, algorithm, or implementation style. The method is selected per problem: Python is used for the inspectable learning core and experiments, while Rust is already used for tokenizer work where a systems-oriented implementation is useful. Future components will be chosen by measured correctness, capability, resource cost, and research evidence rather than by forcing everything into one stack.
 
 ## Current architecture
 
@@ -29,12 +31,13 @@ TARA has a small autoregressive neural path built from its own scalar autodiff e
 - GELU-style activation
 - Configurable decoder-style Transformer stack
 - Xavier/Glorot initialization
-- Optimizer, learning-rate scheduling and gradient clipping
+- AdamW adaptive optimization with decoupled weight decay
+- Learning-rate scheduling and gradient clipping
 - Tiny and PC-oriented small language-model profiles
 - Checkpointing and deterministic resume support
 - Greedy, temperature, top-k and top-p generation
 - Language-model loss, perplexity and next-token accuracy benchmarks
-- Training/validation diagnostics including predictive entropy
+- Training/validation diagnostics including predictive entropy and corpus statistics
 - Bounded working memory and persistent long-term memory
 - Deterministic retrieval, relevance scoring and forgetting
 - Goal representation, task decomposition, planning, verification and re-planning
@@ -120,6 +123,7 @@ TARA keeps measured evidence separate from implementation. Evaluation supports:
 - finite-difference gradient validation
 - failure classification
 - JSON-serializable reports
+- corpus statistics and held-out evaluation
 
 The self-test runner executes only the repository's fixed `python -m pytest -q` suite and returns command, exit status and captured output. It does not execute arbitrary commands supplied by a model.
 
@@ -133,6 +137,7 @@ python train_xor.py
 python train_tiny_lm.py
 python experiments/scaled_lm_diagnostics.py
 python experiments/train_scaled_lm.py
+python experiments/heldout_generalization.py
 ```
 
 ## Run automatically on GitHub
@@ -145,12 +150,12 @@ TARA includes GitHub Actions workflows under `.github/workflows/`. They install 
 TARA/
 ├── .github/workflows/
 ├── experiments/
+│   ├── heldout_generalization.py
 │   ├── scaled_lm_diagnostics.py
 │   └── train_scaled_lm.py
 ├── src/
 │   ├── activations.py
 │   ├── agent.py
-│   ├── attention.py
 │   ├── autograd.py
 │   ├── checkpoint.py
 │   ├── dataset_registry.py
@@ -170,6 +175,7 @@ TARA/
 │   ├── memory.py
 │   ├── metrics.py
 │   ├── mlp.py
+│   ├── optimizers.py
 │   ├── perception.py
 │   ├── positional.py
 │   ├── reasoning.py
@@ -268,16 +274,17 @@ TARA/
 49. ⬜ Compare capacity against the tiny baseline
 50. ⬜ Evaluate data/capacity/compute trade-offs
 51. ⬜ Improve training data and language evaluation
+52. ⬜ Compare training optimizers under a matched experimental budget
 
 ### Post-AI Phase — PC Tools
 
 Only after the AI/model architecture is complete and evaluated:
 
-52. ⬜ File tools
-53. ⬜ Terminal tools
-54. ⬜ Application/browser tools
-55. ⬜ Controlled keyboard/mouse interaction
-56. ⬜ Tool selection and execution verification
-57. ⬜ Emergency stop / rollback where possible
+53. ⬜ File tools
+54. ⬜ Terminal tools
+55. ⬜ Application/browser tools
+56. ⬜ Controlled keyboard/mouse interaction
+57. ⬜ Tool selection and execution verification
+58. ⬜ Emergency stop / rollback where possible
 
 TARA stays intentionally small. The objective is to understand and implement the core mechanisms ourselves, validate them mathematically and empirically, then connect them into a useful reasoning-and-tool system rather than imitate frontier-model scale.
