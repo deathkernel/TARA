@@ -24,6 +24,22 @@ def parameter_count(model):
     return sum(1 for _ in model.parameters())
 
 
+def profile_parameter_count(config, vocab_size=VOCAB_SIZE):
+    """Return the exact scalar parameter count without building an autodiff graph."""
+    d = int(config["embedding_dim"])
+    f = int(config["ff_dim"])
+    layers = int(config["num_layers"])
+    if d <= 0 or f <= 0 or layers <= 0 or vocab_size <= 0:
+        raise ValueError("model dimensions and vocab_size must be positive")
+
+    embedding = vocab_size * d
+    # LayerNorm(2d) + attention(4d^2 + 4d) + LayerNorm(2d)
+    # + FFN(2df + f + d).
+    block = 4 * d * d + 2 * d * f + f + 9 * d
+    lm_head = d * vocab_size + vocab_size
+    return embedding + layers * block + lm_head
+
+
 def build_profile(config, corpus=CORPUS):
     tokenizer = BPETokenizer(corpus, vocab_size=VOCAB_SIZE)
     train, validation = build_causal_datasets(
