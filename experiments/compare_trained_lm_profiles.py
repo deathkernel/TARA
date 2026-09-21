@@ -1,14 +1,14 @@
 """Compare tiny and scaled language models after the same training budget.
 
 This experiment is intentionally measurement-first. Both models see the same
-corpus, tokenizer, batch size, optimizer, learning-rate schedule, seed policy,
-and number of updates. The comparison reports training/validation loss,
-next-token accuracy, entropy, and scalar parameter count so capacity can be
-separated from training progress.
+corpus, tokenizer protocol, batch size, optimizer, learning-rate schedule,
+seed policy, and number of updates. The comparison reports training/
+validation loss, next-token accuracy, entropy, and scalar parameter count so
+capacity can be separated from training progress.
 """
 
 from experiments.scaled_lm_diagnostics import CORPUS, evaluate
-from src.language_dataset import build_causal_datasets
+from src.language_dataset import build_train_validation_datasets
 from src.language_model import TinyLanguageModel
 from src.gradient_clipping import clip_grad_norm_
 from src.optimizers import AdamW
@@ -37,9 +37,8 @@ def parameter_count(model):
 
 
 def build_profile(config, corpus=CORPUS):
-    tokenizer = BPETokenizer(corpus, vocab_size=VOCAB_SIZE)
-    train, validation = build_causal_datasets(
-        tokenizer,
+    tokenizer, train, validation = build_train_validation_datasets(
+        lambda train_text: BPETokenizer(train_text, vocab_size=VOCAB_SIZE),
         corpus,
         context_length=CONTEXT_LENGTH,
         validation_fraction=VALIDATION_FRACTION,
