@@ -4,7 +4,12 @@ This experiment separates train and validation text so we can measure
 optimization and generalization without changing the model architecture.
 The slices stay deliberately small because TARA uses a scalar autodiff
 engine and is intended to run on a normal PC.
+
+The training loop precomputes fixed context windows and caches the parameter
+list so Python bookkeeping is not repeated on every optimization step.
 """
+
+import time
 
 from src.language_model import TinyLanguageModel
 from src.text_dataset import load_tinystories_text
@@ -21,24 +26,29 @@ CONTEXT_LENGTH = 12
 SEED = 7
 
 
-def token_loss(model, ids):
-    """Return token-weighted next-token loss for a token sequence."""
+def make_windows(ids):
+    """Precompute fixed context/target windows for repeated training steps."""
     if len(ids) < 2:
         raise ValueError("dataset must contain at least two tokens")
-
-    total_loss = None
-    total_tokens = 0
+    windows = []
     for start in range(0, len(ids) - 1, CONTEXT_LENGTH):
         window = ids[start:start + CONTEXT_LENGTH + 1]
-        if len(window) < 2:
-            continue
-        inputs = window[:-1]
-        targets = window[1:]
+        if len(window) >= 2:
+            windows.append((window[:-1], window[1:]))
+    if not windows:
+        raise ValueError("dataset must contain at least one target token")
+    return windows
+
+
+def token_loss(model, windows):
+    """Return token-weighted next-token loss over precomputed windows."""
+    total_loss = None
+    total_tokens = 0
+    for inputs, targets in windows:
         loss = model.loss(inputs, targets)
         weighted_loss = loss * len(targets)
         total_loss = weighted_loss if total_loss is None else total_loss + weighted_loss
         total_tokens += len(targets)
-
     return total_loss / total_tokens
 
 
@@ -56,30 +66,31 @@ def train(train_corpus=None, steps=STEPS, learning_rate=LEARNING_RATE):
         seed=SEED,
     )
     train_ids = tokenizer.encode(train_corpus)
+    windows = make_windows(train_ids)
+    parameters = model.parameters()
 
-    if len(train_ids) < 2:
-        raise ValueError("train_corpus must contain at least two tokens")
-
+    start_time = time.perf_counter()
     for step in range(steps):
         model.zero_grad()
-        loss = token_loss(model, train_ids)
+        loss = token_loss(model, windows)
         loss.backward()
-        for parameter in model.parameters():
+        for parameter in parameters:
             parameter.data -= learning_rate * parameter.grad
 
         if step % 10 == 0 or step == steps - 1:
             print(f"step={step:3d} train_loss={loss.data:.6f}")
 
+    elapsed = time.perf_counter() - start_time
+    print(f"Training time: {elapsed:.3f}s ({elapsed / steps:.4f}s/step)")
     return model, tokenizer, train_corpus
 
 
 def evaluate(model, tokenizer, validation_corpus):
     """Measure next-token loss on unseen validation text."""
     validation_ids = tokenizer.encode(validation_corpus)
-    if len(validation_ids) < 2:
-        raise ValueError("validation_corpus must contain at least two tokens")
+    windows = make_windows(validation_ids)
     model.zero_grad()
-    loss = token_loss(model, validation_ids)
+    loss = token_loss(model, windows)
     return loss.data
 
 
