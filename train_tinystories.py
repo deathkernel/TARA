@@ -1,14 +1,17 @@
-"""Train and evaluate TARA on a small streamed TinyStories slice.
+"""Train and evaluate TARA on TinyStories with a faster learning loop.
 
-This experiment separates train and validation text so we can measure
-optimization and generalization without changing the model architecture.
-The slices stay deliberately small because TARA uses a scalar autodiff
-engine and is intended to run on a normal PC.
+The model is still TARA's own tiny Transformer and scalar autodiff engine.
+This trainer changes the optimization strategy rather than the architecture:
+- a larger text slice gives the model more varied training signal;
+- stochastic context sampling avoids rebuilding the whole dataset graph every step;
+- Adam adapts each parameter's step size and usually reaches useful loss faster;
+- gradient clipping keeps tiny experiments stable.
 
-The training loop precomputes fixed context windows and caches the parameter
-list so Python bookkeeping is not repeated on every optimization step.
+This is deliberately a small-PC experiment, not a claim of reproducing a
+production-scale language model.
 """
 
+import random
 import time
 
 from src.language_model import TinyLanguageModel
@@ -16,18 +19,49 @@ from src.text_dataset import load_tinystories_text
 from src.tokenizer import CharTokenizer
 
 
-MAX_TRAIN_CHARS = 512
-MAX_VALIDATION_CHARS = 512
+MAX_TRAIN_CHARS = 4096
+MAX_VALIDATION_CHARS = 1024
 EMBEDDING_DIM = 3
 FF_DIM = 6
-STEPS = 80
-LEARNING_RATE = 0.03
-CONTEXT_LENGTH = 12
+STEPS = 2000
+LEARNING_RATE = 0.01
+CONTEXT_LENGTH = 16
 SEED = 7
+GRAD_CLIP = 1.0
+
+
+class Adam:
+    """Small Adam optimizer for TARA's scalar Value parameters."""
+
+    def __init__(self, parameters, learning_rate=LEARNING_RATE):
+        self.parameters = list(parameters)
+        self.learning_rate = learning_rate
+        self.beta1 = 0.9
+        self.beta2 = 0.999
+        self.epsilon = 1e-8
+        self.step_count = 0
+        self.first_moment = [0.0] * len(self.parameters)
+        self.second_moment = [0.0] * len(self.parameters)
+
+    def step(self):
+        self.step_count += 1
+        bias1 = 1.0 - self.beta1 ** self.step_count
+        bias2 = 1.0 - self.beta2 ** self.step_count
+        for i, parameter in enumerate(self.parameters):
+            gradient = max(-GRAD_CLIP, min(GRAD_CLIP, parameter.grad))
+            self.first_moment[i] = (
+                self.beta1 * self.first_moment[i] + (1.0 - self.beta1) * gradient
+            )
+            self.second_moment[i] = (
+                self.beta2 * self.second_moment[i] + (1.0 - self.beta2) * gradient * gradient
+            )
+            m_hat = self.first_moment[i] / bias1
+            v_hat = self.second_moment[i] / bias2
+            parameter.data -= self.learning_rate * m_hat / (v_hat ** 0.5 + self.epsilon)
 
 
 def make_windows(ids):
-    """Precompute fixed context/target windows for repeated training steps."""
+    """Precompute candidate context/target windows once."""
     if len(ids) < 2:
         raise ValueError("dataset must contain at least two tokens")
     windows = []
@@ -41,7 +75,7 @@ def make_windows(ids):
 
 
 def token_loss(model, windows):
-    """Return token-weighted next-token loss over precomputed windows."""
+    """Return token-weighted next-token loss over supplied windows."""
     total_loss = None
     total_tokens = 0
     for inputs, targets in windows:
@@ -68,17 +102,25 @@ def train(train_corpus=None, steps=STEPS, learning_rate=LEARNING_RATE):
     train_ids = tokenizer.encode(train_corpus)
     windows = make_windows(train_ids)
     parameters = model.parameters()
+    optimizer = Adam(parameters, learning_rate=learning_rate)
+    rng = random.Random(SEED)
 
     start_time = time.perf_counter()
+    running_loss = 0.0
     for step in range(steps):
+        # One random context per optimizer step is dramatically cheaper than
+        # rebuilding a graph over the entire text on every step.
+        batch = [rng.choice(windows)]
         model.zero_grad()
-        loss = token_loss(model, windows)
+        loss = token_loss(model, batch)
         loss.backward()
-        for parameter in parameters:
-            parameter.data -= learning_rate * parameter.grad
+        optimizer.step()
+        running_loss += loss.data
 
-        if step % 10 == 0 or step == steps - 1:
-            print(f"step={step:3d} train_loss={loss.data:.6f}")
+        if step % 100 == 0 or step == steps - 1:
+            average = running_loss / (step % 100 + 1) if step % 100 else loss.data
+            print(f"step={step:4d} train_loss={loss.data:.6f} window_avg={average:.6f}")
+            running_loss = 0.0
 
     elapsed = time.perf_counter() - start_time
     print(f"Training time: {elapsed:.3f}s ({elapsed / steps:.4f}s/step)")
