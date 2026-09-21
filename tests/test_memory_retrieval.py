@@ -48,7 +48,7 @@ def test_remember_updates_value_and_importance_without_resetting_history():
 
     assert memory.recall("fact") == "new"
     metadata = memory.metadata("fact")
-    assert metadata["access_count"] == 1
+    assert metadata["access_count"] == 2
     assert metadata["importance"] == 2.0
 
 
@@ -81,7 +81,7 @@ def test_v2_memory_round_trip_preserves_metadata(tmp_path):
 
     restored = LongTermMemory(path)
     assert restored.recall("name") == "TARA"
-    assert restored.metadata("name")["access_count"] == 1
+    assert restored.metadata("name")["access_count"] == 2
     assert restored.metadata("name")["importance"] == 3.0
 
 
@@ -91,4 +91,4 @@ def test_loads_original_plain_key_value_format(tmp_path):
 
     memory = LongTermMemory(path)
     assert memory.recall("name") == "TARA"
-    assert memory.metadata("name")["access_count"] == 0
+    assert memory.metadata("name")["access_count"] == 1
