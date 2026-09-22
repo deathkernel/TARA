@@ -30,5 +30,7 @@ def test_tracker_is_append_only_and_fingerprinted(tmp_path):
     tracker.log(TrainingMetric(2, 1.5, 2.0, 0.0009))
     metrics = tracker.metrics()
     assert [m.step for m in metrics] == [1, 2]
-    assert json.loads(path.read_text())['step'] == 1
+    lines = path.read_text(encoding="utf-8").splitlines()
+    assert json.loads(lines[0])["step"] == 1
+    assert json.loads(lines[1])["step"] == 2
     assert len(tracker.fingerprint()) == 64
