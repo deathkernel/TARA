@@ -58,12 +58,7 @@ def _knowledge_text(item: dict) -> str:
 
 
 class VerifiedReplayBuffer:
-    """Build a bounded, deterministic replay set from verified knowledge.
-
-    The source JSONL is treated as data only. Records marked ``verified=false``
-    are rejected, and duplicate text is removed before sampling. Sampling uses
-    a seeded shuffle so experiments are reproducible.
-    """
+    """Build a bounded, deterministic replay set from verified knowledge."""
 
     def __init__(self, *, seed: int = 42, max_records: int = 1024) -> None:
         if max_records <= 0:
@@ -86,8 +81,7 @@ class VerifiedReplayBuffer:
                 raise ValueError(f"invalid JSONL at line {line_number}: {exc}") from exc
             if not isinstance(item, dict):
                 raise ValueError(f"knowledge record at line {line_number} must be an object")
-            verified = item.get("verified", True)
-            if verified is not True:
+            if item.get("verified", True) is not True:
                 continue
             text = _knowledge_text(item)
             if not text:
@@ -111,10 +105,14 @@ class VerifiedReplayBuffer:
         rng.shuffle(items)
         return tuple(items[: self.max_records])
 
-    def write(self, records: Iterable[ReplayRecord], path: str | Path) -> ReplayReport:
-        items = tuple(records)
-        selected = self.select(items)
-        destination = Path(path)
+    def build(self, path: str | Path, output: str | Path) -> ReplayReport:
+        source = Path(path)
+        if not source.exists():
+            raise FileNotFoundError(source)
+        input_count = sum(1 for line in source.read_text(encoding="utf-8").splitlines() if line.strip())
+        records = self.load(source)
+        selected = self.select(records)
+        destination = Path(output)
         destination.parent.mkdir(parents=True, exist_ok=True)
         with destination.open("w", encoding="utf-8") as handle:
             for record in selected:
@@ -123,20 +121,12 @@ class VerifiedReplayBuffer:
             "\n".join(record.fingerprint for record in selected).encode("utf-8")
         ).hexdigest()
         return ReplayReport(
-            input_records=len(items),
-            eligible_records=len(items),
+            input_records=input_count,
+            eligible_records=len(records),
             selected_records=len(selected),
-            duplicates_removed=0,
+            duplicates_removed=input_count - len(records),
             output_path=str(destination),
             fingerprint=fingerprint,
-        )
-
-    def build(self, path: str | Path, output: str | Path) -> ReplayReport:
-        source = Path(path)
-        raw_lines = [line for line in source.read_text(encoding="utf-8").splitlines() if line.strip()]
-        records = self.load(source)
-        return self.write(records, output)._replace(  # type: ignore[attr-defined]
-            input_records=len(raw_lines)
         )
 
 
@@ -175,9 +165,11 @@ class ReplayCorpusBuilder:
         if not base and not replay:
             raise ValueError("both base and replay corpora are empty")
         if not replay or self.replay_ratio == 0.0:
-            selected = []
+            selected: list[str] = []
+        elif self.replay_ratio == 1.0:
+            selected = list(replay)
         else:
-            count = max(1, round(len(base) * self.replay_ratio / max(1e-9, 1.0 - self.replay_ratio))) if base else len(replay)
+            count = max(1, round(len(base) * self.replay_ratio / (1.0 - self.replay_ratio))) if base else len(replay)
             selected = list(replay)
             random.Random(self.seed).shuffle(selected)
             selected = selected[:count]
