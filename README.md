@@ -2,18 +2,19 @@
 
 **TARA — Tiny Artificial Reasoning Architecture**
 
-TARA is a research-first neural-network project built from mathematical and implementation fundamentals. The goal is a highly capable, inspectable artificial reasoning system that can connect a neural language core with perception, memory, reasoning, planning, reflection, controlled tools, autonomous tasks, scheduling, temporal context and an explicit world model.
+TARA is a research-first neural-network project built from mathematical and implementation fundamentals. The goal is a highly capable, inspectable artificial reasoning system that connects a neural language core with perception, memory, structured reasoning, planning, reflection, controlled tools, autonomous tasks, scheduling, temporal context and an explicit world model.
 
-## Phase 21 — Perception and Temporal Awareness Complete
+## Phase 22 — Structured Reasoning Complete
 
-Phase 21 implements steps **122–127** as an integrated perception pipeline:
+Phase 22 implements steps **128–134**:
 
-- **Perception adapters:** existing document, system-state and screen-summary adapters now feed a canonical observation layer.
-- **Input normalization:** heterogeneous strings/mappings become deterministic `NormalizedObservation` records.
-- **Confidence-aware observations:** each observation carries bounded confidence, source, kind, timestamp and stable identity.
-- **Temporal ordering:** observations are deduplicated and ordered deterministically by timestamp and identity.
-- **Temporal reasoning context:** bounded temporal windows expose pairwise time relations and confidence filtering for downstream reasoning.
-- **Brain integration:** `TARABrain` now maintains temporal perception and can assemble memory + world + temporal context before generation.
+- **Explicit reasoning state:** bounded, inspectable state for one reasoning goal.
+- **Facts / assumptions separation:** claims are explicitly typed rather than mixed together.
+- **Hypothesis generation:** candidate hypotheses receive stable identifiers and initial confidence.
+- **Evidence tracking:** evidence is attached to claims with source, support/opposition and strength.
+- **Contradiction detection:** explicit incompatible claims are surfaced instead of silently merged.
+- **Reasoning verification:** required claims, contradictions and evidence confidence contribute to a deterministic verification result.
+- **Brain integration:** `TARABrain.reason()` and `verify_reasoning()` expose the reasoning engine to the cognitive loop.
 
 ## Current architecture
 
@@ -26,9 +27,17 @@ Working Memory → Long-Term Memory
        ↓
 World Model → Event Router → Temporal Context
        ↓
+Structured Reasoning
+   ├── Facts
+   ├── Assumptions
+   ├── Hypotheses
+   ├── Evidence
+   ├── Contradictions
+   └── Verification
+       ↓
 Neural Language Core
        ↓
-Reasoning → Planning
+Planning
        ↓
 Persistent Task Store → Scheduler
        ↓
@@ -49,9 +58,7 @@ Emergency Stop / Rollback boundary
 
 ## Safety boundary
 
-Perception and temporal context are data-processing layers; they do not grant permissions or execute host actions. The world model stores state and routes events only to explicit host-provided callables. Scheduled tasks execute through bounded host executors, and PC actions remain behind the Tool Controller permission boundary.
-
-These controls are defense-in-depth and are not a claim of perfect isolation against hostile code. Truly untrusted code should use a separate OS/container/VM sandbox before production use.
+Structured reasoning records are inspectable data; they do not grant permissions or execute host actions. Tool use remains behind explicit controller boundaries and truly untrusted code should use a separate OS/container/VM sandbox.
 
 ## Roadmap
 
@@ -109,4 +116,14 @@ These controls are defense-in-depth and are not a claim of perfect isolation aga
 126. ✅ Temporal context for reasoning
 127. ✅ Brain integration
 
-Phase 21 is complete at an **advanced implementation level**. The temporal layer is model-agnostic, bounded and deterministic, so future learned perception models can plug into the same observation contract.
+### Phase 22 — Structured Reasoning
+
+128. ✅ Explicit reasoning state
+129. ✅ Facts / assumptions separation
+130. ✅ Hypothesis generation
+131. ✅ Evidence tracking
+132. ✅ Contradiction detection
+133. ✅ Reasoning verification
+134. ✅ Brain integration
+
+Phase 22 is complete at an **advanced implementation level**. The reasoning representation is intentionally auditable and model-agnostic; it is infrastructure for a future learned reasoner rather than a claim of human-level reasoning.
