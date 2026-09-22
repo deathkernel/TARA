@@ -99,3 +99,38 @@ def test_acquirer_deduplicates_and_writes_manifest(tmp_path: Path):
 def test_streamer_validates_bounds():
     with pytest.raises(ValueError):
         HuggingFaceStreamer(min_chars=10, max_chars=5)
+
+
+def test_streamer_does_not_need_datasets_import(monkeypatch):
+    streamer = HuggingFaceStreamer()
+    calls = []
+
+    def fake_get_json(endpoint, params):
+        calls.append((endpoint, params))
+        if endpoint == "splits":
+            return {"splits": [{"dataset": "demo/source", "config": "default", "split": "train"}]}
+        return {
+            "rows": [
+                {"row_idx": 7, "row": {"text": "This is a valid public dataset example."}}
+            ],
+            "num_rows_total": 8,
+        }
+
+    monkeypatch.setattr(streamer, "_get_json", fake_get_json)
+    spec = PublicDatasetSpec(
+        key="demo",
+        name="Demo",
+        organization="Test",
+        dataset_id="demo/source",
+        config=None,
+        split="train",
+        text_field="text",
+        level="basic",
+        license="MIT",
+        role="test",
+    )
+
+    records = list(streamer.stream(spec, 1))
+    assert len(records) == 1
+    assert records[0].text.startswith("This is a valid public")
+    assert any(endpoint == "rows" for endpoint, _ in calls)
