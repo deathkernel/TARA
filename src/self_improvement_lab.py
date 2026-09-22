@@ -49,6 +49,7 @@ class PromotionDecision:
     promoted: bool
     reason: str
     score: ImprovementScore
+    selected_fingerprint: str | None = None
 
 
 @dataclass(frozen=True)
@@ -82,9 +83,9 @@ class FailureAnalyzer:
 
 
 class MutationEngine:
-    """Generate targeted variants from verified or failed parents.
+    """Generate targeted variants from a parent candidate.
 
-    The actual mutation policy is injectable so an LM, genetic operator, or
+    The mutation policy is injectable so an LM, evolutionary operator, or
     program-synthesis model can be plugged in without weakening verification.
     """
 
@@ -149,17 +150,31 @@ class PromotionEngine:
 
     def decide(self, baseline: BenchmarkResult, experiments: Sequence[BenchmarkResult]) -> PromotionDecision:
         eligible = [item for item in experiments if self.gate.accept(baseline, item)]
+        baseline_score = self.scorer.score(baseline, baseline)
         if not eligible:
-            return PromotionDecision(False, "no experiment passed the regression gate", self.scorer.score(baseline, baseline))
+            return PromotionDecision(False, "no experiment passed the regression gate", baseline_score)
         best = max(eligible, key=lambda item: self.scorer.score(baseline, item).total)
         score = self.scorer.score(baseline, best)
-        if score.total <= self.scorer.score(baseline, baseline).total:
+        if score.total <= baseline_score.total:
             return PromotionDecision(False, "no candidate improved the measured objective", score)
-        return PromotionDecision(True, "candidate passed regression and improved multi-objective utility", score)
+        return PromotionDecision(True, "candidate passed regression and improved multi-objective utility", score, self._fingerprint(best))
+
+    @staticmethod
+    def _fingerprint(result: BenchmarkResult) -> str:
+        import hashlib
+        return hashlib.sha256(f"{result.candidate.language}\n{result.candidate.source}".encode()).hexdigest()
+
+    def select_promoted(self, baseline: BenchmarkResult, experiments: Sequence[BenchmarkResult]) -> BenchmarkResult | None:
+        eligible = [item for item in experiments if self.gate.accept(baseline, item)]
+        if not eligible:
+            return None
+        baseline_score = self.scorer.score(baseline, baseline).total
+        best = max(eligible, key=lambda item: self.scorer.score(baseline, item).total)
+        return best if self.scorer.score(baseline, best).total > baseline_score else None
 
 
 class SelfImprovementLab:
-    """One bounded, auditable self-improvement cycle."""
+    """Run bounded, auditable self-improvement cycles."""
 
     def __init__(self, *, benchmark: PolyglotBenchmark | None = None, archive: CandidateArchive | None = None, mutator=None) -> None:
         self.benchmark = benchmark or PolyglotBenchmark()
@@ -186,8 +201,8 @@ class SelfImprovementLab:
         for _ in range(rounds):
             cycle = self.cycle(current, problem, mutation_count=mutation_count)
             cycles.append(cycle)
-            if not cycle.decision.promoted:
+            promoted = self.promoter.select_promoted(current, cycle.experiments)
+            if promoted is None:
                 break
-            promoted = max(cycle.experiments, key=lambda item: cycle.promoter_score if False else self.promoter.scorer.score(current, item).total)
             current = promoted
         return current, tuple(cycles)
