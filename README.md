@@ -107,6 +107,26 @@ Phase 33 implements steps **214–221**:
 
 Architecture self-optimization is intentionally experiment-driven. TARA does not rewrite arbitrary source code or silently alter its running model; candidate architectures must be measured and pass the promotion gate.
 
+## Phase 34 — Unified Cognitive Loop Complete
+
+Phase 34 implements steps **222–230**:
+
+- **222 Cycle state** — every cognitive pass receives a stable cycle ID and bounded trace.
+- **223 Perception-to-memory routing** — current perception is recalled against long-term memory before reasoning.
+- **224 Reasoning-to-planning integration** — structured reasoning consumes the live perception/context and the active plan step.
+- **225 Tool-aware action selection** — required capabilities can be passed through the existing tool-intelligence layer.
+- **226 External action boundary** — the loop delegates execution to an injected action executor rather than inventing permissions.
+- **227 Verification gate** — observed outcomes must pass an explicit expected-value or predicate check before the plan step completes.
+- **228 Reflection + learning** — every verified or failed outcome becomes an experience, reflection record and reward/advantage learning signal.
+- **229 Goal/progress feedback** — successful cycles advance tracked goal progress and expose the next ready step.
+- **230 Bounded continuous loop** — cycles, stop/resume, failures and deterministic fingerprints are managed as one auditable controller.
+
+Architecture flow:
+
+Perception -> Memory Recall -> Structured Reasoning -> Plan Step -> Tool Selection -> External Action -> Observation -> Verification -> Experience + Reflection -> Reward/Advantage Learning -> Goal Progress -> Next Cognitive Cycle
+
+The unified loop is a controller over existing subsystems, not a claim of human-like consciousness. External actions remain permissioned and injected, while learning remains evidence-gated.
+
 ## Roadmap
 
 - Phase 21 — Perception & Temporal Awareness: **122–127 complete**
@@ -122,5 +142,5 @@ Architecture self-optimization is intentionally experiment-driven. TARA does not
 - Phase 31 — Autonomous Research: **198–205 complete**
 - Phase 32 — Scientific Experiment Engine: **206–213 complete**
 - Phase 33 — Architecture Self-Optimization: **214–221 complete**
-- Phase 34 — Unified Cognitive Loop: **222–230**
+- Phase 34 — Unified Cognitive Loop: **222–230 complete**
 - Phase 35 — TARA Core Integration: **231–240**
