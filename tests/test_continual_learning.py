@@ -44,11 +44,15 @@ def test_replay_corpus_builder_controls_ratio(tmp_path):
     replay = tmp_path / "replay.jsonl"
     output = tmp_path / "merged.jsonl"
     write_jsonl(base, [{"text": f"base {i}"} for i in range(8)])
-    write_jsonl(replay, [{"text": f"knowledge {i}", "verified": True} for i in range(8)])
+    write_jsonl(replay, [
+        {"text": f"knowledge {i}", "verified": True} for i in range(8)
+    ] + [{"text": "must not enter", "verified": False}])
 
     report = ReplayCorpusBuilder(replay_ratio=0.25, seed=3).merge(base, replay, output)
     assert report.selected_records == 3
+    assert report.eligible_records == 8
     assert len(output.read_text(encoding="utf-8").splitlines()) == 11
+    assert "must not enter" not in output.read_text(encoding="utf-8")
 
 
 def test_memory_consolidation_retains_frequently_accessed_memories():
