@@ -1,8 +1,8 @@
-"""Integrated, PC-free cognitive brain for TARA.
+"""Integrated cognitive brain for TARA.
 
-The brain coordinates perception, memory, language generation, reasoning,
-verification, reflection and bounded task orchestration. External actions
-remain behind explicit control boundaries.
+The brain coordinates perception, memory, language generation, temporal
+context, reasoning, verification, reflection and bounded task orchestration.
+External actions remain behind explicit control boundaries.
 """
 
 from dataclasses import dataclass
@@ -16,6 +16,7 @@ from .goal_progress import GoalProgress
 from .integration import TARAEngine
 from .memory import LongTermMemory
 from .reflection_loop import ReflectionLoop
+from .temporal_perception import NormalizedObservation, TemporalContext, TemporalPerception
 from .world_state import WorldContext, WorldModel
 
 
@@ -26,6 +27,7 @@ class BrainResponse:
     text: str
     recalled: tuple = ()
     observations: tuple = ()
+    temporal_context: str = ""
 
 
 class TARABrain:
@@ -33,7 +35,7 @@ class TARABrain:
 
     def __init__(self, model, tokenizer=None, *, engine=None, memory=None, seed=0,
                  reflection=None, progress=None, orchestrator=None, world=None,
-                 events=None):
+                 events=None, temporal=None, temporal_history=256):
         self.model = model
         self.tokenizer = tokenizer
         self.engine = TARAEngine() if engine is None else engine
@@ -44,22 +46,53 @@ class TARABrain:
         self.orchestrator = orchestrator or AutonomousOrchestrator()
         self.world = world or WorldModel()
         self.events = events or EventRouter(self.world)
+        self.temporal = temporal or TemporalPerception(max_history=temporal_history)
         self.rng = random.Random(seed)
 
     @classmethod
     def from_checkpoint(cls, path: str | Path, *, engine=None, memory=None, seed=0):
-        """Build a brain directly from a trained PyTorch TARA checkpoint."""
         from .model_runtime import load_checkpoint
         model, tokenizer = load_checkpoint(path)
         return cls(model, tokenizer, engine=engine, memory=memory, seed=seed)
 
-    def observe(self, observation, *, remember_key=None, importance=1.0):
+    def observe(self, observation, *, remember_key=None, importance=1.0, confidence=1.0,
+                source="agent", kind="observation", timestamp=None):
+        """Record an observation in memory, world events and temporal perception."""
         result = self.agent.observe(observation, remember_key=remember_key, importance=importance)
-        self.events.emit("observation", value=observation)
+        normalized = self.temporal.ingest(
+            observation, source=source, kind=kind, confidence=confidence, timestamp=timestamp
+        )
+        self.events.emit(
+            "observation",
+            value=observation,
+            observation_id=normalized.observation_id,
+            confidence=normalized.confidence,
+            timestamp=normalized.timestamp,
+        )
         return result
 
+    def observe_perception(self, observation, *, source="perception", kind="observation",
+                           confidence=1.0, timestamp=None, remember_key=None, importance=1.0):
+        """Ingest a canonical perception event and synchronize the cognitive layers."""
+        normalized = self.temporal.ingest(
+            observation, source=source, kind=kind, confidence=confidence, timestamp=timestamp
+        )
+        self.agent.observe(normalized.content, remember_key=remember_key, importance=importance)
+        self.events.emit(
+            "perception",
+            observation_id=normalized.observation_id,
+            source=normalized.source,
+            kind=normalized.kind,
+            content=normalized.content,
+            confidence=normalized.confidence,
+            timestamp=normalized.timestamp,
+        )
+        return normalized
+
+    def temporal_context(self, *, limit=16, min_confidence=0.0) -> TemporalContext:
+        return self.temporal.context(limit=limit, min_confidence=min_confidence)
+
     def observe_world(self, event_type, **data):
-        """Update the explicit world model and route the event to host actions."""
         return self.events.emit(event_type, **data)
 
     def world_context(self, *, event_limit=8) -> WorldContext:
@@ -78,20 +111,17 @@ class TARABrain:
         return self.progress.mark_complete(goal, count)
 
     def record_experience(self, goal, action, outcome, success, score=0.0, feedback=""):
-        """Record a verified outcome and immediately produce a reflection."""
         return self.reflection.record(goal, action, outcome, success, score, feedback)
 
     def reflect(self, goal):
         return self.reflection.reflect(goal)
 
     def add_task(self, task_id, description, *, priority=0, dependencies=(), retries=0):
-        """Add a bounded task to the Phase 18 orchestrator."""
         task = TaskNode(task_id, description, priority, tuple(dependencies), retries)
         self.orchestrator.queue.add(task)
         return task
 
     def run_tasks(self, executor, *, max_steps=None):
-        """Execute queued tasks through an explicitly supplied host executor."""
         if max_steps is not None:
             if max_steps <= 0:
                 raise ValueError("max_steps must be positive")
@@ -108,7 +138,6 @@ class TARABrain:
         return self.agent.recall(query, limit=limit, min_score=min_score)
 
     def generate(self, prompt, *, max_new_tokens=32, temperature=1.0, top_k=None, top_p=None):
-        """Generate text through the model's non-autograd inference path."""
         if self.tokenizer is None:
             raise ValueError("a tokenizer is required for text generation")
         if max_new_tokens <= 0:
@@ -152,15 +181,32 @@ class TARABrain:
                 return index
         return selected[-1]
 
+    def build_reasoning_context(self, prompt, *, memory_limit=8, event_limit=8,
+                                temporal_limit=16, min_confidence=0.0):
+        """Assemble bounded multi-layer context for future reasoning modules."""
+        recalled = tuple(self.memory.retrieve(prompt, limit=memory_limit))
+        world = self.world_context(event_limit=event_limit)
+        temporal = self.temporal_context(limit=temporal_limit, min_confidence=min_confidence)
+        memory_text = "\n".join(str(item) for item in recalled) or "none"
+        return (
+            f"User/task: {prompt}\n\n"
+            f"Memory:\n{memory_text}\n\n"
+            f"{world.as_prompt_context()}\n\n"
+            f"{temporal.as_prompt_context()}"
+        )
+
     def respond(self, prompt, *, remember_key=None, importance=1.0, max_new_tokens=32,
                 temperature=1.0, top_k=None, top_p=None):
-        """Observe a prompt, retrieve related memory, then generate a response."""
-        self.observe(prompt, remember_key=remember_key, importance=importance)
+        """Observe a prompt, assemble bounded cognitive context, then generate."""
+        self.observe(prompt, remember_key=remember_key, importance=importance, source="user", kind="prompt")
         recalled = tuple(self.memory.retrieve(prompt))
-        text = self.generate(prompt, max_new_tokens=max_new_tokens, temperature=temperature,
+        context = self.build_reasoning_context(prompt)
+        text = self.generate(context, max_new_tokens=max_new_tokens, temperature=temperature,
                              top_k=top_k, top_p=top_p)
+        temporal_text = self.temporal_context().as_prompt_context()
         return BrainResponse(text=text, recalled=recalled,
-                             observations=tuple(self.engine.state.observations.recent()))
+                             observations=tuple(self.engine.state.observations.recent()),
+                             temporal_context=temporal_text)
 
     def verify_result(self, observed, expected):
         return self.agent.submit_result(observed, expected)
