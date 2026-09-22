@@ -4,57 +4,45 @@
 
 TARA is a research-first neural-network project built from mathematical and implementation fundamentals. The goal is a highly capable, inspectable artificial reasoning system that connects a neural language core with perception, memory, structured reasoning, advanced planning, intelligent tools, algorithm discovery, self-improvement, continual learning, reflection, autonomous tasks, scheduling, temporal context and an explicit world model.
 
-## Phase 27 — Advanced Continual Learning Complete
+## Phase 28 — Persistent Cognitive Memory Complete
 
-Phase 27 implements steps **165–172**:
+Phase 28 implements steps **173–180**:
 
-- **165 Verified replay orchestration** — learning examples are admitted only when verification is true.
-- **166 Deterministic normalization/deduplication** — examples receive stable fingerprints and provenance.
-- **167 Balanced replay sampling** — bounded importance-weighted sampling maintains domain coverage.
-- **168 Stability/plasticity measurement** — improvement and forgetting are measured separately.
-- **169 Catastrophic-forgetting diagnostics** — retained-skill degradation is quantified against a configurable budget.
-- **170 Evidence-gated promotion** — learning is rejected when forgetting exceeds the safety threshold or measurable progress is absent.
-- **171 Replay manifest generation** — reproducible replay batches can be fingerprinted and persisted.
-- **172 Brain integration** — `TARABrain` can build verified replay batches and evaluate learning promotion.
-
-`src/continual_learning_engine.py` adds an ML-oriented stability/plasticity layer without pretending that dataset construction equals model training. Actual parameter updates remain an explicit training operation. This keeps learning auditable: **verified data → replay sampling → train externally → evaluate retained skills → promotion gate**.
+- **173 Persistent memory records** — episodic and semantic memories have stable IDs, timestamps and provenance.
+- **174 Importance and salience** — memory strength combines explicit importance with access history and recency.
+- **175 Durable storage** — append-only JSONL persistence supports deterministic save/load and bounded recovery.
+- **176 Retrieval indexing** — lexical/token overlap plus salience provides explainable retrieval scoring.
+- **177 Memory consolidation** — repeated compatible memories can strengthen a canonical record.
+- **178 Conflict resolution** — contradictory memories remain auditable while a deterministic policy selects the active view.
+- **179 Forgetting / compaction** — low-value memories can be removed under an explicit retention budget.
+- **180 Brain integration** — `TARABrain` exposes persistent memory operations without coupling storage to model training.
 
 ## Architecture
 
 ```text
 Input / Perception
         ↓
-Working Memory → Long-Term Memory
+Working Memory → Persistent Cognitive Memory
+                    ├─ Episodic Memory
+                    ├─ Semantic Memory
+                    ├─ Salience / Recency
+                    ├─ Retrieval Index
+                    ├─ Consolidation
+                    ├─ Conflict Resolution
+                    └─ Bounded Forgetting
         ↓
-World Model → Temporal Context
+World Model → Temporal Context → Structured Reasoning
         ↓
-Structured Reasoning
+Advanced Planning → AI Tool Intelligence
         ↓
-Advanced Planning
+Algorithm Discovery → Self-Improvement → Continual Learning
         ↓
-AI Tool Intelligence
-        ↓
-Algorithm Discovery
-        ↓
-Self-Improvement Lab
-        ↓
-Continual Learning
-  ├─ Verified Replay
-  ├─ Deduplication / Provenance
-  ├─ Importance-weighted Sampling
-  ├─ Domain Balancing
-  ├─ Stability / Plasticity
-  ├─ Forgetting Diagnostics
-  └─ Evidence-gated Promotion
-        ↓
-Reflection → Goal Progress
-        ↓
-Autonomous Tasks → Scheduler → Resource Budget
+Reflection → Goal Progress → Autonomous Tasks → Scheduler
         ↓
 Neural Language Core
 ```
 
-The continual-learning layer deliberately separates **learning data selection** from **parameter updates**. A future learned replay policy can optimize sampling, but verification and forgetting gates remain explicit.
+Memory persistence is deliberately separate from learning: storing a memory does not train the model, and model-generated claims are not automatically promoted to trusted semantic knowledge.
 
 ## Roadmap
 
@@ -65,7 +53,7 @@ The continual-learning layer deliberately separates **learning data selection** 
 - Phase 25 — Algorithm Discovery: **149–156 complete**
 - Phase 26 — Self-Improvement: **157–164 complete**
 - Phase 27 — Continual Learning: **165–172 complete**
-- Phase 28 — Persistent Cognitive Memory: **173–180**
+- Phase 28 — Persistent Cognitive Memory: **173–180 complete**
 - Phase 29 — Learning From Experience: **181–188**
 - Phase 30 — Multimodal Perception: **189–197**
 - Phase 31 — Autonomous Research: **198–205**
