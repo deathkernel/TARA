@@ -1,9 +1,7 @@
 """Run TARA's real language model against deterministic capability cases.
 
-The runner adapts the model's text-generation interface to the capability
-benchmark. It intentionally performs inference only; it never trains or
-promotes a checkpoint. Evaluation uses greedy decoding so repeated runs are
-comparable.
+The runner adapts a checkpoint to the capability benchmark. It intentionally
+performs inference only; it never trains or promotes a checkpoint.
 """
 from __future__ import annotations
 
@@ -28,7 +26,7 @@ class ModelEvaluation:
 
 
 def model_fingerprint(model: Any, tokenizer: Any) -> str:
-    """Fingerprint model architecture and tokenizer configuration, not weights."""
+    """Fingerprint model architecture and tokenizer configuration."""
     config = getattr(model, "config", None)
     payload = {
         "model_type": type(model).__name__,
@@ -51,14 +49,19 @@ class ModelCapabilityRunner:
         self.max_new_tokens = max_new_tokens
 
     def generate(self, prompt: str) -> str:
+        import torch
+
         prompt_ids = self.tokenizer.encode(prompt)
         if not prompt_ids:
             raise ValueError("prompt must encode to at least one token")
         token_ids = list(prompt_ids)
-        for _ in range(self.max_new_tokens):
-            logits = self.model.forward_numeric(token_ids)[-1]
-            token_id = max(range(len(logits)), key=logits.__getitem__)
-            token_ids.append(token_id)
+        self.model.eval()
+        with torch.no_grad():
+            for _ in range(self.max_new_tokens):
+                context_ids = token_ids[-self.model.max_context :]
+                x = torch.tensor([context_ids], dtype=torch.long)
+                logits = self.model(x)[0, -1]
+                token_ids.append(int(torch.argmax(logits).item()))
         return self.tokenizer.decode(token_ids[len(prompt_ids):])
 
     def evaluate(self, cases: tuple[BenchmarkCase, ...], *, name: str = "tara-real-model") -> ModelEvaluation:
