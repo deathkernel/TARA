@@ -161,6 +161,20 @@ Phase 36 implements the validation and hardening layer that follows the architec
 
 Phase 36 is a hardening milestone, not a claim that every runtime behavior has been exhaustively proven. Full pytest/Rust execution is delegated to the repository's GitHub Actions environment.
 
+## Phase 37.1 — Intelligence Baseline Benchmark Started
+
+Phase 37 begins with measurement before model changes. This avoids treating architecture size or training loss as a proxy for intelligence.
+
+- **Benchmark case model** — each task has an ID, capability category, expected result, optional custom scorer and weight.
+- **Deterministic scoring** — exact and normalized-text scorers are provided, with strict `[0, 1]` validation for custom metrics.
+- **Category aggregation** — weighted overall and per-capability scores are reported.
+- **Failure capture** — solver exceptions become measured failed cases rather than crashing the entire benchmark.
+- **Stable fingerprints** — benchmark inputs and measured results receive SHA-256 fingerprints for experiment traceability.
+- **Regression gate** — candidate reports are compared against a baseline with explicit overall and category-drop tolerances.
+- **Smoke capability suite** — coding, reasoning, memory and planning categories provide a small deterministic starting benchmark.
+
+The benchmark executes only an injected solver. It does not grant permissions, run arbitrary generated programs, or silently train the neural model.
+
 ## Roadmap
 
 - Phase 21 — Perception & Temporal Awareness: **122–127 complete**
@@ -179,3 +193,4 @@ Phase 36 is a hardening milestone, not a claim that every runtime behavior has b
 - Phase 34 — Unified Cognitive Loop: **222–230 complete**
 - Phase 35 — TARA Core Integration: **231–240 complete**
 - Phase 36 — Deep Audit & Validation: **complete**
+- Phase 37 — Real Intelligence & Training: **37.1 baseline measurement complete; 37.2+ next**
