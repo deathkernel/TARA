@@ -20,11 +20,21 @@ class TaskScheduler:
 
     def run_due(self, executor, *, now: datetime | None = None):
         due = self.due_tasks(now)
-        queue = [TaskNode(task.task_id, task.description, priority=task.priority) for task in due]
+        queue = []
+        for task in due:
+            requested_retries = int(task.metadata.get("retries", 0)) if isinstance(task.metadata, dict) else 0
+            retries = min(max(0, requested_retries), self.budget.max_retries)
+            queue.append(TaskNode(task.task_id, task.description, priority=task.priority, retries=retries))
         orchestrator = AutonomousOrchestrator(max_steps=self.budget.max_tasks)
         orchestrator.queue.extend(queue)
         report = orchestrator.run(executor)
         if self.store:
-            remaining = [task for task in self.store.load() if task.task_id not in {item.task_id for item in due}]
+            completed_ids = {
+                event.task_id for event in report.events if event.status == "completed"
+            }
+            remaining = [
+                task for task in self.store.load()
+                if task.task_id not in completed_ids
+            ]
             self.store.save(remaining)
         return report
