@@ -79,15 +79,35 @@ class LearningBridge:
             self.memory.link(problem_id, "verified_knowledge", item_id)
         return item_id
 
+    @staticmethod
+    def _replay_payload(item: dict[str, Any]) -> dict[str, Any]:
+        """Normalize memory records into the trainer's problem/solution shape."""
+        content = item["content"]
+        if item["kind"] == "verified_knowledge":
+            return content
+        candidate = content["candidate"]
+        benchmark = content["benchmark"]
+        return {
+            "problem": candidate.get("problem", content.get("problem_id", "")),
+            "solution": candidate.get("source", ""),
+            "language": candidate.get("language", "unknown"),
+            "tests": benchmark.get("failures", []),
+            "correctness": benchmark.get("correctness", 0.0),
+            "runtime_ms": benchmark.get("runtime_ms", 0.0),
+            "verification": benchmark.get("verified", False),
+        }
+
     def export_verified_replay(self, path: str | Path, *, limit: int = 10000) -> int:
         """Export verified memory as deterministic JSONL training/replay data."""
-        records = self.memory.search(kind="verified_knowledge", verification="verified", limit=limit)
-        records.sort(key=lambda item: item["id"])
+        knowledge = self.memory.search(kind="verified_knowledge", verification="verified", limit=limit)
+        algorithms = self.memory.search(kind="verified_algorithm", verification="verified", limit=limit)
+        by_id = {item["id"]: item for item in (*knowledge, *algorithms)}
+        records = sorted(by_id.values(), key=lambda item: item["id"])[:limit]
         destination = Path(path)
         destination.parent.mkdir(parents=True, exist_ok=True)
         with destination.open("w", encoding="utf-8") as handle:
             for item in records:
-                handle.write(json.dumps(item["content"], ensure_ascii=False, sort_keys=True) + "\n")
+                handle.write(json.dumps(self._replay_payload(item), ensure_ascii=False, sort_keys=True) + "\n")
         return len(records)
 
     def export_failures(self, path: str | Path, *, limit: int = 10000) -> int:
