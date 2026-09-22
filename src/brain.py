@@ -1,8 +1,8 @@
 """Integrated, PC-free cognitive brain for TARA.
 
 The brain coordinates perception, memory, language generation, reasoning,
-verification and basic reflection. External actions remain behind explicit
-control boundaries.
+verification, reflection and bounded task orchestration. External actions
+remain behind explicit control boundaries.
 """
 
 from dataclasses import dataclass
@@ -10,11 +10,11 @@ import random
 from pathlib import Path
 
 from .agent import AgentLoop
+from .autonomous_orchestrator import AutonomousOrchestrator, TaskNode, TaskQueue
 from .goal_progress import GoalProgress
 from .integration import TARAEngine
 from .memory import LongTermMemory
 from .reflection_loop import ReflectionLoop
-from .tokenizer import CharTokenizer
 
 
 @dataclass(frozen=True)
@@ -30,7 +30,7 @@ class TARABrain:
     """Connect TARA's learned language core to explicit cognitive layers."""
 
     def __init__(self, model, tokenizer=None, *, engine=None, memory=None, seed=0,
-                 reflection=None, progress=None):
+                 reflection=None, progress=None, orchestrator=None):
         self.model = model
         self.tokenizer = tokenizer
         self.engine = TARAEngine() if engine is None else engine
@@ -38,13 +38,13 @@ class TARABrain:
         self.agent = AgentLoop(engine=self.engine, memory=self.memory)
         self.reflection = reflection or ReflectionLoop()
         self.progress = progress or GoalProgress()
+        self.orchestrator = orchestrator or AutonomousOrchestrator()
         self.rng = random.Random(seed)
 
     @classmethod
     def from_checkpoint(cls, path: str | Path, *, engine=None, memory=None, seed=0):
         """Build a brain directly from a trained PyTorch TARA checkpoint."""
         from .model_runtime import load_checkpoint
-
         model, tokenizer = load_checkpoint(path)
         return cls(model, tokenizer, engine=engine, memory=memory, seed=seed)
 
@@ -70,6 +70,26 @@ class TARABrain:
     def reflect(self, goal):
         return self.reflection.reflect(goal)
 
+    def add_task(self, task_id, description, *, priority=0, dependencies=(), retries=0):
+        """Add a bounded task to the Phase 18 orchestrator."""
+        task = TaskNode(task_id, description, priority, tuple(dependencies), retries)
+        self.orchestrator.queue.add(task)
+        return task
+
+    def run_tasks(self, executor, *, max_steps=None):
+        """Execute queued tasks through an explicitly supplied host executor."""
+        if max_steps is not None:
+            if max_steps <= 0:
+                raise ValueError("max_steps must be positive")
+            self.orchestrator.max_steps = max_steps
+        return self.orchestrator.run(executor)
+
+    def stop_tasks(self):
+        self.orchestrator.stop()
+
+    def resume_tasks(self):
+        self.orchestrator.resume()
+
     def recall(self, query, limit=None, min_score=0.0):
         return self.agent.recall(query, limit=limit, min_score=min_score)
 
@@ -83,11 +103,9 @@ class TARABrain:
             raise ValueError("temperature must be positive")
         if top_p is not None and not 0.0 < top_p <= 1.0:
             raise ValueError("top_p must be in (0, 1]")
-
         token_ids = self.tokenizer.encode(prompt)
         if not token_ids:
             raise ValueError("prompt must encode to at least one token")
-
         for _ in range(max_new_tokens):
             if top_p is None:
                 token_id = self.model.sample_next_token(token_ids, temperature=temperature, top_k=top_k, rng=self.rng)
@@ -98,7 +116,6 @@ class TARABrain:
 
     def _sample_top_p(self, token_ids, temperature, top_p):
         import math
-
         logits = list(self.model.forward_numeric(token_ids)[-1])
         scaled = [value / temperature for value in logits]
         maximum = max(scaled)
