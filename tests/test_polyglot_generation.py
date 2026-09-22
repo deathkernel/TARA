@@ -11,6 +11,12 @@ def test_parse_candidate_from_fenced_python():
     assert candidate.source == "print('ok')\n"
 
 
+def test_parse_candidate_uses_final_fence_after_prompt_example():
+    output = "Prompt example:\n```python\n<complete program>\n```\nGenerated:\n```python\nprint('real')\n```"
+    candidate = parse_candidate(output, "sorting")
+    assert candidate.source == "print('real')\n"
+
+
 def test_parse_candidate_rejects_unfenced_output():
     try:
         parse_candidate("python: print('ok')", "sorting")
