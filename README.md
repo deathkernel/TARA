@@ -62,6 +62,21 @@ Phase 30 implements steps **189–197**:
 
 This phase uses deterministic feature hashing and attention-inspired fusion as infrastructure. It does **not** claim that TARA already contains a trained vision, speech-recognition or audio-understanding model.
 
+## Phase 31 — Autonomous Research Complete
+
+Phase 31 implements steps **198–205**:
+
+- **198 Research question decomposition** — questions become bounded prioritized sub-queries.
+- **199 Source collection boundary** — research providers are injected through an explicit interface, preserving provenance.
+- **200 Evidence extraction** — relevant source sentences become traceable evidence items.
+- **201 Source quality signals** — authority metadata participates in evidence weighting.
+- **202 Cross-source verification** — corroboration, contradiction and unresolved evidence are tracked separately.
+- **203 Hypothesis generation** — supported findings become confidence-scored hypotheses rather than unqualified facts.
+- **204 Auditable research report** — sources, evidence IDs, findings, uncertainties and deterministic fingerprints are retained.
+- **205 Brain integration** — `TARABrain.conduct_research()` exposes the bounded research loop.
+
+The phase is deliberately uncertainty-aware: retrieval does not equal truth, and contradictory sources remain visible instead of being silently discarded.
+
 ## Roadmap
 
 - Phase 21 — Perception & Temporal Awareness: **122–127 complete**
@@ -74,7 +89,7 @@ This phase uses deterministic feature hashing and attention-inspired fusion as i
 - Phase 28 — Persistent Cognitive Memory: **173–180 complete**
 - Phase 29 — Learning From Experience: **181–188 complete**
 - Phase 30 — Multimodal Perception: **189–197 complete**
-- Phase 31 — Autonomous Research: **198–205**
+- Phase 31 — Autonomous Research: **198–205 complete**
 - Phase 32 — Scientific Experiment Engine: **206–213**
 - Phase 33 — Architecture Self-Optimization: **214–221**
 - Phase 34 — Unified Cognitive Loop: **222–230**
