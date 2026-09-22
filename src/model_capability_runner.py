@@ -5,7 +5,7 @@ performs inference only; it never trains or promotes a checkpoint.
 """
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 import hashlib
 import json
 from pathlib import Path
@@ -20,6 +20,7 @@ class ModelEvaluation:
     benchmark: BenchmarkReport
     model_fingerprint: str
     fingerprint: str
+    observations: dict[str, str] = field(default_factory=dict)
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -66,12 +67,23 @@ class ModelCapabilityRunner:
 
     def evaluate(self, cases: tuple[BenchmarkCase, ...], *, name: str = "tara-real-model") -> ModelEvaluation:
         benchmark = IntelligenceBenchmark(name, cases)
-        report = benchmark.run(self.generate)
+        observations: dict[str, str] = {}
+        for case in cases:
+            try:
+                observations[case.case_id] = self.generate(case.prompt)
+            except Exception as exc:
+                observations[case.case_id] = f"<execution-error:{type(exc).__name__}: {exc}>"
+
+        report = benchmark.run(observations.__getitem__)
         model_id = model_fingerprint(self.model, self.tokenizer)
         fingerprint = hashlib.sha256(
-            json.dumps({"model": model_id, "benchmark": report.fingerprint}, sort_keys=True).encode("utf-8")
+            json.dumps(
+                {"model": model_id, "benchmark": report.fingerprint, "observations": observations},
+                sort_keys=True,
+                default=str,
+            ).encode("utf-8")
         ).hexdigest()
-        return ModelEvaluation("in-memory", report, model_id, fingerprint)
+        return ModelEvaluation("in-memory", report, model_id, fingerprint, observations)
 
 
 def evaluate_checkpoint(
@@ -84,7 +96,7 @@ def evaluate_checkpoint(
     from .model_runtime import load_checkpoint
     model, tokenizer = load_checkpoint(path)
     evaluation = ModelCapabilityRunner(model, tokenizer, max_new_tokens=max_new_tokens).evaluate(cases, name=name)
-    return ModelEvaluation(str(path), evaluation.benchmark, evaluation.model_fingerprint, evaluation.fingerprint)
+    return ModelEvaluation(str(path), evaluation.benchmark, evaluation.model_fingerprint, evaluation.fingerprint, evaluation.observations)
 
 
 def write_evaluation(evaluation: ModelEvaluation, path: str | Path) -> Path:
