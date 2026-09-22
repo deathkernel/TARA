@@ -6,6 +6,7 @@ from .advanced_planning import AdaptivePlan, AdvancedPlanner, PlanAlternative, P
 from .agent import AgentLoop
 from .autonomous_orchestrator import AutonomousOrchestrator, TaskNode
 from .continual_learning_engine import ContinualLearningEngine, PromotionResult, ReplayBatch
+from .multimodal_perception import MultimodalContext, MultimodalObservation, MultimodalPerception
 from .event_router import EventRouter
 from .goal_progress import GoalProgress
 from .integration import TARAEngine
@@ -28,7 +29,7 @@ class TARABrain:
     def __init__(self, model, tokenizer=None, *, engine=None, memory=None, seed=0, reflection=None,
                  progress=None, orchestrator=None, world=None, events=None, temporal=None,
                  temporal_history=256, reasoner=None, planner=None, tools=None, improver=None,
-                 continual=None):
+                 continual=None, multimodal=None):
         self.model = model
         self.tokenizer = tokenizer
         self.engine = TARAEngine() if engine is None else engine
@@ -45,6 +46,7 @@ class TARABrain:
         self.tools = tools or ToolIntelligence()
         self.improver = improver or SelfImprovementLab()
         self.continual = continual or ContinualLearningEngine(seed=seed)
+        self.multimodal = multimodal or MultimodalPerception()
         self.rng = random.Random(seed)
 
     @classmethod
@@ -54,6 +56,12 @@ class TARABrain:
         return cls(model, tokenizer, engine=engine, memory=memory, seed=seed)
 
     def build_replay(self, records) -> ReplayBatch: return self.continual.build_replay(records)
+    def perceive_multimodal(self, observations: list[MultimodalObservation]) -> MultimodalContext: return self.multimodal.perceive(observations)
+    def perceive_text(self, text: str, *, confidence=1.0) -> MultimodalObservation: return self.multimodal.text(text, confidence=confidence)
+    def perceive_document(self, text: str, *, path="", confidence=1.0) -> MultimodalObservation: return self.multimodal.document(text, path=path, confidence=confidence)
+    def perceive_image(self, data: bytes, *, confidence=0.8) -> MultimodalObservation: return self.multimodal.image(data, confidence=confidence)
+    def perceive_audio(self, data: bytes, *, confidence=0.7) -> MultimodalObservation: return self.multimodal.audio(data, confidence=confidence)
+    def perceive_screen(self, elements, *, confidence=0.9) -> MultimodalObservation: return self.multimodal.screen(elements, confidence=confidence)
     def evaluate_learning(self, baseline, current) -> PromotionResult: return self.continual.evaluate(baseline, current)
 
     def observe(self, observation, *, remember_key=None, importance=1.0, confidence=1.0, source="agent", kind="observation", timestamp=None):
