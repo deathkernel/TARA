@@ -69,43 +69,54 @@ The baseline includes:
 
 This is a **basic architecture skeleton, not a claim of human-level intelligence**. The existing Transformer/language-model, memory, reasoning, agent, verification, polyglot algorithm-discovery and scientific-evaluation implementations remain the places where capability is developed. The basic brain gives them a single conceptual architecture to grow into.
 
-Example:
-
-```python
-from src.basic_brain import BasicTARABrain, ToolRegistry
-
-registry = ToolRegistry()
-registry.register("add", lambda a, b: a + b)
-brain = BasicTARABrain(tool_registry=registry)
-
-result = brain.run_cycle(
-    "calculate 2 + 3",
-    goal="calculate the result",
-    subtasks=["parse input", "calculate", "verify"],
-    tool="add",
-    tool_kwargs={"a": 2, "b": 3},
-    expected=5,
-    verify=True,
-)
-
-assert result.verification.passed
-assert result.learned
-```
-
-The tool layer is default-deny: the brain cannot execute an unregistered command. The research boundary similarly requires the host to inject a provider. Arbitrary model-generated programs are not executed through this baseline.
-
 ## Dataset and training pipeline
 
-Phase 13 now starts the **basic data layer**. `src/dataset_pipeline.py` can ingest local JSON, JSONL and text files as well as HTTP(S) JSON/JSONL endpoints. It normalizes records, removes duplicate examples, records source provenance, computes a dataset fingerprint and writes a JSONL corpus with a manifest.
+Phase 13 starts the **basic data layer**. `src/dataset_pipeline.py` can ingest local JSON, JSONL and text files as well as HTTP(S) JSON/JSONL endpoints. It normalizes records, removes duplicate examples, records source provenance, computes a dataset fingerprint and writes a JSONL corpus with a manifest.
 
-Use the preparation CLI like this:
+Phase 14 adds the explicit PyTorch training pipeline in `src/training_pipeline.py`. It handles deterministic train/validation splitting, tokenizer creation/reuse, model initialization, AdamW, gradient clipping, validation loss, checkpoint metadata and safe resume. `train_algorithm_lm.py` is the command-line entry point.
 
-```bash
-python prepare_dataset.py data/your_dataset.jsonl --output data/tara_training.jsonl
-python prepare_dataset.py https://example.org/dataset.jsonl --output data/tara_training.jsonl
+Phase 15 adds controlled continual learning in `src/continual_learning.py`: only verified knowledge can enter the replay buffer, replay is bounded and deterministic, duplicate examples are removed, and a base corpus can be mixed with a controlled replay ratio. The same phase adds `MemoryConsolidator`, which uses the existing access-count and importance signals to deterministically remove low-value long-term memories without inventing or rewriting memories.
+
+The API is only a transport/source. The model is trained on prepared examples. External data is not automatically treated as trusted knowledge.
+
+## Phase 15 — Continual Learning
+
+The continual-learning loop is intentionally explicit:
+
+```text
+Verified benchmark result
+        ↓
+Verified knowledge JSONL
+        ↓
+Replay buffer
+        ↓
+Bounded + deduplicated replay
+        ↓
+Base corpus + replay mixture
+        ↓
+TrainingPipeline
+        ↓
+Checkpoint
+        ↓
+TARA Brain
+        ↓
+New verified results
+        ↺
 ```
 
-The API is only a transport/source. The model is trained on the prepared examples. External data is not automatically treated as trusted knowledge; future training stages will add stronger licensing, quality, safety, contamination and evaluation gates before promotion into TARA's learning corpus.
+Memory consolidation is separate from model training:
+
+```text
+Long-term memory
+      ↓
+access + importance signals
+      ↓
+MemoryConsolidator
+      ↓
+retain useful / forget low-use memories
+```
+
+This is a continual-learning **mechanism**, not a claim that the model automatically becomes smarter after every interaction. Actual training remains an explicit operation, and only verified knowledge is promoted into replay.
 
 ## Completed AI/model layers
 
@@ -142,12 +153,15 @@ The API is only a transport/source. The model is trained on the prepared example
 - Candidate archive, structural similarity and verified-knowledge extraction
 - Basic complete cognitive architecture in `src/basic_brain.py`
 - Basic dataset ingestion, normalization, deduplication, provenance and manifest generation
+- Explicit PyTorch training pipeline with validation, checkpointing and resume
+- Verified bounded replay and continual-learning corpus construction
+- Deterministic long-term-memory consolidation
 
 The language model is intentionally small and CPU-friendly. TARA is an educational/research implementation of the underlying mechanisms, not a reproduction of GPT, Gemini, or any frontier model.
 
 ## Scientific scaling
 
-Phase 10 now has a matched-budget experiment comparing the tiny and PC-oriented scaled profiles. The protocol keeps corpus construction, tokenizer training, seed, batch size, context length, optimizer family, learning-rate schedule, gradient clipping and update count aligned. It records parameter count, token-budget proxy, train/validation loss, held-out loss/accuracy and gradient statistics.
+Phase 10 has a matched-budget experiment comparing the tiny and PC-oriented scaled profiles. The protocol keeps corpus construction, tokenizer training, seed, batch size, context length, optimizer family, learning-rate schedule, gradient clipping and update count aligned. It records parameter count, token-budget proxy, train/validation loss, held-out loss/accuracy and gradient statistics.
 
 Run it with:
 
@@ -184,10 +198,17 @@ python -m pytest -q
 python prepare_dataset.py data/your_dataset.jsonl --output data/tara_training.jsonl
 python train_xor.py
 python train_tiny_lm.py
+python train_algorithm_lm.py --data data/algorithm_tasks.jsonl --output checkpoints/algorithm_lm.pt
 python experiments/scaled_lm_diagnostics.py
 python experiments/train_scaled_lm.py
 python experiments/heldout_generalization.py
 python experiments/scientific_scaling.py
+```
+
+For verified knowledge replay:
+
+```bash
+python -c "from src.continual_learning import VerifiedReplayBuffer; print(VerifiedReplayBuffer().build('data/verified_knowledge.jsonl', 'data/replay.jsonl'))"
 ```
 
 ## Roadmap
@@ -311,15 +332,34 @@ The current repository has both the detailed AI/model foundation and a complete 
 77. ⬜ Continual-learning/replay pipeline
 78. ⬜ Training/evaluation acceptance gate
 
-### Phase 14 — PC Automation / Tools — intentionally deferred
+### Phase 14 — Training Integration
+
+79. ✅ TrainingPipeline dataset → model integration
+80. ✅ Deterministic validation split and loss evaluation
+81. ✅ Self-contained training checkpoint metadata
+82. ✅ Resume with dataset/tokenizer/model compatibility checks
+83. ✅ Trained checkpoint → TARA brain handoff
+
+### Phase 15 — Continual Learning & Memory Consolidation
+
+84. ✅ Verified-only replay buffer
+85. ✅ Bounded deterministic replay selection
+86. ✅ Deduplicated continual-learning corpus construction
+87. ✅ Configurable base/replay mixing ratio
+88. ✅ Access/importance-driven memory consolidation
+89. ⬜ Replay-aware training acceptance gate
+90. ⬜ Catastrophic-forgetting benchmark
+91. ⬜ Automatic knowledge-promotion policy based on repeated verification
+
+### Phase 16 — PC Automation / Tools — intentionally deferred
 
 Only after the AI/model architecture is complete and final validation is run:
 
-79. ⬜ File tools
-80. ⬜ Terminal tools
-81. ⬜ Application/browser tools
-82. ⬜ Controlled keyboard/mouse interaction
-83. ⬜ Tool selection and execution verification
-84. ⬜ Emergency stop / rollback where possible
+92. ⬜ File tools
+93. ⬜ Terminal tools
+94. ⬜ Application/browser tools
+95. ⬜ Controlled keyboard/mouse interaction
+96. ⬜ Tool selection and execution verification
+97. ⬜ Emergency stop / rollback where possible
 
 TARA stays intentionally small and inspectable. The objective is to understand and implement the core mechanisms ourselves, validate them mathematically and empirically, then connect them into a useful reasoning-and-tool system rather than imitate frontier-model scale.
