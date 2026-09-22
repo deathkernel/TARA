@@ -4,6 +4,20 @@
 
 TARA is a research-first neural-network project built from mathematical and implementation fundamentals. The goal is a highly capable, inspectable artificial reasoning system that connects a neural language core with perception, memory, structured reasoning, advanced planning, intelligent tools, algorithm discovery, self-improvement, continual learning, reflection, autonomous tasks, scheduling, temporal context and an explicit world model.
 
+## Phase 37.3 — Training Hardening Complete
+
+Phase 37.3 connects the training-control layer to the real PyTorch pipeline:
+
+- **Gradient accumulation** — optimizer updates can aggregate multiple micro-batches while keeping the configured batch size bounded.
+- **Warmup + cosine decay** — learning rate is scheduled per optimizer update with a configurable minimum ratio.
+- **Validation early stopping** — validation loss drives explicit patience/min-delta stopping decisions.
+- **Append-only experiment tracking** — training metrics are persisted as JSONL with a stable SHA-256 fingerprint.
+- **Checkpoint continuity** — checkpoint format 2 stores hardening configuration, scheduler progress, early-stopping state and metric fingerprint.
+- **Resume safety** — incompatible dataset fingerprints, model configuration or training controls are rejected rather than silently mixing experiments.
+- **CLI controls** — `train_algorithm_lm.py` exposes accumulation, scheduler, early-stopping and metrics-path options.
+
+Actual model training remains an explicit offline operation. This phase implements the controls; it does not claim that a new model has already been trained.
+
 ## Phase 37.2 — Dataset Intelligence Audit Complete
 
 Phase 37.2 adds a deterministic audit boundary before training:
@@ -60,7 +74,7 @@ Algorithm Discovery → Self-Improvement → Continual Learning
         ↓
 Reflection → Goal Progress → Autonomous Tasks → Scheduler
         ↓
-Neural Language Core
+Neural Language Core → Training Controls → Intelligence Benchmarks
 ```
 
 Memory persistence is deliberately separate from learning, and model training is never silently triggered by runtime orchestration.
@@ -83,4 +97,4 @@ Memory persistence is deliberately separate from learning, and model training is
 - Phase 34 — Unified Cognitive Loop: **222–230 complete**
 - Phase 35 — TARA Core Integration: **231–240 complete**
 - Phase 36 — Deep Audit & Validation: **complete**
-- Phase 37 — Real Intelligence & Training: **37.1 baseline measurement + 37.2 dataset audit complete; 37.3 next**
+- Phase 37 — Real Intelligence & Training: **37.1 + 37.2 + 37.3 complete**
