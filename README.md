@@ -23,6 +23,33 @@ python training_preflight.py --data data/algorithm_tasks.jsonl --context 128
 
 A successful preflight means the repository prerequisites are satisfied. It does **not** mean that training has already happened or that the resulting model will be capable; those require an actual training run and measured evaluation.
 
+## Public curriculum dataset pipeline
+
+TARA now has a bounded public-dataset acquisition layer. It streams selected Hugging Face datasets instead of downloading entire multi-terabyte corpora, then applies text-length filtering, deterministic shuffling, cross-source deduplication, provenance/license metadata and a reproducible fingerprint.
+
+The current curriculum manifest is in `data/dataset_sources.json`.
+
+### Basic level
+
+- **FineWeb-Edu** — educational web text for general language and knowledge learning.
+- **GSM8K** — mathematical word-problem reasoning.
+- **TinyStories** — optional small-language-model warm-up corpus.
+
+### Advanced level
+
+- **FineWeb** — broad English web pretraining data.
+- **The Stack v2 Smol** — advanced code data; source licenses and upstream terms must be respected.
+
+Prepare a bounded Basic v1 sample without downloading an entire corpus:
+
+```bash
+python prepare_tara_dataset.py --level basic --max-records-per-source 1000 --output data/basic_v1.jsonl
+```
+
+The resulting JSONL is directly consumable by the existing training pipeline because each curated record contains a `text` field. The preparation command is an explicit data operation; it does not start model training.
+
+The public source manifest records dataset identity, organization, role and stated licensing information. Downstream use must still follow each upstream dataset's current terms and provenance requirements.
+
 ## Phase 37.11 — Single-Command Learning Pipeline Complete
 
 `run_learning_experiment.py` connects baseline evaluation, explicit training, candidate evaluation and evidence-gated promotion into one reproducible workflow.
