@@ -1,8 +1,8 @@
 """Integrated cognitive brain for TARA.
 
-The brain coordinates perception, memory, language generation, temporal
-context, reasoning, verification, reflection and bounded task orchestration.
-External actions remain behind explicit control boundaries.
+The brain coordinates perception, memory, language generation, structured
+reasoning, temporal context, verification, reflection and bounded task
+orchestration. External actions remain behind explicit control boundaries.
 """
 
 from dataclasses import dataclass
@@ -16,14 +16,13 @@ from .goal_progress import GoalProgress
 from .integration import TARAEngine
 from .memory import LongTermMemory
 from .reflection_loop import ReflectionLoop
-from .temporal_perception import NormalizedObservation, TemporalContext, TemporalPerception
+from .structured_reasoning import ReasoningState, StructuredReasoner
+from .temporal_perception import TemporalContext, TemporalPerception
 from .world_state import WorldContext, WorldModel
 
 
 @dataclass(frozen=True)
 class BrainResponse:
-    """A generated response plus the cognitive context used to produce it."""
-
     text: str
     recalled: tuple = ()
     observations: tuple = ()
@@ -35,7 +34,7 @@ class TARABrain:
 
     def __init__(self, model, tokenizer=None, *, engine=None, memory=None, seed=0,
                  reflection=None, progress=None, orchestrator=None, world=None,
-                 events=None, temporal=None, temporal_history=256):
+                 events=None, temporal=None, temporal_history=256, reasoner=None):
         self.model = model
         self.tokenizer = tokenizer
         self.engine = TARAEngine() if engine is None else engine
@@ -47,6 +46,7 @@ class TARABrain:
         self.world = world or WorldModel()
         self.events = events or EventRouter(self.world)
         self.temporal = temporal or TemporalPerception(max_history=temporal_history)
+        self.reasoner = reasoner or StructuredReasoner()
         self.rng = random.Random(seed)
 
     @classmethod
@@ -57,40 +57,37 @@ class TARABrain:
 
     def observe(self, observation, *, remember_key=None, importance=1.0, confidence=1.0,
                 source="agent", kind="observation", timestamp=None):
-        """Record an observation in memory, world events and temporal perception."""
         result = self.agent.observe(observation, remember_key=remember_key, importance=importance)
-        normalized = self.temporal.ingest(
-            observation, source=source, kind=kind, confidence=confidence, timestamp=timestamp
-        )
-        self.events.emit(
-            "observation",
-            value=observation,
-            observation_id=normalized.observation_id,
-            confidence=normalized.confidence,
-            timestamp=normalized.timestamp,
-        )
+        normalized = self.temporal.ingest(observation, source=source, kind=kind,
+                                          confidence=confidence, timestamp=timestamp)
+        self.events.emit("observation", value=observation,
+                         observation_id=normalized.observation_id,
+                         confidence=normalized.confidence, timestamp=normalized.timestamp)
         return result
 
     def observe_perception(self, observation, *, source="perception", kind="observation",
                            confidence=1.0, timestamp=None, remember_key=None, importance=1.0):
-        """Ingest a canonical perception event and synchronize the cognitive layers."""
-        normalized = self.temporal.ingest(
-            observation, source=source, kind=kind, confidence=confidence, timestamp=timestamp
-        )
+        normalized = self.temporal.ingest(observation, source=source, kind=kind,
+                                          confidence=confidence, timestamp=timestamp)
         self.agent.observe(normalized.content, remember_key=remember_key, importance=importance)
-        self.events.emit(
-            "perception",
-            observation_id=normalized.observation_id,
-            source=normalized.source,
-            kind=normalized.kind,
-            content=normalized.content,
-            confidence=normalized.confidence,
-            timestamp=normalized.timestamp,
-        )
+        self.events.emit("perception", observation_id=normalized.observation_id,
+                         source=normalized.source, kind=normalized.kind,
+                         content=normalized.content, confidence=normalized.confidence,
+                         timestamp=normalized.timestamp)
         return normalized
 
     def temporal_context(self, *, limit=16, min_confidence=0.0) -> TemporalContext:
         return self.temporal.context(limit=limit, min_confidence=min_confidence)
+
+    def reason(self, goal, *, facts=(), assumptions=(), hypotheses=(), evidence=(), required_claim_ids=()):
+        """Run an inspectable structured reasoning cycle and retain its state."""
+        state = self.reasoner.start(goal)
+        return self.reasoner.reason(state, facts=facts, assumptions=assumptions,
+                                     hypotheses=hypotheses, evidence=evidence,
+                                     required_claim_ids=required_claim_ids)
+
+    def verify_reasoning(self, state: ReasoningState, *, required_claim_ids=()):
+        return self.reasoner.verifier.verify(state, required_claim_ids=required_claim_ids)
 
     def observe_world(self, event_type, **data):
         return self.events.emit(event_type, **data)
@@ -183,30 +180,24 @@ class TARABrain:
 
     def build_reasoning_context(self, prompt, *, memory_limit=8, event_limit=8,
                                 temporal_limit=16, min_confidence=0.0):
-        """Assemble bounded multi-layer context for future reasoning modules."""
         recalled = tuple(self.memory.retrieve(prompt, limit=memory_limit))
         world = self.world_context(event_limit=event_limit)
         temporal = self.temporal_context(limit=temporal_limit, min_confidence=min_confidence)
         memory_text = "\n".join(str(item) for item in recalled) or "none"
-        return (
-            f"User/task: {prompt}\n\n"
-            f"Memory:\n{memory_text}\n\n"
-            f"{world.as_prompt_context()}\n\n"
-            f"{temporal.as_prompt_context()}"
-        )
+        return (f"User/task: {prompt}\n\nMemory:\n{memory_text}\n\n"
+                f"{world.as_prompt_context()}\n\n{temporal.as_prompt_context()}")
 
     def respond(self, prompt, *, remember_key=None, importance=1.0, max_new_tokens=32,
                 temperature=1.0, top_k=None, top_p=None):
-        """Observe a prompt, assemble bounded cognitive context, then generate."""
-        self.observe(prompt, remember_key=remember_key, importance=importance, source="user", kind="prompt")
+        self.observe(prompt, remember_key=remember_key, importance=importance,
+                     source="user", kind="prompt")
         recalled = tuple(self.memory.retrieve(prompt))
         context = self.build_reasoning_context(prompt)
         text = self.generate(context, max_new_tokens=max_new_tokens, temperature=temperature,
                              top_k=top_k, top_p=top_p)
-        temporal_text = self.temporal_context().as_prompt_context()
         return BrainResponse(text=text, recalled=recalled,
                              observations=tuple(self.engine.state.observations.recent()),
-                             temporal_context=temporal_text)
+                             temporal_context=self.temporal_context().as_prompt_context())
 
     def verify_result(self, observed, expected):
         return self.agent.submit_result(observed, expected)
