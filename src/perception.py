@@ -1,18 +1,15 @@
-"""Small, dependency-free perception primitives for TARA.
+"""Perception primitives for TARA.
 
-Research basis:
-- Modern multimodal systems separate input perception from downstream
-  reasoning. TARA starts with inspectable file/document and system-state
-  representations rather than a learned vision model.
-
-The module deliberately does not execute commands or automate the PC. It
-only converts observable inputs into bounded structured state that later
-reasoning components can consume.
+Perception remains separate from action: this module converts observable input
+into bounded structured representations. TemporalPerception adds a canonical
+confidence-aware stream for downstream reasoning.
 """
 
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping
+
+from .temporal_perception import NormalizedObservation, ObservationNormalizer, TemporalContext, TemporalPerception
 
 
 @dataclass(frozen=True)
@@ -66,11 +63,7 @@ def perceive_system_state(facts):
 
 
 def summarize_screen_state(elements):
-    """Create a deterministic text summary from observed screen elements.
-
-    ``elements`` is an iterable of mappings with an optional ``type``,
-    ``label`` and ``text``. No screenshot capture or UI interaction occurs.
-    """
+    """Create a deterministic text summary from observed screen elements."""
     if elements is None:
         raise ValueError("elements must not be None")
     summaries = []
@@ -83,3 +76,15 @@ def summarize_screen_state(elements):
         detail = " ".join(part for part in (label, text) if part)
         summaries.append(f"{kind}: {detail}" if detail else kind)
     return "\n".join(summaries)
+
+
+def normalize_observation(value, **kwargs) -> NormalizedObservation:
+    """Convert one adapter payload into TARA's canonical observation type."""
+    return ObservationNormalizer().normalize(value, **kwargs)
+
+
+def build_temporal_context(observations, *, limit=16, min_confidence=0.0) -> TemporalContext:
+    """Order and bound observations for reasoning."""
+    engine = TemporalPerception(max_history=max(limit, 1))
+    engine.ingest_many(observations)
+    return engine.context(limit=limit, min_confidence=min_confidence)
