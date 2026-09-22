@@ -77,6 +77,21 @@ Phase 31 implements steps **198–205**:
 
 The phase is deliberately uncertainty-aware: retrieval does not equal truth, and contradictory sources remain visible instead of being silently discarded.
 
+## Phase 32 — Scientific Experiment Engine Complete
+
+Phase 32 implements steps **206–213**:
+
+- **206 Hypothesis-driven experiment design** — independent variables expand into bounded experimental conditions with explicit controls.
+- **207 Reproducible execution** — every trial receives a deterministic seed and records its condition, repetition and measurements.
+- **208 Measurement validation** — non-finite or malformed measurements are rejected at the execution boundary.
+- **209 Statistical summaries** — mean, standard deviation, standard error and bootstrap confidence intervals are calculated per metric.
+- **210 Effect analysis** — treatment-vs-control differences, relative change and standardized effect size are computed.
+- **211 Evidence-aware conclusions** — confidence intervals determine positive, negative or uncertain effect direction.
+- **212 Replication checking** — independent reports can be compared for design compatibility and effect-direction agreement.
+- **213 Brain integration** — `TARABrain.run_experiment()` exposes the bounded experiment engine.
+
+The engine keeps experiment execution as an injected callable. It provides scientific measurement and reproducibility infrastructure without silently executing arbitrary programs or claiming causal certainty beyond the collected data.
+
 ## Roadmap
 
 - Phase 21 — Perception & Temporal Awareness: **122–127 complete**
@@ -90,7 +105,7 @@ The phase is deliberately uncertainty-aware: retrieval does not equal truth, and
 - Phase 29 — Learning From Experience: **181–188 complete**
 - Phase 30 — Multimodal Perception: **189–197 complete**
 - Phase 31 — Autonomous Research: **198–205 complete**
-- Phase 32 — Scientific Experiment Engine: **206–213**
+- Phase 32 — Scientific Experiment Engine: **206–213 complete**
 - Phase 33 — Architecture Self-Optimization: **214–221**
 - Phase 34 — Unified Cognitive Loop: **222–230**
 - Phase 35 — TARA Core Integration: **231–240**
