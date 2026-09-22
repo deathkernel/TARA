@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Iterable
 
 from .benchmark import BenchmarkResult
+from .candidate import PolyglotCandidate
 from .problems import get_problem
 
 
@@ -64,30 +65,21 @@ class KnowledgeExtractor:
                 records.setdefault(record.fingerprint, record)
         return tuple(records.values())
 
-    def export_jsonl(
-        self,
-        records: Iterable[KnowledgeRecord],
-        path: str | Path,
-    ) -> int:
-        """Write deterministic JSONL suitable for ``train_algorithm_lm.py``."""
+    def export_jsonl(self, records: Iterable[KnowledgeRecord], path: str | Path) -> int:
+        """Write JSONL compatible with ``train_algorithm_lm.py``."""
         destination = Path(path)
         destination.parent.mkdir(parents=True, exist_ok=True)
         records = tuple(records)
         with destination.open("w", encoding="utf-8") as handle:
             for record in records:
-                payload = asdict(record)
-                # Keep the existing trainer contract while preserving provenance.
-                handle.write(json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n")
+                handle.write(json.dumps(asdict(record), ensure_ascii=False, sort_keys=True) + "\n")
         return len(records)
 
     def export_archive(self, archive, path: str | Path, problem: str | None = None) -> int:
         """Export verified archive records without executing archived source."""
         results: list[BenchmarkResult] = []
         for item in archive.history(problem):
-            candidate_data = item["candidate"]
-            candidate = __import__(
-                "src.polyglot.candidate", fromlist=["PolyglotCandidate"]
-            ).PolyglotCandidate(**candidate_data)
+            candidate = PolyglotCandidate(**item["candidate"])
             benchmark = item["benchmark"]
             results.append(
                 BenchmarkResult(
