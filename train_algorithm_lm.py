@@ -1,12 +1,16 @@
 """CLI for training TARA's algorithm-language model.
 
 The implementation delegates dataset loading, validation, checkpointing and
-resume semantics to ``src.training_pipeline``. Training is still an explicit
-offline operation; running this script is what performs the actual training.
+resume semantics to ``src.training_pipeline``. Phase 15 optionally mixes a
+bounded, verified-only replay corpus into the base corpus before training.
+Training is still an explicit offline operation; running this script is what
+performs the actual training.
 """
 
 import argparse
+from pathlib import Path
 
+from src.continual_learning import ReplayCorpusBuilder
 from src.training_pipeline import TrainingConfig, TrainingPipeline
 
 
@@ -14,7 +18,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Train TARA's algorithm language model")
     parser.add_argument("--data", default="data/algorithm_tasks.jsonl")
     parser.add_argument("--output", default="checkpoints/algorithm_lm.pt")
-    parser.add_argument("--resume", default=None, help="resume from a Phase 14 checkpoint")
+    parser.add_argument("--resume", default=None, help="resume from a compatible checkpoint")
+    parser.add_argument("--replay-data", default=None, help="verified knowledge JSONL for continual-learning replay")
+    parser.add_argument("--replay-ratio", type=float, default=0.25)
     parser.add_argument("--steps", type=int, default=1000)
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--context", type=int, default=128)
@@ -29,6 +35,19 @@ def main() -> None:
     parser.add_argument("--grad-clip", type=float, default=1.0)
     parser.add_argument("--device", default=None, help="auto, cpu, or cuda")
     args = parser.parse_args()
+
+    data_path = Path(args.data)
+    replay_path = None
+    if args.replay_data:
+        replay_path = data_path.with_name(data_path.stem + ".replay.jsonl")
+        report = ReplayCorpusBuilder(replay_ratio=args.replay_ratio, seed=args.seed).merge(
+            data_path, args.replay_data, replay_path
+        )
+        print(
+            f"replay eligible={report.eligible_records} selected={report.selected_records} "
+            f"duplicates_removed={report.duplicates_removed} output={report.output_path}"
+        )
+        data_path = replay_path
 
     config = TrainingConfig(
         steps=args.steps,
@@ -46,7 +65,7 @@ def main() -> None:
     )
     device = None if args.device in (None, "auto") else args.device
     summary = TrainingPipeline(config, device=device).train(
-        data=args.data,
+        data=data_path,
         output=args.output,
         resume=args.resume,
     )
