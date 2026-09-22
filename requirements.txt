@@ -4,3 +4,4 @@ pyttsx3
 datasets
 pytest
 torch
+pyarrow
