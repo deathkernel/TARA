@@ -35,6 +35,38 @@ DATASETS = {
         text_field="text",
         role="less synthetic language modeling benchmark",
     ),
+    "fineweb_edu": DatasetSpec(
+        name="FineWeb-Edu",
+        dataset_id="HuggingFaceFW/fineweb-edu",
+        train_split="train",
+        validation_split=None,
+        text_field="text",
+        role="educational web text for general language and knowledge learning",
+    ),
+    "gsm8k": DatasetSpec(
+        name="GSM8K",
+        dataset_id="openai/gsm8k",
+        train_split="train",
+        validation_split="test",
+        text_field="question",
+        role="grade-school mathematical reasoning",
+    ),
+    "fineweb": DatasetSpec(
+        name="FineWeb",
+        dataset_id="HuggingFaceFW/fineweb",
+        train_split="train",
+        validation_split=None,
+        text_field="text",
+        role="broad large-scale English web pretraining data",
+    ),
+    "the_stack_v2_smol": DatasetSpec(
+        name="The Stack v2 Smol",
+        dataset_id="bigcode/the-stack-v2-train-smol",
+        train_split="train",
+        validation_split=None,
+        text_field="content",
+        role="advanced programming and repository-context code training",
+    ),
 }
 
 
@@ -57,7 +89,11 @@ def get_dataset_spec(name):
 def describe_dataset(name):
     """Return a serializable description for compatibility with older code."""
     spec = get_dataset_spec(name)
-    config = "wikitext-2-raw-v1" if name.strip().lower() == "wikitext2" else None
+    config = None
+    if name.strip().lower() == "wikitext2":
+        config = "wikitext-2-raw-v1"
+    elif name.strip().lower() == "gsm8k":
+        config = "main"
     return {
         "dataset_id": spec.dataset_id,
         "config": config,
@@ -90,20 +126,20 @@ def load_text_slice(name, max_chars=4096, split="train"):
             "Install it with: python -m pip install datasets"
         ) from exc
 
-    config = "wikitext-2-raw-v1" if name.strip().lower() == "wikitext2" else None
+    config = None
+    if name.strip().lower() == "wikitext2":
+        config = "wikitext-2-raw-v1"
+    elif name.strip().lower() == "gsm8k":
+        config = "main"
+
+    kwargs = {
+        "split": split,
+        "streaming": True,
+    }
     if config is None:
-        dataset = load_dataset(
-            spec.dataset_id,
-            split=split,
-            streaming=True,
-        )
+        dataset = load_dataset(spec.dataset_id, **kwargs)
     else:
-        dataset = load_dataset(
-            spec.dataset_id,
-            config,
-            split=split,
-            streaming=True,
-        )
+        dataset = load_dataset(spec.dataset_id, config, **kwargs)
 
     chunks = []
     total = 0
