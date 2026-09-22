@@ -4,6 +4,26 @@
 
 TARA is a research-first neural-network project built from mathematical and implementation fundamentals. The goal is a highly capable, inspectable artificial reasoning system that connects a neural language core with perception, memory, structured reasoning, advanced planning, intelligent tools, algorithm discovery, self-improvement, continual learning, reflection, autonomous tasks, scheduling, temporal context and an explicit world model.
 
+## Phase 37.8 — Real Model Capability Evaluation Complete
+
+Phase 37.8 connects the capability suite to an actual TARA checkpoint instead of only synthetic solvers:
+
+- **Real checkpoint loader** — evaluates checkpoints through the existing model runtime.
+- **Deterministic greedy inference** — capability measurements use reproducible decoding rather than sampling noise.
+- **21-case capability suite** — coding, reasoning, memory, planning, tool use, algorithms and learning are evaluated separately.
+- **Model/evaluation fingerprints** — architecture/tokenizer configuration and benchmark results are traceable.
+- **Dedicated CLI** — `evaluate_tara_capabilities.py <checkpoint>` runs the evaluation without training.
+- **Core integration** — `TARACore.evaluate_checkpoint(...)` exposes real-model evaluation through the top-level runtime.
+- **No promotion side effects** — evaluation is inference-only and cannot silently modify or promote a checkpoint.
+
+Example:
+
+```bash
+python evaluate_tara_capabilities.py checkpoints/algorithm_lm.pt --output experiments/tara-capability-baseline.json
+```
+
+A missing checkpoint is an execution prerequisite, not a reason to invent a score. The repository therefore reports real capability scores only after an actual checkpoint exists and the evaluation command has run.
+
 ## Phase 37.7 — Evidence-Gated Intelligence Improvement Complete
 
 Phase 37.7 closes the measurement-to-improvement loop without pretending that a benchmark failure automatically means a specific training method will fix it:
