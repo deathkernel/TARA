@@ -3,3 +3,4 @@ scikit-learn
 pyttsx3
 datasets
 pytest
+torch
