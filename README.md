@@ -92,6 +92,21 @@ Phase 32 implements steps **206–213**:
 
 The engine keeps experiment execution as an injected callable. It provides scientific measurement and reproducibility infrastructure without silently executing arbitrary programs or claiming causal certainty beyond the collected data.
 
+## Phase 33 — Architecture Self-Optimization Complete
+
+Phase 33 implements steps **214–221**:
+
+- **214 Architecture representation** — cognitive components, dependencies, criticality and tunable parameters are explicit.
+- **215 Architecture evaluation** — variants are measured through an injected evaluator using task quality, robustness, latency, memory, throughput and failures.
+- **216 Bottleneck detection** — quality, robustness, latency, memory and failure pressure are compared to identify the dominant constraint.
+- **217 Targeted architecture mutation** — bounded component toggles, compaction changes and verification-depth mutations are generated from the diagnosed bottleneck.
+- **218 Multi-objective utility** — optimization balances task quality, robustness, speed, memory, throughput and failure penalties.
+- **219 Regression gate** — candidates cannot be promoted when quality or robustness materially regresses.
+- **220 Iterative architecture search** — accepted variants become the next baseline for bounded optimization rounds.
+- **221 Brain integration** — `TARABrain.optimize_architecture()` exposes architecture optimization while keeping evaluation externally controlled.
+
+Architecture self-optimization is intentionally experiment-driven. TARA does not rewrite arbitrary source code or silently alter its running model; candidate architectures must be measured and pass the promotion gate.
+
 ## Roadmap
 
 - Phase 21 — Perception & Temporal Awareness: **122–127 complete**
@@ -106,6 +121,6 @@ The engine keeps experiment execution as an injected callable. It provides scien
 - Phase 30 — Multimodal Perception: **189–197 complete**
 - Phase 31 — Autonomous Research: **198–205 complete**
 - Phase 32 — Scientific Experiment Engine: **206–213 complete**
-- Phase 33 — Architecture Self-Optimization: **214–221**
+- Phase 33 — Architecture Self-Optimization: **214–221 complete**
 - Phase 34 — Unified Cognitive Loop: **222–230**
 - Phase 35 — TARA Core Integration: **231–240**
