@@ -10,6 +10,8 @@ from .multimodal_perception import MultimodalContext, MultimodalObservation, Mul
 from .autonomous_research import AutonomousResearchEngine, ResearchReport
 from .scientific_experiment import ExperimentDesign, ExperimentReport, ScientificExperimentEngine
 from .architecture_optimization import ArchitectureOptimizer, ArchitectureVariant, OptimizationResult
+from .experience_learning import ExperienceLearningEngine
+from .unified_cognitive_loop import ActionOutcome, ActionRequest, CognitiveLoopReport, UnifiedCognitiveLoop
 from .event_router import EventRouter
 from .goal_progress import GoalProgress
 from .integration import TARAEngine
@@ -32,7 +34,7 @@ class TARABrain:
     def __init__(self, model, tokenizer=None, *, engine=None, memory=None, seed=0, reflection=None,
                  progress=None, orchestrator=None, world=None, events=None, temporal=None,
                  temporal_history=256, reasoner=None, planner=None, tools=None, improver=None,
-                 continual=None, multimodal=None, researcher=None, experimenter=None, architecture_optimizer=None):
+                 continual=None, multimodal=None, researcher=None, experimenter=None, architecture_optimizer=None, cognitive_loop=None, experience_learning=None):
         self.model = model
         self.tokenizer = tokenizer
         self.engine = TARAEngine() if engine is None else engine
@@ -53,6 +55,16 @@ class TARABrain:
         self.researcher = researcher or AutonomousResearchEngine()
         self.experimenter = experimenter or ScientificExperimentEngine()
         self.architecture_optimizer = architecture_optimizer
+        self.experience_learning = experience_learning or ExperienceLearningEngine()
+        self.cognitive_loop = cognitive_loop or UnifiedCognitiveLoop(
+            reasoner=self.reasoner,
+            planner=self.planner,
+            tools=self.tools,
+            memory=self.memory,
+            reflection=self.reflection,
+            progress=self.progress,
+            learning=self.experience_learning,
+        )
         self.rng = random.Random(seed)
 
     @classmethod
@@ -75,6 +87,12 @@ class TARABrain:
         if engine is None:
             raise ValueError("an ArchitectureOptimizer with an injected evaluator is required")
         return engine.optimize(baseline, rounds=rounds, candidates_per_round=candidates_per_round)
+    def start_cognitive_loop(self, goal: str, subtasks, *, total=None): return self.cognitive_loop.start(goal, subtasks, total=total)
+    def cognitive_cycle(self, perception, *, action_executor, expected=None, required_capabilities=(), tool_facts=None): return self.cognitive_loop.cycle(perception, action_executor=action_executor, expected=expected, required_capabilities=required_capabilities, tool_facts=tool_facts)
+    def run_cognitive_loop(self, goal: str, subtasks, perceptions, *, action_executor, expected=None, required_capabilities=(), tool_facts=None) -> CognitiveLoopReport:
+        return self.cognitive_loop.run(goal, subtasks, perceptions, action_executor=action_executor, expected=expected, required_capabilities=required_capabilities, tool_facts=tool_facts)
+    def stop_cognitive_loop(self): self.cognitive_loop.stop()
+    def resume_cognitive_loop(self): self.cognitive_loop.resume()
     def evaluate_learning(self, baseline, current) -> PromotionResult: return self.continual.evaluate(baseline, current)
 
     def observe(self, observation, *, remember_key=None, importance=1.0, confidence=1.0, source="agent", kind="observation", timestamp=None):
