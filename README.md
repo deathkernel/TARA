@@ -2,22 +2,22 @@
 
 **TARA — Tiny Artificial Reasoning Architecture**
 
-TARA is a research-first neural-network project built from mathematical and implementation fundamentals. The goal is a highly capable, inspectable artificial reasoning system that connects a neural language core with perception, memory, structured reasoning, advanced planning, intelligent tools, algorithm discovery, reflection, autonomous tasks, scheduling, temporal context and an explicit world model.
+TARA is a research-first neural-network project built from mathematical and implementation fundamentals. The goal is a highly capable, inspectable artificial reasoning system that connects a neural language core with perception, memory, structured reasoning, advanced planning, intelligent tools, algorithm discovery, self-improvement, reflection, autonomous tasks, scheduling, temporal context and an explicit world model.
 
-## Phase 25 — Advanced Algorithm Discovery Complete
+## Phase 26 — Advanced Self-Improvement Complete
 
-Phase 25 implements steps **149–156**:
+Phase 26 implements steps **157–164**:
 
-- **149 Problem understanding** — `ProblemInterpreter` extracts objectives, constraints and optimization targets.
-- **150 Algorithm candidate generation** — discovery lab accepts model-backed candidate generators.
-- **151 Multi-language candidate generation** — integrates with the existing polyglot candidate abstraction.
-- **152 Candidate compilation/execution** — uses the existing bounded polyglot benchmark boundary.
-- **153 Correctness verification** — only benchmark-verified candidates enter the learning set.
-- **154 Performance benchmarking** — runtime is normalized as an optimization signal.
-- **155 Candidate ranking/archive** — multi-objective selection combines runtime, complexity, novelty and diversity, with archive persistence.
-- **156 Verified knowledge extraction** — verified benchmark results are converted into reusable knowledge records.
+- **157 Failure analysis** — benchmark failures become structured categories, severity and targeted optimization signals.
+- **158 Targeted mutation** — injectable mutation policies can be backed by an LM, evolutionary operator or program-synthesis model.
+- **159 Experiment generation** — bounded candidate variants are deduplicated before execution.
+- **160 Regression benchmarking** — every experiment is re-run through the deterministic benchmark boundary.
+- **161 Multi-objective improvement scoring** — correctness, speed, compactness and regression safety are combined into measurable utility.
+- **162 Promotion gate** — correctness regressions are rejected before a candidate can replace the baseline.
+- **163 Iterative improvement** — successful candidates become the next baseline for another bounded cycle.
+- **164 Brain integration** — `TARABrain` exposes improvement-cycle and iterative-improvement APIs.
 
-`src/algorithm_lab.py` provides the higher-level research loop while reusing TARA's existing sandbox, polyglot execution, benchmark, novelty, archive and knowledge layers. Generated algorithms are candidates, not assumed truth; novelty is relative to TARA's archive and is not a proof of prior-art novelty.
+`src/self_improvement_lab.py` makes the loop explicit: **failure → analysis → mutation → experiment → benchmark → regression gate → measured promotion**. Execution remains behind the existing polyglot sandbox/benchmark boundary. The architecture is ready for learned mutation and ranking policies, but no model is claimed to have trained itself merely by enabling this code.
 
 ## Architecture
 
@@ -34,16 +34,16 @@ Advanced Planning
         ↓
 AI Tool Intelligence
         ↓
-Algorithm Discovery Lab
-  ├─ Problem Interpretation
-  ├─ Candidate Generation
-  ├─ Multi-language Candidates
-  ├─ Compile / Execute
-  ├─ Correctness Verification
-  ├─ Benchmarking
-  ├─ Novelty / Diversity Analysis
-  ├─ Multi-objective Selection
-  └─ Verified Knowledge Extraction
+Algorithm Discovery
+        ↓
+Self-Improvement Lab
+  ├─ Failure Analysis
+  ├─ Targeted Mutation
+  ├─ Experiment Generation
+  ├─ Regression Benchmarking
+  ├─ Multi-objective Scoring
+  ├─ Promotion Gate
+  └─ Iterative Improvement
         ↓
 Reflection → Goal Progress → Learning / Continual Learning
         ↓
@@ -52,7 +52,7 @@ Autonomous Tasks → Scheduler → Resource Budget
 Neural Language Core
 ```
 
-The discovery stack deliberately separates **generation** from **verification**. Future phases can replace heuristic candidate scoring with learned ranking policies trained only from verified outcomes.
+The improvement stack separates **proposal** from **execution** and **promotion**. A generated mutation is never treated as correct because it looks plausible: deterministic tests and a regression gate must approve it first.
 
 ## Roadmap
 
@@ -61,7 +61,7 @@ The discovery stack deliberately separates **generation** from **verification**.
 - Phase 23 — Advanced Planning: **135–141 complete**
 - Phase 24 — Tool Intelligence: **142–148 complete**
 - Phase 25 — Algorithm Discovery: **149–156 complete**
-- Phase 26 — Self-Improvement: **157–164**
+- Phase 26 — Self-Improvement: **157–164 complete**
 - Phase 27 — Continual Learning: **165–172**
 - Phase 28 — Persistent Cognitive Memory: **173–180**
 - Phase 29 — Learning From Experience: **181–188**
