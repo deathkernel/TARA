@@ -33,28 +33,34 @@ def _normalize_language(value: str) -> str:
 
 
 def parse_candidate(output: str, problem: str) -> PolyglotCandidate:
-    """Extract one fenced code block and its declared language from model output."""
+    """Extract the final fenced program from model output.
+
+    TARA's prompt contains a fenced format example. Selecting the final code
+    fence prevents the prompt's placeholder from being mistaken for generated
+    source when the runtime returns prompt + continuation.
+    """
     if not output or not output.strip():
         raise CandidateParseError("model output is empty")
 
     language_match = re.search(r"(?im)^\s*(?:language|lang)\s*:\s*([^\n]+)", output)
-    fence_match = re.search(r"```\s*([A-Za-z0-9+#-]+)?\s*\n(.*?)```", output, re.DOTALL)
-    if not fence_match:
+    fence_matches = list(re.finditer(r"```\s*([A-Za-z0-9+#-]+)?\s*\n(.*?)```", output, re.DOTALL))
+    if not fence_matches:
         raise CandidateParseError("no fenced source code found")
 
+    fence_match = fence_matches[-1]
     fence_language = fence_match.group(1) or ""
-    declared = language_match.group(1) if language_match else fence_language
+    declared = fence_language or (language_match.group(1) if language_match else "")
     if not declared:
         raise CandidateParseError("candidate language was not declared")
 
     language = _normalize_language(declared)
     source = fence_match.group(2).strip()
-    if not source:
-        raise CandidateParseError("source code is empty")
+    if not source or "<complete program>" in source:
+        raise CandidateParseError("source code is empty or still contains the prompt placeholder")
 
     return PolyglotCandidate(
         problem=problem,
         language=language,
         source=source,
-        metadata={"parser": "structured-fence-v1"},
+        metadata={"parser": "structured-fence-v2"},
     )
