@@ -4,19 +4,43 @@
 
 TARA is a research-first neural-network project built from mathematical and implementation fundamentals. The goal is a highly capable, inspectable artificial reasoning system that connects a neural language core with perception, memory, structured reasoning, advanced planning, intelligent tools, algorithm discovery, self-improvement, continual learning, reflection, autonomous tasks, scheduling, temporal context and an explicit world model.
 
+## Phase 37.6 — Capability Benchmark Suite Complete
+
+Phase 37.6 expands measurement from a four-case smoke test into a multi-capability deterministic suite:
+
+- **Coding** — arithmetic, string transformation and ordering.
+- **Reasoning** — transitive reasoning, negation and arithmetic.
+- **Memory** — explicit fact/token/sequence recall.
+- **Planning** — ordering, dependencies and plan validation.
+- **Tool use** — capability selection, verification and emergency-stop behavior.
+- **Algorithms** — correctness gates, performance comparison and regression rejection.
+- **Learning** — replay/forgetting, evidence gating and improvement validation.
+- **Regression-safe scoring** — the existing benchmark engine keeps category-level and overall regression gates explicit.
+
+The suite evaluates an injected solver; it does not execute arbitrary model output or grant permissions. A perfect synthetic solver test demonstrates benchmark mechanics, not that TARA itself has achieved those capabilities.
+
+## Phase 37.5 — Auditable Training Experiments Complete
+
+Phase 37.5 turns training into an explicit, reproducible experiment boundary:
+
+- **Dataset preflight** — training is blocked when the dataset audit reports error-level split overlap.
+- **Stable experiment identity** — dataset fingerprint + complete training configuration produce a deterministic experiment ID.
+- **Training handoff** — the runner delegates to the hardened PyTorch pipeline with accumulation, scheduler, early stopping and checkpoints.
+- **Manifest output** — dataset/audit fingerprints, checkpoint, metrics, steps, losses, device and configuration are persisted as JSON.
+- **Dedicated CLI** — `run_training_experiment.py` exposes the complete experiment workflow without silently training during runtime.
+- **Model controls** — the existing trainer exposes depth, dropout, weight tying and all Phase 37.3 optimization controls.
+
+Example:
+
+```bash
+python run_training_experiment.py --data data/algorithm_tasks.jsonl --output checkpoints/algorithm_lm.pt --steps 1000 --num-layers 2 --gradient-accumulation-steps 4 --warmup-steps 100 --manifest-path experiments/tara-training.json
+```
+
+Actual model training remains an explicit offline operation. Repository code does not claim a trained model until a training command has actually executed and produced a checkpoint.
+
 ## Phase 37.4 — Neural Core Upgrade Complete
 
-Phase 37.4 strengthens the learned language core without hiding the architecture behind a framework abstraction:
-
-- **Configurable Transformer depth** — the language model can use multiple decoder blocks instead of a fixed single block.
-- **RMSNorm** — pre-normalization uses RMSNorm for a simpler normalization path suited to deeper Transformer stacks.
-- **Attention/MLP dropout** — configurable regularization is active during training and automatically disabled during evaluation.
-- **Weight tying** — optional sharing of token embedding and language-head weights reduces redundant parameters.
-- **Architecture-aware checkpoints** — model configuration is persisted and incompatible resumes are rejected.
-- **CLI controls** — `train_algorithm_lm.py` exposes `--num-layers`, `--dropout`, and `--tie-embeddings` alongside the Phase 37.3 training controls.
-- **Regression coverage** — depth, forward-shape, weight-sharing, evaluation determinism and configuration validation are tested.
-
-This is an architecture/training capability upgrade, not a claim that TARA has already been trained to a new intelligence level. Actual capability must be demonstrated by the intelligence benchmark after training.
+Phase 37.4 upgrades the accelerated Transformer language core with configurable depth, RMSNorm, dropout, and optional embedding/output weight tying while preserving explicit architecture boundaries and checkpoint metadata.
 
 ## Phase 37.3 — Training Hardening Complete
 
@@ -26,11 +50,9 @@ Phase 37.3 connects the training-control layer to the real PyTorch pipeline:
 - **Warmup + cosine decay** — learning rate is scheduled per optimizer update with a configurable minimum ratio.
 - **Validation early stopping** — validation loss drives explicit patience/min-delta stopping decisions.
 - **Append-only experiment tracking** — training metrics are persisted as JSONL with a stable SHA-256 fingerprint.
-- **Checkpoint continuity** — checkpoint format 3 stores hardening configuration, architecture configuration, scheduler progress, early-stopping state and metric fingerprint.
+- **Checkpoint continuity** — checkpoint format 3 stores hardening configuration, scheduler progress, early-stopping state and metric fingerprint plus the Phase 37.4 model configuration.
 - **Resume safety** — incompatible dataset fingerprints, model configuration or training controls are rejected rather than silently mixing experiments.
-- **CLI controls** — `train_algorithm_lm.py` exposes accumulation, scheduler, early-stopping, model-depth and metrics-path options.
-
-Actual model training remains an explicit offline operation. These phases implement the controls; they do not claim that a new model has already been trained.
+- **CLI controls** — `train_algorithm_lm.py` exposes accumulation, scheduler, early-stopping, model-depth, dropout and metrics-path options.
 
 ## Phase 37.2 — Dataset Intelligence Audit Complete
 
@@ -88,7 +110,9 @@ Algorithm Discovery → Self-Improvement → Continual Learning
         ↓
 Reflection → Goal Progress → Autonomous Tasks → Scheduler
         ↓
-Neural Language Core → Training Controls → Intelligence Benchmarks
+Neural Language Core → Training Controls → Capability Benchmarks
+        ↓
+Auditable Training Experiments → Regression Gates
 ```
 
 Memory persistence is deliberately separate from learning, and model training is never silently triggered by runtime orchestration.
@@ -111,4 +135,4 @@ Memory persistence is deliberately separate from learning, and model training is
 - Phase 34 — Unified Cognitive Loop: **222–230 complete**
 - Phase 35 — TARA Core Integration: **231–240 complete**
 - Phase 36 — Deep Audit & Validation: **complete**
-- Phase 37 — Real Intelligence & Training: **37.1 + 37.2 + 37.3 + 37.4 complete**
+- Phase 37 — Real Intelligence & Training: **37.1–37.6 complete**
