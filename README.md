@@ -94,6 +94,19 @@ assert result.learned
 
 The tool layer is default-deny: the brain cannot execute an unregistered command. The research boundary similarly requires the host to inject a provider. Arbitrary model-generated programs are not executed through this baseline.
 
+## Dataset and training pipeline
+
+Phase 13 now starts the **basic data layer**. `src/dataset_pipeline.py` can ingest local JSON, JSONL and text files as well as HTTP(S) JSON/JSONL endpoints. It normalizes records, removes duplicate examples, records source provenance, computes a dataset fingerprint and writes a JSONL corpus with a manifest.
+
+Use the preparation CLI like this:
+
+```bash
+python prepare_dataset.py data/your_dataset.jsonl --output data/tara_training.jsonl
+python prepare_dataset.py https://example.org/dataset.jsonl --output data/tara_training.jsonl
+```
+
+The API is only a transport/source. The model is trained on the prepared examples. External data is not automatically treated as trusted knowledge; future training stages will add stronger licensing, quality, safety, contamination and evaluation gates before promotion into TARA's learning corpus.
+
 ## Completed AI/model layers
 
 - Custom scalar reverse-mode automatic differentiation
@@ -128,6 +141,7 @@ The tool layer is default-deny: the brain cannot execute an unregistered command
 - Polyglot candidate generation, compilation, execution and benchmarking
 - Candidate archive, structural similarity and verified-knowledge extraction
 - Basic complete cognitive architecture in `src/basic_brain.py`
+- Basic dataset ingestion, normalization, deduplication, provenance and manifest generation
 
 The language model is intentionally small and CPU-friendly. TARA is an educational/research implementation of the underlying mechanisms, not a reproduction of GPT, Gemini, or any frontier model.
 
@@ -167,6 +181,7 @@ From the repository root:
 
 ```bash
 python -m pytest -q
+python prepare_dataset.py data/your_dataset.jsonl --output data/tara_training.jsonl
 python train_xor.py
 python train_tiny_lm.py
 python experiments/scaled_lm_diagnostics.py
@@ -281,15 +296,30 @@ The current repository has both the detailed AI/model foundation and a complete 
 65. ✅ Research and multimodal boundaries
 66. ✅ Basic autonomous orchestration boundary
 
-### Phase 13 — PC Automation / Tools — intentionally deferred
+### Phase 13 — Dataset and Training Foundation
+
+67. ✅ Local JSON/JSONL/text dataset ingestion
+68. ✅ HTTP(S) dataset/API ingestion
+69. ✅ Normalization and duplicate removal
+70. ✅ Source provenance and deterministic dataset fingerprint
+71. ✅ Training-corpus JSONL + manifest export
+72. ⬜ Dataset licensing/quality/safety gates
+73. ⬜ Train/validation/test corpus builder with leakage controls
+74. ⬜ Training-run manager and reproducible metadata
+75. ⬜ Checkpoint resume with tokenizer compatibility
+76. ⬜ Verified TARA knowledge → training corpus promotion
+77. ⬜ Continual-learning/replay pipeline
+78. ⬜ Training/evaluation acceptance gate
+
+### Phase 14 — PC Automation / Tools — intentionally deferred
 
 Only after the AI/model architecture is complete and final validation is run:
 
-67. ⬜ File tools
-68. ⬜ Terminal tools
-69. ⬜ Application/browser tools
-70. ⬜ Controlled keyboard/mouse interaction
-71. ⬜ Tool selection and execution verification
-72. ⬜ Emergency stop / rollback where possible
+79. ⬜ File tools
+80. ⬜ Terminal tools
+81. ⬜ Application/browser tools
+82. ⬜ Controlled keyboard/mouse interaction
+83. ⬜ Tool selection and execution verification
+84. ⬜ Emergency stop / rollback where possible
 
 TARA stays intentionally small and inspectable. The objective is to understand and implement the core mechanisms ourselves, validate them mathematically and empirically, then connect them into a useful reasoning-and-tool system rather than imitate frontier-model scale.
