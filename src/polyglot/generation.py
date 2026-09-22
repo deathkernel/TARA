@@ -7,25 +7,35 @@ from collections.abc import Callable, Iterable
 from .candidate import PolyglotCandidate
 from .languages import LanguageSpec, default_languages, select_language
 from .parser import CandidateParseError, parse_candidate
+from .problems import ProblemSpec, get_problem
 
 GenerateText = Callable[..., str]
 
 
 def build_candidate_prompt(problem: str, language: str, feedback: Iterable[str] = ()) -> str:
-    """Build a deterministic instruction for one executable candidate."""
+    """Build a deterministic prompt containing the executable I/O contract."""
+    spec = get_problem(problem)
     feedback_text = "\n".join(f"- {item}" for item in feedback if item.strip())
     if not feedback_text:
         feedback_text = "- No previous feedback; produce a clean first attempt."
-    spec = next((item for item in default_languages() if item.name == language), None)
-    extension = spec.file_extension if spec else ".txt"
-    class_hint = " If using Java, the public class must be named candidate." if language == "java" else ""
+    language_spec = next((item for item in default_languages() if item.name == language), None)
+    extension = language_spec.file_extension if language_spec else ".txt"
+    class_hint = " The public class must be named candidate." if language == "java" else ""
+    examples = "\n".join(
+        f"Example {index}: INPUT={case.stdin!r} OUTPUT={case.expected_stdout!r}"
+        for index, case in enumerate(spec.tests, start=1)
+    )
     return (
         "TARA ALGORITHM CANDIDATE TASK\n"
-        f"Problem: {problem}\n"
+        f"Problem: {spec.name}\n"
+        f"Description: {spec.description}\n"
         f"Target language: {language}\n"
         f"Required file extension: {extension}\n"
-        "Write one complete standalone program. Follow the problem input/output contract exactly. "
-        "Do not explain the solution inside the code. Do not use external packages."
+        "I/O examples:\n"
+        f"{examples}\n"
+        "Write one complete standalone program. Follow the input/output contract exactly. "
+        "Handle general valid inputs, not only the examples. Do not explain the solution inside the code. "
+        "Do not use external packages."
         f"{class_hint}\n"
         "Return exactly one fenced code block and put the language after the opening backticks.\n"
         "Format:\n"
@@ -36,11 +46,7 @@ def build_candidate_prompt(problem: str, language: str, feedback: Iterable[str] 
 
 
 class ModelCandidateGenerator:
-    """Adapt TARA's text-generation callable to SelfImprovementEngine.
-
-    By default the generator targets the language selected for the problem.
-    Supplying ``languages`` enables true cross-language candidate search.
-    """
+    """Adapt TARA's text-generation callable to SelfImprovementEngine."""
 
     def __init__(
         self,
@@ -78,8 +84,6 @@ class ModelCandidateGenerator:
             except (CandidateParseError, ValueError, TypeError):
                 continue
             if candidate.language != language:
-                # Do not silently benchmark a candidate generated for a
-                # different target language than the requested slot.
                 continue
             key = (candidate.language, candidate.source)
             if key not in seen:
