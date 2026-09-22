@@ -127,6 +127,27 @@ Perception -> Memory Recall -> Structured Reasoning -> Plan Step -> Tool Selecti
 
 The unified loop is a controller over existing subsystems, not a claim of human-like consciousness. External actions remain permissioned and injected, while learning remains evidence-gated.
 
+## Phase 35 — TARA Core Integration Complete
+
+Phase 35 implements steps **231–240**:
+
+- **231 Top-level runtime** — `TARACore` provides one bounded entry point above `TARABrain`.
+- **232 Component registry** — core exposes memory, world model, reasoner, planner, tools, research, experiments, continual learning, multimodal perception and the unified loop as one runtime graph.
+- **233 Lifecycle management** — READY/RUNNING/STOPPED/ERROR states are explicit.
+- **234 Unified public API** — generation, response, perception, research, experiments, architecture optimization, replay and learning are exposed from the core.
+- **235 Neural-core continuity** — checkpoint loading remains available through `TARACore.from_checkpoint()`, while the runtime manifest records non-weight execution state.
+- **236 Event trace** — bounded deterministic runtime events provide an auditable execution trail.
+- **237 Health diagnostics** — component availability and runtime state are summarized by `CoreHealth`.
+- **238 Safe stop/resume** — cognitive and autonomous task loops are stopped together at the core boundary.
+- **239 Snapshot / runtime manifest** — compact state fingerprints make runtime handoffs inspectable without serializing the model implicitly.
+- **240 End-to-end integration tests** — core lifecycle, cognitive execution, learning, replay boundaries and architecture-evaluator requirements are covered.
+
+Final top-level flow:
+
+Perception -> Memory -> Reasoning -> Planning -> Tools -> Action Boundary -> Verification -> Reflection -> Learning -> Research/Experimentation -> Architecture Optimization -> Unified Cognitive Loop -> Neural Core
+
+The core is an orchestration layer, not a replacement for the specialized modules. External permissions and execution remain explicit, and model training is never silently triggered by runtime orchestration.
+
 ## Roadmap
 
 - Phase 21 — Perception & Temporal Awareness: **122–127 complete**
@@ -143,4 +164,4 @@ The unified loop is a controller over existing subsystems, not a claim of human-
 - Phase 32 — Scientific Experiment Engine: **206–213 complete**
 - Phase 33 — Architecture Self-Optimization: **214–221 complete**
 - Phase 34 — Unified Cognitive Loop: **222–230 complete**
-- Phase 35 — TARA Core Integration: **231–240**
+- Phase 35 — TARA Core Integration: **231–240 complete**
