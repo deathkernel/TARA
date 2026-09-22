@@ -4,6 +4,20 @@
 
 TARA is a research-first neural-network project built from mathematical and implementation fundamentals. The goal is a highly capable, inspectable artificial reasoning system that connects a neural language core with perception, memory, structured reasoning, advanced planning, intelligent tools, algorithm discovery, self-improvement, continual learning, reflection, autonomous tasks, scheduling, temporal context and an explicit world model.
 
+## Phase 37.7 — Evidence-Gated Intelligence Improvement Complete
+
+Phase 37.7 closes the measurement-to-improvement loop without pretending that a benchmark failure automatically means a specific training method will fix it:
+
+- **Failure analysis** — failed and partial benchmark cases become explicit capability failures with severity.
+- **Targeted planning** — failures are grouped into capability targets with deterministic priority and training hints.
+- **Bounded experiment boundary** — an injected candidate runner performs the actual training/evaluation work; the improvement engine itself never silently trains.
+- **Regression protection** — candidate results are checked against overall and category-level regression limits.
+- **Promotion gate** — a candidate is accepted only when it produces a strict overall improvement and passes the regression gate.
+- **Deterministic provenance** — proposal and improvement reports receive SHA-256 fingerprints.
+- **Brain integration** — `TARABrain` exposes `benchmark_intelligence`, `propose_intelligence_improvement`, and `improve_intelligence`.
+
+This is an evidence-gated optimization loop, not proof of autonomous intelligence. Actual model improvement still requires an executed training experiment and a benchmark run against the resulting checkpoint.
+
 ## Phase 37.6 — Capability Benchmark Suite Complete
 
 Phase 37.6 expands measurement from a four-case smoke test into a multi-capability deterministic suite:
@@ -78,61 +92,3 @@ Phase 37 begins with measurement before model changes. This avoids treating arch
 - **Failure capture** — solver exceptions become measured failed cases rather than crashing the entire benchmark.
 - **Stable fingerprints** — benchmark inputs and measured results receive SHA-256 fingerprints for experiment traceability.
 - **Regression gate** — candidate reports are compared against a baseline with explicit overall and category-drop tolerances.
-- **Smoke capability suite** — coding, reasoning, memory and planning categories provide a small deterministic starting benchmark.
-
-The benchmark executes only an injected solver. It does not grant permissions, run arbitrary generated programs, or silently train the neural model.
-
-## Phase 36 — Deep Audit & Validation Complete
-
-Phase 36 implements the validation and hardening layer that follows the architecture roadmap:
-
-- **Repository static audit** — Python syntax, required Phase 35 integration files, duplicate pytest workflows and non-deterministic `hash()` usage are checked without executing repository code.
-- **Scheduler correctness fix** — failed scheduled tasks are retained instead of being silently deleted; persisted retry budgets are honored within the global resource budget.
-- **Continual-learning correctness fix** — replay sampling now guarantees domain coverage whenever the replay budget can accommodate all domains, then uses importance-weighted sampling for remaining capacity.
-- **Regression tests** — scheduler failure retention, retry budgeting, replay domain coverage and repository-audit rules are covered by tests.
-- **CI consolidation** — the duplicate Python full-test workflow was removed; one canonical CI workflow now runs static audit, the Python suite, smoke experiments and Rust tests.
-- **Audit boundary** — the phase is deterministic and dependency-light; it does not execute arbitrary generated code during static inspection.
-
-Phase 36 is a hardening milestone, not a claim that every runtime behavior has been exhaustively proven. Full pytest/Rust execution is delegated to the repository's GitHub Actions environment.
-
-## Architecture
-
-```text
-Input / Perception
-        ↓
-Working Memory → Persistent Cognitive Memory
-        ↓
-World Model → Temporal Context → Structured Reasoning
-        ↓
-Advanced Planning → AI Tool Intelligence
-        ↓
-Algorithm Discovery → Self-Improvement → Continual Learning
-        ↓
-Reflection → Goal Progress → Autonomous Tasks → Scheduler
-        ↓
-Neural Language Core → Training Controls → Capability Benchmarks
-        ↓
-Auditable Training Experiments → Regression Gates
-```
-
-Memory persistence is deliberately separate from learning, and model training is never silently triggered by runtime orchestration.
-
-## Roadmap
-
-- Phase 21 — Perception & Temporal Awareness: **122–127 complete**
-- Phase 22 — Structured Reasoning: **128–134 complete**
-- Phase 23 — Advanced Planning: **135–141 complete**
-- Phase 24 — Tool Intelligence: **142–148 complete**
-- Phase 25 — Algorithm Discovery: **149–156 complete**
-- Phase 26 — Self-Improvement: **157–164 complete**
-- Phase 27 — Continual Learning: **165–172 complete**
-- Phase 28 — Persistent Cognitive Memory: **173–180 complete**
-- Phase 29 — Learning From Experience: **181–188 complete**
-- Phase 30 — Multimodal Perception: **189–197 complete**
-- Phase 31 — Autonomous Research: **198–205 complete**
-- Phase 32 — Scientific Experiment Engine: **206–213 complete**
-- Phase 33 — Architecture Self-Optimization: **214–221 complete**
-- Phase 34 — Unified Cognitive Loop: **222–230 complete**
-- Phase 35 — TARA Core Integration: **231–240 complete**
-- Phase 36 — Deep Audit & Validation: **complete**
-- Phase 37 — Real Intelligence & Training: **37.1–37.6 complete**
