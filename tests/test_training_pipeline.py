@@ -58,6 +58,15 @@ def test_phase14_loads_algorithm_records(tmp_path):
     assert "Approach: return sorted(value)" in texts[0]
 
 
+def test_targeted_prompt_records_include_answer_and_tests(tmp_path):
+    path = tmp_path / "targeted.jsonl"
+    path.write_text(json.dumps({"prompt": "Compute 2 + 2", "solution": 4, "tests": "expected=4"}) + "\n", encoding="utf-8")
+    text = load_training_texts(path)[0]
+    assert "Prompt: Compute 2 + 2" in text
+    assert "Answer: 4" in text
+    assert "Tests: expected=4" in text
+
+
 def test_phase14_split_is_deterministic_and_non_overlapping():
     texts = [f"record-{i}" for i in range(10)]
     first = split_texts(texts, 0.2, 7)
@@ -80,7 +89,7 @@ def test_phase14_writes_self_contained_checkpoint(tmp_path):
     assert summary.final_step == 2
     assert checkpoint.exists()
     payload = torch.load(checkpoint, map_location="cpu", weights_only=False)
-    assert payload["format_version"] == 2
+    assert payload["format_version"] == 3
     assert payload["step"] == 2
     assert "model_state" in payload
     assert "optimizer_state" in payload
