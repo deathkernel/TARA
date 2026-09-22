@@ -7,10 +7,7 @@ from train_tiny_lm import _batch_loss, _mean_loss
 def test_batch_loss_is_token_weighted():
     model = TinyLanguageModel(vocab_size=4, embedding_dim=3, ff_dim=6, seed=2)
     batch = [([0, 1], [1, 2]), ([2], [3])]
-    expected = (
-        model.loss([0, 1], [1, 2]).data * 2
-        + model.loss([2], [3]).data
-    ) / 3
+    expected = (model.loss([0, 1], [1, 2]).data * 2 + model.loss([2], [3]).data) / 3
     assert abs(_batch_loss(model, batch).data - expected) < 1e-12
 
 
@@ -31,9 +28,7 @@ def test_training_checkpoint_contains_final_metadata(tmp_path):
     path = tmp_path / "final.json"
     train(steps=1, checkpoint_path=path)
     tokenizer = CharTokenizer("tara learns. tara reasons. ")
-    state_model = TinyLanguageModel(
-        vocab_size=tokenizer.vocab_size, embedding_dim=3, ff_dim=6, seed=7
-    )
+    state_model = TinyLanguageModel(vocab_size=tokenizer.vocab_size, embedding_dim=3, ff_dim=6, seed=7)
     state = load_checkpoint(state_model, path)
     assert state["step"] == 0
     assert "val_loss" in state["metrics"]
@@ -50,14 +45,7 @@ from src.training_pipeline import TrainingConfig, TrainingPipeline, load_trainin
 
 
 def write_algorithm_dataset(path, count=8):
-    rows = [
-        {
-            "problem": f"sort list {i}",
-            "solution": "return sorted(value)",
-            "tests": "[3,1,2] -> [1,2,3]",
-        }
-        for i in range(count)
-    ]
+    rows = [{"problem": f"sort list {i}", "solution": "return sorted(value)", "tests": "[3,1,2] -> [1,2,3]"} for i in range(count)]
     path.write_text("\n".join(json.dumps(row) for row in rows), encoding="utf-8")
 
 
@@ -80,37 +68,28 @@ def test_phase14_split_is_deterministic_and_non_overlapping():
 
 
 def tiny_config(steps=2):
-    return TrainingConfig(
-        steps=steps,
-        batch_size=2,
-        context=16,
-        embedding_dim=8,
-        ff_dim=16,
-        heads=2,
-        lr=1e-3,
-        validation_split=0.25,
-        seed=11,
-        log_every=2,
-    )
+    return TrainingConfig(steps=steps, batch_size=2, context=16, embedding_dim=8, ff_dim=16, heads=2, lr=1e-3, validation_split=0.25, seed=11, log_every=2)
 
 
 def test_phase14_writes_self_contained_checkpoint(tmp_path):
     data = tmp_path / "data.jsonl"
     checkpoint = tmp_path / "model.pt"
     write_algorithm_dataset(data, count=8)
-
     summary = TrainingPipeline(tiny_config()).train(data, checkpoint)
     assert summary.start_step == 0
     assert summary.final_step == 2
     assert checkpoint.exists()
-
     payload = torch.load(checkpoint, map_location="cpu", weights_only=False)
-    assert payload["format_version"] == 1
+    assert payload["format_version"] == 2
     assert payload["step"] == 2
     assert "model_state" in payload
     assert "optimizer_state" in payload
     assert "tokenizer" in payload
     assert "dataset_fingerprint" in payload
+    assert "hardening_config" in payload
+    assert "scheduler" in payload
+    assert "early_stopping" in payload
+    assert "metrics_fingerprint" in payload
     assert payload["metrics"]["train_loss"] == pytest.approx(summary.train_loss)
 
 
@@ -120,12 +99,10 @@ def test_phase14_resume_continues_step_and_rejects_changed_dataset(tmp_path):
     checkpoint = tmp_path / "model.pt"
     write_algorithm_dataset(data, count=8)
     write_algorithm_dataset(changed, count=9)
-
     TrainingPipeline(tiny_config(steps=1)).train(data, checkpoint)
     resumed = TrainingPipeline(tiny_config(steps=2)).train(data, checkpoint, resume=checkpoint)
     assert resumed.start_step == 1
     assert resumed.final_step == 3
-
     with pytest.raises(ValueError, match="dataset fingerprint differs"):
         TrainingPipeline(tiny_config(steps=1)).train(changed, checkpoint, resume=checkpoint)
 
@@ -133,3 +110,19 @@ def test_phase14_resume_continues_step_and_rejects_changed_dataset(tmp_path):
 def test_phase14_config_rejects_invalid_attention_shape():
     with pytest.raises(ValueError, match="divisible"):
         TrainingConfig(embedding_dim=7, heads=2)
+
+
+def test_phase37_gradient_accumulation_scheduler_and_tracker(tmp_path):
+    data = tmp_path / "data.jsonl"
+    checkpoint = tmp_path / "model.pt"
+    metrics = tmp_path / "metrics.jsonl"
+    write_algorithm_dataset(data, count=8)
+    config = TrainingConfig(**{**tiny_config(steps=3).__dict__, "gradient_accumulation_steps": 2, "warmup_steps": 1, "min_lr_ratio": 0.2})
+    summary = TrainingPipeline(config).train(data, checkpoint, metrics_path=metrics)
+    assert summary.final_step == 3
+    rows = metrics.read_text(encoding="utf-8").splitlines()
+    assert rows
+    payload = torch.load(checkpoint, map_location="cpu", weights_only=False)
+    assert payload["hardening_config"]["gradient_accumulation_steps"] == 2
+    assert payload["scheduler"]["optimizer_steps"] == 3
+    assert payload["metrics_fingerprint"]
