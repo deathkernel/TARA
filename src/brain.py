@@ -1,9 +1,8 @@
 """Integrated, PC-free cognitive brain for TARA.
 
-The brain is the final pre-tool integration boundary: perception, memory,
-language generation, reasoning and verification are coordinated here, while
-external actions remain outside the module.  This keeps the model complete
-before any future tool/PC execution layer is attached.
+The brain coordinates perception, memory, language generation, reasoning,
+verification and basic reflection. External actions remain behind explicit
+control boundaries.
 """
 
 from dataclasses import dataclass
@@ -11,8 +10,10 @@ import random
 from pathlib import Path
 
 from .agent import AgentLoop
+from .goal_progress import GoalProgress
 from .integration import TARAEngine
 from .memory import LongTermMemory
+from .reflection_loop import ReflectionLoop
 from .tokenizer import CharTokenizer
 
 
@@ -26,14 +27,17 @@ class BrainResponse:
 
 
 class TARABrain:
-    """Connect TARA's learned language core to its explicit cognitive layers."""
+    """Connect TARA's learned language core to explicit cognitive layers."""
 
-    def __init__(self, model, tokenizer=None, *, engine=None, memory=None, seed=0):
+    def __init__(self, model, tokenizer=None, *, engine=None, memory=None, seed=0,
+                 reflection=None, progress=None):
         self.model = model
         self.tokenizer = tokenizer
         self.engine = TARAEngine() if engine is None else engine
         self.memory = LongTermMemory() if memory is None else memory
         self.agent = AgentLoop(engine=self.engine, memory=self.memory)
+        self.reflection = reflection or ReflectionLoop()
+        self.progress = progress or GoalProgress()
         self.rng = random.Random(seed)
 
     @classmethod
@@ -45,17 +49,26 @@ class TARABrain:
         return cls(model, tokenizer, engine=engine, memory=memory, seed=seed)
 
     def observe(self, observation, *, remember_key=None, importance=1.0):
-        return self.agent.observe(
-            observation,
-            remember_key=remember_key,
-            importance=importance,
-        )
+        return self.agent.observe(observation, remember_key=remember_key, importance=importance)
 
     def set_goal(self, description, success_conditions=()):
         return self.engine.set_goal(description, success_conditions)
 
     def plan(self, subtasks):
         return self.engine.plan(subtasks)
+
+    def start_progress(self, goal, total=1):
+        return self.progress.start(goal, total)
+
+    def mark_progress(self, goal, count=1):
+        return self.progress.mark_complete(goal, count)
+
+    def record_experience(self, goal, action, outcome, success, score=0.0, feedback=""):
+        """Record a verified outcome and immediately produce a reflection."""
+        return self.reflection.record(goal, action, outcome, success, score, feedback)
+
+    def reflect(self, goal):
+        return self.reflection.reflect(goal)
 
     def recall(self, query, limit=None, min_score=0.0):
         return self.agent.recall(query, limit=limit, min_score=min_score)
@@ -77,12 +90,7 @@ class TARABrain:
 
         for _ in range(max_new_tokens):
             if top_p is None:
-                token_id = self.model.sample_next_token(
-                    token_ids,
-                    temperature=temperature,
-                    top_k=top_k,
-                    rng=self.rng,
-                )
+                token_id = self.model.sample_next_token(token_ids, temperature=temperature, top_k=top_k, rng=self.rng)
             else:
                 token_id = self._sample_top_p(token_ids, temperature, top_p)
             token_ids.append(token_id)
@@ -118,18 +126,10 @@ class TARABrain:
         """Observe a prompt, retrieve related memory, then generate a response."""
         self.observe(prompt, remember_key=remember_key, importance=importance)
         recalled = tuple(self.memory.retrieve(prompt))
-        text = self.generate(
-            prompt,
-            max_new_tokens=max_new_tokens,
-            temperature=temperature,
-            top_k=top_k,
-            top_p=top_p,
-        )
-        return BrainResponse(
-            text=text,
-            recalled=recalled,
-            observations=tuple(self.engine.state.observations.recent()),
-        )
+        text = self.generate(prompt, max_new_tokens=max_new_tokens, temperature=temperature,
+                             top_k=top_k, top_p=top_p)
+        return BrainResponse(text=text, recalled=recalled,
+                             observations=tuple(self.engine.state.observations.recent()))
 
     def verify_result(self, observed, expected):
         return self.agent.submit_result(observed, expected)
