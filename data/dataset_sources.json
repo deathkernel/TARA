@@ -6,7 +6,7 @@
       "name": "FineWeb-Edu",
       "organization": "Hugging Face",
       "dataset_id": "HuggingFaceFW/fineweb-edu",
-      "config": null,
+      "config": "default",
       "split": "train",
       "text_field": "text",
       "level": "basic",
@@ -32,7 +32,7 @@
       "name": "TinyStories",
       "organization": "Community / research dataset",
       "dataset_id": "roneneldan/TinyStories",
-      "config": null,
+      "config": "default",
       "split": "train",
       "text_field": "text",
       "level": "basic",
@@ -44,7 +44,7 @@
       "name": "FineWeb",
       "organization": "Hugging Face",
       "dataset_id": "HuggingFaceFW/fineweb",
-      "config": null,
+      "config": "default",
       "split": "train",
       "text_field": "text",
       "level": "advanced",
@@ -56,12 +56,13 @@
       "name": "The Stack v2 Smol",
       "organization": "BigCode (Hugging Face + ServiceNow)",
       "dataset_id": "bigcode/the-stack-v2-train-smol",
-      "config": null,
+      "config": "default",
       "split": "train",
       "text_field": "content",
       "level": "advanced",
-      "license": "Mixed source licenses; follow upstream terms and provenance",
-      "role": "advanced programming and repository-context code training"
+      "license": "Mixed source licenses; metadata-only ID dataset; not directly usable as code text",
+      "role": "advanced code-data provenance/index; requires a separate code-content retrieval pipeline",
+      "notes": "The Stack v2 train-smol-ids contains Software Heritage IDs rather than directly embedded source code; keep out of text training until a licensed content retrieval path is implemented."
     }
   ]
 }
