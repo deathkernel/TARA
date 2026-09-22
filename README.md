@@ -19,24 +19,80 @@ TARA does **not** lock itself to one language, algorithm, or implementation styl
 ```text
 Input / Perception
        ↓
-Working + Long-Term Memory
+Working Memory → Long-Term Memory
        ↓
 Neural Language Core
        ↓
-Reasoning / Planning
+Reasoning → Planning
        ↓
-Agent Control Loop
+Action / Tools
        ↓
-Verification / Recovery
+Observation
        ↓
-Scientific Evaluation
+Verification → Reflection
        ↓
-Integrated TARA Brain
+Learning
        ↓
-[Future: permissioned PC tools]
+Hypothesis → Experiment
+       ↓
+Knowledge Graph ↔ Research
+       ↓
+Multimodal Input
+       ↓
+Autonomous Orchestration
+       ↺ feedback to perception
 ```
 
-The language path is a small autoregressive Transformer built from TARA's own scalar autodiff engine. Evaluation and generation use a separate NumPy numeric-inference path so the CPU does not allocate training computation graphs.
+## Complete basic brain baseline
+
+`src/basic_brain.py` now contains one coherent, dependency-light baseline for the complete cognitive architecture. It is intentionally simple so every layer is explicit and can later be upgraded independently without replacing the overall brain boundary.
+
+The baseline includes:
+
+- text, file, screen, audio and image perception representations
+- bounded working memory
+- deterministic long-term memory and retrieval
+- goal and symbolic reasoning representations
+- task planning and plan progression
+- explicit allow-listed tool registry
+- action results and failure capture
+- deterministic result verification
+- reflection and recovery lessons
+- verified-only learning records
+- hypothesis generation
+- experiment execution through an injected test function
+- knowledge-graph edges and retrieval
+- an injected research-provider boundary with no implicit network access
+- multimodal input packing
+- `BasicTARABrain.run_cycle()` connecting the layers into one basic observe → reason → plan → act → verify → reflect → learn loop
+- serializable high-level brain snapshots
+
+This is a **basic architecture skeleton, not a claim of human-level intelligence**. The existing Transformer/language-model, memory, reasoning, agent, verification, polyglot algorithm-discovery and scientific-evaluation implementations remain the places where capability is developed. The basic brain gives them a single conceptual architecture to grow into.
+
+Example:
+
+```python
+from src.basic_brain import BasicTARABrain, ToolRegistry
+
+registry = ToolRegistry()
+registry.register("add", lambda a, b: a + b)
+brain = BasicTARABrain(tool_registry=registry)
+
+result = brain.run_cycle(
+    "calculate 2 + 3",
+    goal="calculate the result",
+    subtasks=["parse input", "calculate", "verify"],
+    tool="add",
+    tool_kwargs={"a": 2, "b": 3},
+    expected=5,
+    verify=True,
+)
+
+assert result.verification.passed
+assert result.learned
+```
+
+The tool layer is default-deny: the brain cannot execute an unregistered command. The research boundary similarly requires the host to inject a provider. Arbitrary model-generated programs are not executed through this baseline.
 
 ## Completed AI/model layers
 
@@ -69,6 +125,9 @@ The language path is a small autoregressive Transformer built from TARA's own sc
 - Explicit permission, destructive-action confirmation and audit logging
 - Scientific scaling experiments with matched training budgets
 - Integrated `TARABrain` boundary connecting language, perception, memory, reasoning and agent control without executing external actions
+- Polyglot candidate generation, compilation, execution and benchmarking
+- Candidate archive, structural similarity and verified-knowledge extraction
+- Basic complete cognitive architecture in `src/basic_brain.py`
 
 The language model is intentionally small and CPU-friendly. TARA is an educational/research implementation of the underlying mechanisms, not a reproduction of GPT, Gemini, or any frontier model.
 
@@ -87,6 +146,8 @@ The experiment reports measurements; it does not declare a universal "better" pr
 ## Integrated brain
 
 `src/brain.py` provides the final pre-tool cognitive boundary. `TARABrain` can observe, remember/retrieve, set goals, create plans, generate language, verify externally supplied results and recover through re-planning. It deliberately does **not** execute shell commands, browser actions, keyboard/mouse input or other PC actions.
+
+`src/basic_brain.py` complements this boundary with a complete basic layer map, including hypotheses, experiments, knowledge graph, research and multimodal interfaces. It is the simple architectural baseline that future advanced modules can replace incrementally.
 
 ## Safety and future tools
 
@@ -115,6 +176,8 @@ python experiments/scientific_scaling.py
 ```
 
 ## Roadmap
+
+The current repository has both the detailed AI/model foundation and a complete basic cognitive architecture. The next development phase is **depth, not more disconnected skeleton layers**: upgrade each basic layer into a capable implementation while preserving the verified interfaces.
 
 ### Phase 1 — Neural Foundation
 
@@ -209,15 +272,24 @@ python experiments/scientific_scaling.py
 59. ✅ Add integration regression tests
 60. ✅ Freeze the pre-tool AI/model architecture for final validation
 
-### Phase 12 — PC Automation / Tools — intentionally deferred
+### Phase 12 — Basic Complete Architecture
+
+61. ✅ Unified basic perception/memory/reasoning/planning/action loop
+62. ✅ Unified verification/reflection/learning loop
+63. ✅ Basic hypothesis and experiment interfaces
+64. ✅ Basic knowledge graph
+65. ✅ Research and multimodal boundaries
+66. ✅ Basic autonomous orchestration boundary
+
+### Phase 13 — PC Automation / Tools — intentionally deferred
 
 Only after the AI/model architecture is complete and final validation is run:
 
-61. ⬜ File tools
-62. ⬜ Terminal tools
-63. ⬜ Application/browser tools
-64. ⬜ Controlled keyboard/mouse interaction
-65. ⬜ Tool selection and execution verification
-66. ⬜ Emergency stop / rollback where possible
+67. ⬜ File tools
+68. ⬜ Terminal tools
+69. ⬜ Application/browser tools
+70. ⬜ Controlled keyboard/mouse interaction
+71. ⬜ Tool selection and execution verification
+72. ⬜ Emergency stop / rollback where possible
 
-TARA stays intentionally small. The objective is to understand and implement the core mechanisms ourselves, validate them mathematically and empirically, then connect them into a useful reasoning-and-tool system rather than imitate frontier-model scale.
+TARA stays intentionally small and inspectable. The objective is to understand and implement the core mechanisms ourselves, validate them mathematically and empirically, then connect them into a useful reasoning-and-tool system rather than imitate frontier-model scale.
