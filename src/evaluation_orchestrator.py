@@ -42,13 +42,15 @@ class EvaluationCycle:
 class CheckpointEvaluator:
     """Compare checkpoints using the same deterministic capability suite."""
 
+    benchmark_name = "tara-capability-v1"
+
     def __init__(self, *, max_new_tokens: int = 32, overall_tolerance: float = 0.0, category_tolerance: float = 0.0):
         self.max_new_tokens = max_new_tokens
         self.overall_tolerance = overall_tolerance
         self.category_tolerance = category_tolerance
 
-    def evaluate(self, checkpoint: str | Path, *, name: str = "tara-real-model") -> ModelEvaluation:
-        return evaluate_checkpoint(checkpoint, capability_cases(), name=name, max_new_tokens=self.max_new_tokens)
+    def evaluate(self, checkpoint: str | Path, *, name: str | None = None) -> ModelEvaluation:
+        return evaluate_checkpoint(checkpoint, capability_cases(), name=name or self.benchmark_name, max_new_tokens=self.max_new_tokens)
 
     def compare(self, baseline: ModelEvaluation, candidate: ModelEvaluation) -> EvaluationDecision:
         gate = compare_regression(
@@ -79,11 +81,11 @@ class EvaluationOrchestrator:
         self.evaluator = evaluator or CheckpointEvaluator()
 
     def run(self, baseline_checkpoint: str | Path, *, improve: Callable[[ModelEvaluation], str | Path] | None = None) -> EvaluationCycle:
-        baseline = self.evaluator.evaluate(baseline_checkpoint, name="tara-baseline")
+        baseline = self.evaluator.evaluate(baseline_checkpoint)
         if improve is None:
             decision = EvaluationDecision(False, "no improvement experiment was supplied", baseline.benchmark.overall_score, baseline.benchmark.overall_score, False, baseline.fingerprint)
             return EvaluationCycle(baseline, None, decision)
-        candidate = self.evaluator.evaluate(improve(baseline), name="tara-candidate")
+        candidate = self.evaluator.evaluate(improve(baseline))
         return EvaluationCycle(baseline, candidate, self.evaluator.compare(baseline, candidate))
 
 
