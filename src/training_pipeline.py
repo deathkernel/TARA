@@ -1,14 +1,8 @@
 """End-to-end PyTorch training pipeline for TARA's learned language core.
 
-Phase 14 connects prepared dataset material to a resumable model checkpoint:
-
-    dataset -> split -> tokenizer -> model -> train/validate -> checkpoint
-
-The checkpoint is intentionally self-contained. It stores model configuration,
-tokenizer vocabulary, optimizer state, training progress, metrics, and dataset
-fingerprint so a resume can reject incompatible model/tokenizer/dataset state.
-Actual training remains an explicit offline operation; importing this module
-never starts training.
+Phase 37.3 hardens the Phase 14 pipeline with gradient accumulation, warmup +
+cosine learning-rate scheduling, validation-loss early stopping, and an
+append-only experiment tracker. Training remains an explicit offline operation.
 """
 
 from __future__ import annotations
@@ -24,15 +18,14 @@ import torch
 
 from src.tokenizer import CharTokenizer
 from src.torch_language_model import FastTinyLanguageModel
+from src.training_hardening import EarlyStopping, ExperimentTracker, TrainingControls, TrainingMetric, WarmupCosineScheduler
 
 
-CHECKPOINT_FORMAT_VERSION = 1
+CHECKPOINT_FORMAT_VERSION = 2
 
 
 @dataclass(frozen=True)
 class TrainingConfig:
-    """Validated configuration for a TARA LM training run."""
-
     steps: int = 1000
     batch_size: int = 32
     context: int = 128
@@ -45,6 +38,11 @@ class TrainingConfig:
     log_every: int = 100
     checkpoint_every: int = 0
     grad_clip: float = 1.0
+    gradient_accumulation_steps: int = 1
+    warmup_steps: int = 0
+    min_lr_ratio: float = 0.1
+    early_stopping_patience: int = 5
+    early_stopping_min_delta: float = 0.0
 
     def __post_init__(self) -> None:
         if self.steps <= 0 or self.batch_size <= 0 or self.context <= 0:
@@ -61,6 +59,13 @@ class TrainingConfig:
             raise ValueError("log_every must be positive")
         if self.checkpoint_every < 0 or self.grad_clip <= 0:
             raise ValueError("checkpoint_every must be non-negative and grad_clip positive")
+        TrainingControls(
+            gradient_accumulation_steps=self.gradient_accumulation_steps,
+            warmup_steps=self.warmup_steps,
+            min_lr_ratio=self.min_lr_ratio,
+            patience=self.early_stopping_patience,
+            min_delta=self.early_stopping_min_delta,
+        )
 
     def model_config(self, vocab_size: int) -> dict[str, int]:
         return {
@@ -71,11 +76,18 @@ class TrainingConfig:
             "max_context": self.context,
         }
 
+    def hardening_config(self) -> dict[str, int | float]:
+        return {
+            "gradient_accumulation_steps": self.gradient_accumulation_steps,
+            "warmup_steps": self.warmup_steps,
+            "min_lr_ratio": self.min_lr_ratio,
+            "patience": self.early_stopping_patience,
+            "min_delta": self.early_stopping_min_delta,
+        }
+
 
 @dataclass(frozen=True)
 class TrainingSummary:
-    """Final state returned by :meth:`TrainingPipeline.train`."""
-
     checkpoint: str
     start_step: int
     final_step: int
@@ -83,25 +95,20 @@ class TrainingSummary:
     validation_loss: float | None
     device: str
     dataset_fingerprint: str
+    stopped_early: bool = False
+    metrics_path: str | None = None
 
 
 def _fingerprint(texts: Iterable[str]) -> str:
-    payload = "\n".join(texts).encode("utf-8")
-    return hashlib.sha256(payload).hexdigest()
+    return hashlib.sha256("\n".join(texts).encode("utf-8")).hexdigest()
 
 
 def load_training_texts(path: str | Path) -> list[str]:
-    """Load JSONL/JSON/text records into deterministic training strings.
-
-    Algorithm records use the existing Problem/Approach/Tests format. Generic
-    prepared datasets may use ``text``, ``content`` or ``prompt``.
-    """
     source = Path(path)
     if not source.exists():
         raise FileNotFoundError(source)
     raw = source.read_text(encoding="utf-8")
     records: list[str] = []
-
     if source.suffix.lower() in {".txt", ".text"}:
         records = [line.strip() for line in raw.splitlines() if line.strip()]
     else:
@@ -109,23 +116,15 @@ def load_training_texts(path: str | Path) -> list[str]:
         try:
             payload = json.loads(raw)
             items = payload.get("records", payload) if isinstance(payload, dict) else payload
-            if isinstance(items, list):
-                iterable = items
-            else:
-                iterable = [items]
+            iterable = items if isinstance(items, list) else [items]
         except json.JSONDecodeError:
             iterable = [json.loads(line) for line in lines]
-
         for item in iterable:
             if isinstance(item, str):
                 text = item.strip()
             elif isinstance(item, dict):
                 if "problem" in item and "solution" in item:
-                    text = (
-                        "Problem: " + str(item["problem"])
-                        + "\nApproach: " + str(item["solution"])
-                        + "\nTests: " + str(item.get("tests", ""))
-                    )
+                    text = "Problem: " + str(item["problem"]) + "\nApproach: " + str(item["solution"]) + "\nTests: " + str(item.get("tests", ""))
                 else:
                     value = item.get("text", item.get("content", item.get("prompt")))
                     if value is None:
@@ -135,28 +134,22 @@ def load_training_texts(path: str | Path) -> list[str]:
                 raise ValueError("dataset record must be a string or object")
             if text:
                 records.append(text)
-
     if not records:
         raise ValueError("training dataset is empty")
     return records
 
 
 def split_texts(texts: list[str], validation_split: float, seed: int) -> tuple[list[str], list[str]]:
-    """Deterministically split examples without leaking order from the source."""
     if not texts:
         raise ValueError("texts must not be empty")
-    if not 0.0 <= validation_split < 1.0:
-        raise ValueError("validation_split must be in [0, 1)")
     indices = list(range(len(texts)))
     random.Random(seed).shuffle(indices)
     if validation_split == 0 or len(texts) < 2:
         return [texts[i] for i in indices], []
-    validation_count = max(1, int(len(texts) * validation_split))
-    validation_count = min(validation_count, len(texts) - 1)
+    validation_count = min(max(1, int(len(texts) * validation_split)), len(texts) - 1)
     validation_indices = set(indices[:validation_count])
-    train = [text for i, text in enumerate(texts) if i not in validation_indices]
-    validation = [text for i, text in enumerate(texts) if i in validation_indices]
-    return train, validation
+    return ([text for i, text in enumerate(texts) if i not in validation_indices],
+            [text for i, text in enumerate(texts) if i in validation_indices])
 
 
 def _tokenize_corpus(texts: list[str], tokenizer: CharTokenizer, context: int) -> torch.Tensor:
@@ -183,14 +176,11 @@ def _sample_batch(tokens: torch.Tensor, batch_size: int, context: int, device: t
 
 
 @torch.no_grad()
-def evaluate(model, tokens: torch.Tensor, batch_size: int, context: int, device: torch.device) -> float | None:
-    """Estimate validation loss with deterministic contiguous windows."""
-    if len(tokens) <= context + 1:
+def evaluate(model, tokens: torch.Tensor | None, batch_size: int, context: int, device: torch.device) -> float | None:
+    if tokens is None or len(tokens) <= context + 1:
         return None
     model.eval()
-    window_count = len(tokens) - context - 1
-    starts = list(range(window_count))
-    # Cap validation work for very large corpora while remaining deterministic.
+    starts = list(range(len(tokens) - context - 1))
     if len(starts) > 256:
         stride = max(1, len(starts) // 256)
         starts = starts[::stride][:256]
@@ -204,7 +194,7 @@ def evaluate(model, tokens: torch.Tensor, batch_size: int, context: int, device:
 
 
 class TrainingPipeline:
-    """Train, validate, checkpoint, and resume a TARA language model."""
+    """Train, validate, checkpoint, resume, and track a TARA language model."""
 
     def __init__(self, config: TrainingConfig | None = None, device: str | None = None) -> None:
         self.config = config or TrainingConfig()
@@ -215,20 +205,11 @@ class TrainingPipeline:
             raise ValueError("CUDA device requested but CUDA is unavailable")
 
     def _new_state(self, texts: list[str]):
-        train_texts, validation_texts = split_texts(
-            texts, self.config.validation_split, self.config.seed
-        )
+        train_texts, validation_texts = split_texts(texts, self.config.validation_split, self.config.seed)
         tokenizer = CharTokenizer("\n".join(train_texts))
         train_tokens = _tokenize_corpus(train_texts, tokenizer, self.config.context)
-        validation_tokens = (
-            _tokenize_corpus(validation_texts, tokenizer, self.config.context)
-            if validation_texts
-            else None
-        )
-        model = FastTinyLanguageModel(
-            **self.config.model_config(tokenizer.vocab_size),
-            seed=self.config.seed,
-        ).to(self.device)
+        validation_tokens = _tokenize_corpus(validation_texts, tokenizer, self.config.context) if validation_texts else None
+        model = FastTinyLanguageModel(**self.config.model_config(tokenizer.vocab_size), seed=self.config.seed).to(self.device)
         optimizer = torch.optim.AdamW(model.parameters(), lr=self.config.lr)
         return model, tokenizer, optimizer, train_tokens, validation_tokens
 
@@ -245,14 +226,11 @@ class TrainingPipeline:
     def _resume_state(self, checkpoint_path: Path, texts: list[str]):
         payload = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
         if payload.get("format_version") != CHECKPOINT_FORMAT_VERSION:
-            raise ValueError("unsupported TARA training checkpoint format")
-        checkpoint_fingerprint = payload.get("dataset_fingerprint")
-        current_fingerprint = _fingerprint(texts)
-        if checkpoint_fingerprint != current_fingerprint:
-            raise ValueError(
-                "dataset fingerprint differs from checkpoint; use the original dataset "
-                "or start a fresh training run"
-            )
+            raise ValueError("unsupported TARA training checkpoint format; retrain or migrate the checkpoint")
+        if payload.get("dataset_fingerprint") != _fingerprint(texts):
+            raise ValueError("dataset fingerprint differs from checkpoint; use the original dataset or start a fresh training run")
+        if payload.get("hardening_config") != self.config.hardening_config():
+            raise ValueError("checkpoint training controls do not match training config")
         tokenizer = self._load_tokenizer(payload)
         model_config = payload.get("model_config")
         if model_config != self.config.model_config(tokenizer.vocab_size):
@@ -261,22 +239,15 @@ class TrainingPipeline:
         optimizer = torch.optim.AdamW(model.parameters(), lr=self.config.lr)
         model.load_state_dict(payload["model_state"])
         optimizer.load_state_dict(payload["optimizer_state"])
-        model.train()
-        train_texts, validation_texts = split_texts(
-            texts, self.config.validation_split, self.config.seed
-        )
+        train_texts, validation_texts = split_texts(texts, self.config.validation_split, self.config.seed)
         train_tokens = _tokenize_corpus(train_texts, tokenizer, self.config.context)
-        validation_tokens = (
-            _tokenize_corpus(validation_texts, tokenizer, self.config.context)
-            if validation_texts
-            else None
-        )
+        validation_tokens = _tokenize_corpus(validation_texts, tokenizer, self.config.context) if validation_texts else None
         step = payload.get("step")
         if not isinstance(step, int) or step < 0:
             raise ValueError("checkpoint step is invalid")
-        return model, tokenizer, optimizer, train_tokens, validation_tokens, step
+        return model, tokenizer, optimizer, train_tokens, validation_tokens, step, payload
 
-    def _save(self, path: Path, model, tokenizer, optimizer, step, train_loss, validation_loss, fingerprint):
+    def _save(self, path: Path, model, tokenizer, optimizer, step, train_loss, validation_loss, fingerprint, scheduler, early_stopping, tracker):
         path.parent.mkdir(parents=True, exist_ok=True)
         payload = {
             "format_version": CHECKPOINT_FORMAT_VERSION,
@@ -285,28 +256,35 @@ class TrainingPipeline:
             "model_config": self.config.model_config(tokenizer.vocab_size),
             "tokenizer": {"itos": tokenizer.itos, "stoi": tokenizer.stoi},
             "optimizer_state": optimizer.state_dict(),
-            "metrics": {
-                "train_loss": float(train_loss),
-                "validation_loss": None if validation_loss is None else float(validation_loss),
-            },
+            "metrics": {"train_loss": float(train_loss), "validation_loss": None if validation_loss is None else float(validation_loss)},
             "dataset_fingerprint": fingerprint,
             "config": asdict(self.config),
+            "hardening_config": self.config.hardening_config(),
+            "scheduler": {"total_steps": scheduler.total_steps, "warmup_steps": scheduler.warmup_steps, "min_lr_ratio": scheduler.min_lr_ratio, "optimizer_steps": step},
+            "early_stopping": {"best": early_stopping.best, "bad_steps": early_stopping.bad_steps},
+            "metrics_fingerprint": tracker.fingerprint(),
         }
         torch.save(payload, path)
 
-    def train(self, data: str | Path, output: str | Path, resume: str | Path | None = None) -> TrainingSummary:
-        """Train for ``config.steps`` additional steps and save the final checkpoint."""
+    def train(self, data: str | Path, output: str | Path, resume: str | Path | None = None, metrics_path: str | Path | None = None) -> TrainingSummary:
         texts = load_training_texts(data)
         fingerprint = _fingerprint(texts)
         output_path = Path(output)
+        tracker_path = Path(metrics_path) if metrics_path is not None else output_path.with_suffix(output_path.suffix + ".metrics.jsonl")
+        tracker = ExperimentTracker(tracker_path)
         if resume is None:
             model, tokenizer, optimizer, train_tokens, validation_tokens = self._new_state(texts)
             start_step = 0
+            early_stopping = EarlyStopping(self.config.early_stopping_patience, self.config.early_stopping_min_delta)
         else:
-            model, tokenizer, optimizer, train_tokens, validation_tokens, start_step = self._resume_state(
-                Path(resume), texts
-            )
+            model, tokenizer, optimizer, train_tokens, validation_tokens, start_step, payload = self._resume_state(Path(resume), texts)
+            state = payload.get("early_stopping", {})
+            early_stopping = EarlyStopping(self.config.early_stopping_patience, self.config.early_stopping_min_delta)
+            early_stopping.best = state.get("best")
+            early_stopping.bad_steps = int(state.get("bad_steps", 0))
 
+        total_steps = start_step + self.config.steps
+        scheduler = WarmupCosineScheduler(total_steps=max(1, total_steps), warmup_steps=min(self.config.warmup_steps, max(1, total_steps)), min_lr_ratio=self.config.min_lr_ratio)
         random.seed(self.config.seed + start_step)
         torch.manual_seed(self.config.seed + start_step)
         if self.device.type == "cuda":
@@ -314,44 +292,41 @@ class TrainingPipeline:
 
         last_train_loss = float("nan")
         last_validation_loss = None
+        stopped_early = False
         model.train()
-        for local_step in range(1, self.config.steps + 1):
-            step = start_step + local_step
-            x, y = _sample_batch(train_tokens, self.config.batch_size, self.config.context, self.device)
-            optimizer.zero_grad(set_to_none=True)
-            loss = model.loss(x, y)
-            loss.backward()
+        optimizer.zero_grad(set_to_none=True)
+        update_step = start_step
+        while update_step < total_steps:
+            accumulated_loss = 0.0
+            for _ in range(self.config.gradient_accumulation_steps):
+                x, y = _sample_batch(train_tokens, self.config.batch_size, self.config.context, self.device)
+                loss = model.loss(x, y)
+                (loss / self.config.gradient_accumulation_steps).backward()
+                accumulated_loss += float(loss.item())
             torch.nn.utils.clip_grad_norm_(model.parameters(), self.config.grad_clip)
+            update_step += 1
+            lr_multiplier = scheduler.multiplier(update_step - 1)
+            current_lr = self.config.lr * lr_multiplier
+            for group in optimizer.param_groups:
+                group["lr"] = current_lr
             optimizer.step()
-            last_train_loss = float(loss.item())
+            optimizer.zero_grad(set_to_none=True)
+            last_train_loss = accumulated_loss / self.config.gradient_accumulation_steps
 
-            if local_step == 1 or local_step % self.config.log_every == 0 or local_step == self.config.steps:
-                last_validation_loss = evaluate(
-                    model, validation_tokens, self.config.batch_size, self.config.context, self.device
-                ) if validation_tokens is not None else None
-                print(
-                    f"step={step:5d} train_loss={last_train_loss:.4f} "
-                    f"val_loss={last_validation_loss:.4f} device={self.device}"
-                    if last_validation_loss is not None
-                    else f"step={step:5d} train_loss={last_train_loss:.4f} device={self.device}"
-                )
+            should_log = update_step == start_step + 1 or update_step % self.config.log_every == 0 or update_step == total_steps
+            if should_log:
+                last_validation_loss = evaluate(model, validation_tokens, self.config.batch_size, self.config.context, self.device)
+                tracker.log(TrainingMetric(update_step, last_train_loss, last_validation_loss, current_lr))
+                decision = early_stopping.update(last_validation_loss) if last_validation_loss is not None else None
+                print(f"step={update_step:5d} train_loss={last_train_loss:.4f} " + (f"val_loss={last_validation_loss:.4f} " if last_validation_loss is not None else "") + f"lr={current_lr:.6g} device={self.device}")
+                if decision is not None and decision.improved:
+                    self._save(output_path, model, tokenizer, optimizer, update_step, last_train_loss, last_validation_loss, fingerprint, scheduler, early_stopping, tracker)
+                if decision is not None and decision.should_stop:
+                    stopped_early = True
+                    break
 
-            if self.config.checkpoint_every and step % self.config.checkpoint_every == 0:
-                self._save(
-                    output_path, model, tokenizer, optimizer, step,
-                    last_train_loss, last_validation_loss, fingerprint,
-                )
+            if self.config.checkpoint_every and update_step % self.config.checkpoint_every == 0:
+                self._save(output_path, model, tokenizer, optimizer, update_step, last_train_loss, last_validation_loss, fingerprint, scheduler, early_stopping, tracker)
 
-        self._save(
-            output_path, model, tokenizer, optimizer, start_step + self.config.steps,
-            last_train_loss, last_validation_loss, fingerprint,
-        )
-        return TrainingSummary(
-            checkpoint=str(output_path),
-            start_step=start_step,
-            final_step=start_step + self.config.steps,
-            train_loss=last_train_loss,
-            validation_loss=last_validation_loss,
-            device=str(self.device),
-            dataset_fingerprint=fingerprint,
-        )
+        self._save(output_path, model, tokenizer, optimizer, update_step, last_train_loss, last_validation_loss, fingerprint, scheduler, early_stopping, tracker)
+        return TrainingSummary(str(output_path), start_step, update_step, last_train_loss, last_validation_loss, str(self.device), fingerprint, stopped_early, str(tracker_path))
