@@ -4,6 +4,39 @@
 
 TARA is a research-first neural-network project built from mathematical and implementation fundamentals. The goal is a highly capable, inspectable artificial reasoning system that connects a neural language core with perception, memory, structured reasoning, advanced planning, intelligent tools, algorithm discovery, self-improvement, continual learning, reflection, autonomous tasks, scheduling, temporal context and an explicit world model.
 
+## Pre-training readiness — complete
+
+The repository now has an explicit readiness gate before the first real training run:
+
+- **PyTorch dependency declared** in `requirements.txt`.
+- **Dataset loader + audit** validate the source corpus before training.
+- **Context-fit check** verifies that the corpus can produce training sequences for the requested context length.
+- **Training configuration validation** checks model and optimization parameters.
+- **CPU/CUDA detection** confirms that the selected training backend is available.
+- **No training side effects** — the readiness command only checks prerequisites and never creates a checkpoint.
+
+Run the gate first:
+
+```bash
+python training_preflight.py --data data/algorithm_tasks.jsonl --context 128
+```
+
+A successful preflight means the repository prerequisites are satisfied. It does **not** mean that training has already happened or that the resulting model will be capable; those require an actual training run and measured evaluation.
+
+## Phase 37.11 — Single-Command Learning Pipeline Complete
+
+`run_learning_experiment.py` connects baseline evaluation, explicit training, candidate evaluation and evidence-gated promotion into one reproducible workflow.
+
+```bash
+python run_learning_experiment.py checkpoints/baseline.pt data/algorithm_tasks.jsonl checkpoints/candidate.pt --steps 100
+```
+
+The candidate is accepted only after real evaluation shows strict overall improvement without a permitted category regression. Training is an injected explicit operation; no normal TARA runtime silently starts heavy training.
+
+## Phase 37.10 — Learning Experiment Pipeline Complete
+
+Phase 37.10 adds `src/learning_experiment.py` for baseline/candidate evaluation, capability deltas, checkpoint existence checks, regression protection and experiment fingerprints.
+
 ## Phase 37.8 — Real Model Capability Evaluation Complete
 
 Phase 37.8 connects the capability suite to an actual TARA checkpoint instead of only synthetic solvers:
@@ -63,12 +96,6 @@ Phase 37.5 turns training into an explicit, reproducible experiment boundary:
 - **Manifest output** — dataset/audit fingerprints, checkpoint, metrics, steps, losses, device and configuration are persisted as JSON.
 - **Dedicated CLI** — `run_training_experiment.py` exposes the complete experiment workflow without silently training during runtime.
 - **Model controls** — the existing trainer exposes depth, dropout, weight tying and all Phase 37.3 optimization controls.
-
-Example:
-
-```bash
-python run_training_experiment.py --data data/algorithm_tasks.jsonl --output checkpoints/algorithm_lm.pt --steps 1000 --num-layers 2 --gradient-accumulation-steps 4 --warmup-steps 100 --manifest-path experiments/tara-training.json
-```
 
 Actual model training remains an explicit offline operation. Repository code does not claim a trained model until a training command has actually executed and produced a checkpoint.
 
