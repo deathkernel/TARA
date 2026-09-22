@@ -1,8 +1,8 @@
 """End-to-end PyTorch training pipeline for TARA's learned language core.
 
-Phase 37.3 hardens the Phase 14 pipeline with gradient accumulation, warmup +
-cosine learning-rate scheduling, validation-loss early stopping, and an
-append-only experiment tracker. Training remains an explicit offline operation.
+Phase 37.3/37.4 provides gradient accumulation, warmup + cosine learning-rate
+scheduling, validation-loss early stopping, experiment tracking, and a
+configurable deeper Transformer language core.
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ from src.torch_language_model import FastTinyLanguageModel
 from src.training_hardening import EarlyStopping, ExperimentTracker, TrainingControls, TrainingMetric, WarmupCosineScheduler
 
 
-CHECKPOINT_FORMAT_VERSION = 2
+CHECKPOINT_FORMAT_VERSION = 3
 
 
 @dataclass(frozen=True)
@@ -32,6 +32,9 @@ class TrainingConfig:
     embedding_dim: int = 64
     ff_dim: int = 128
     heads: int = 4
+    num_layers: int = 2
+    dropout: float = 0.1
+    tie_embeddings: bool = True
     lr: float = 3e-4
     validation_split: float = 0.1
     seed: int = 42
@@ -47,10 +50,12 @@ class TrainingConfig:
     def __post_init__(self) -> None:
         if self.steps <= 0 or self.batch_size <= 0 or self.context <= 0:
             raise ValueError("steps, batch_size, and context must be positive")
-        if self.embedding_dim <= 0 or self.ff_dim <= 0 or self.heads <= 0:
-            raise ValueError("model dimensions must be positive")
+        if self.embedding_dim <= 0 or self.ff_dim <= 0 or self.heads <= 0 or self.num_layers <= 0:
+            raise ValueError("model dimensions and num_layers must be positive")
         if self.embedding_dim % self.heads != 0:
             raise ValueError("embedding_dim must be divisible by heads")
+        if not 0.0 <= self.dropout < 1.0:
+            raise ValueError("dropout must be in [0, 1)")
         if self.lr <= 0:
             raise ValueError("lr must be positive")
         if not 0.0 <= self.validation_split < 1.0:
@@ -67,13 +72,16 @@ class TrainingConfig:
             min_delta=self.early_stopping_min_delta,
         )
 
-    def model_config(self, vocab_size: int) -> dict[str, int]:
+    def model_config(self, vocab_size: int) -> dict[str, int | float | bool]:
         return {
             "vocab_size": vocab_size,
             "embedding_dim": self.embedding_dim,
             "ff_dim": self.ff_dim,
             "num_heads": self.heads,
             "max_context": self.context,
+            "num_layers": self.num_layers,
+            "dropout": self.dropout,
+            "tie_embeddings": self.tie_embeddings,
         }
 
     def hardening_config(self) -> dict[str, int | float]:
@@ -315,6 +323,7 @@ class TrainingPipeline:
 
             should_log = update_step == start_step + 1 or update_step % self.config.log_every == 0 or update_step == total_steps
             if should_log:
+                model.eval()
                 last_validation_loss = evaluate(model, validation_tokens, self.config.batch_size, self.config.context, self.device)
                 tracker.log(TrainingMetric(update_step, last_train_loss, last_validation_loss, current_lr))
                 decision = early_stopping.update(last_validation_loss) if last_validation_loss is not None else None
@@ -324,6 +333,7 @@ class TrainingPipeline:
                 if decision is not None and decision.should_stop:
                     stopped_early = True
                     break
+                model.train()
 
             if self.config.checkpoint_every and update_step % self.config.checkpoint_every == 0:
                 self._save(output_path, model, tokenizer, optimizer, update_step, last_train_loss, last_validation_loss, fingerprint, scheduler, early_stopping, tracker)
