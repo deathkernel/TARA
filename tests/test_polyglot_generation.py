@@ -4,8 +4,8 @@ from src.polyglot.parser import CandidateParseError, parse_candidate
 
 def test_parse_candidate_from_fenced_python():
     candidate = parse_candidate(
-        "sorting",
         "Language: python\n```python\nprint('ok')\n```",
+        "sorting",
     )
     assert candidate.language == "python"
     assert candidate.source == "print('ok')\n"
@@ -13,7 +13,7 @@ def test_parse_candidate_from_fenced_python():
 
 def test_parse_candidate_rejects_unfenced_output():
     try:
-        parse_candidate("sorting", "python: print('ok')")
+        parse_candidate("python: print('ok')", "sorting")
     except CandidateParseError:
         pass
     else:
