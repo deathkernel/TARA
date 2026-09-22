@@ -5,6 +5,7 @@ from .benchmark import BenchmarkResult, PolyglotBenchmark, rank_benchmarks
 from .candidate import PolyglotCandidate
 from .execution import PolyglotExecutionError, PolyglotExecutor
 from .generation import ModelCandidateGenerator, build_candidate_prompt
+from .knowledge import KnowledgeExtractor, KnowledgeRecord
 from .languages import LanguageSpec, default_languages, select_language
 from .model_adapter import TARAAlgorithmModel
 from .novelty import NoveltyAnalyzer, NoveltyReport, SimilarityMatch, similarity, structural_signature
@@ -18,6 +19,8 @@ __all__ = [
     "CandidateParseError",
     "ExecutionResult",
     "ImprovementResult",
+    "KnowledgeExtractor",
+    "KnowledgeRecord",
     "LanguageSpec",
     "ModelCandidateGenerator",
     "NoveltyAnalyzer",
