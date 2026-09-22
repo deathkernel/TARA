@@ -5,8 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from src.model_runtime import generate_text, load_checkpoint
-
 from .generation import ModelCandidateGenerator
 
 
@@ -22,6 +20,7 @@ class TARAAlgorithmModel:
     def load(self) -> "TARAAlgorithmModel":
         if not self.checkpoint.exists():
             raise FileNotFoundError(f"TARA model checkpoint not found: {self.checkpoint}")
+        from src.model_runtime import load_checkpoint
         self._model, self._tokenizer = load_checkpoint(self.checkpoint)
         return self
 
@@ -33,6 +32,7 @@ class TARAAlgorithmModel:
         if not self.loaded:
             self.load()
         assert self._model is not None and self._tokenizer is not None
+        from src.model_runtime import generate_text
         return generate_text(
             self._model,
             self._tokenizer,
