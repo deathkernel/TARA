@@ -38,3 +38,98 @@ def test_training_checkpoint_contains_final_metadata(tmp_path):
     assert state["step"] == 0
     assert "val_loss" in state["metrics"]
     assert state["scheduler"]["initial_lr"] == 0.03
+
+
+import json
+
+import pytest
+
+torch = pytest.importorskip("torch")
+
+from src.training_pipeline import TrainingConfig, TrainingPipeline, load_training_texts, split_texts
+
+
+def write_algorithm_dataset(path, count=8):
+    rows = [
+        {
+            "problem": f"sort list {i}",
+            "solution": "return sorted(value)",
+            "tests": "[3,1,2] -> [1,2,3]",
+        }
+        for i in range(count)
+    ]
+    path.write_text("\n".join(json.dumps(row) for row in rows), encoding="utf-8")
+
+
+def test_phase14_loads_algorithm_records(tmp_path):
+    path = tmp_path / "data.jsonl"
+    write_algorithm_dataset(path, count=2)
+    texts = load_training_texts(path)
+    assert len(texts) == 2
+    assert texts[0].startswith("Problem: sort list")
+    assert "Approach: return sorted(value)" in texts[0]
+
+
+def test_phase14_split_is_deterministic_and_non_overlapping():
+    texts = [f"record-{i}" for i in range(10)]
+    first = split_texts(texts, 0.2, 7)
+    second = split_texts(texts, 0.2, 7)
+    assert first == second
+    assert not set(first[0]) & set(first[1])
+    assert len(first[1]) == 2
+
+
+def tiny_config(steps=2):
+    return TrainingConfig(
+        steps=steps,
+        batch_size=2,
+        context=16,
+        embedding_dim=8,
+        ff_dim=16,
+        heads=2,
+        lr=1e-3,
+        validation_split=0.25,
+        seed=11,
+        log_every=2,
+    )
+
+
+def test_phase14_writes_self_contained_checkpoint(tmp_path):
+    data = tmp_path / "data.jsonl"
+    checkpoint = tmp_path / "model.pt"
+    write_algorithm_dataset(data, count=8)
+
+    summary = TrainingPipeline(tiny_config()).train(data, checkpoint)
+    assert summary.start_step == 0
+    assert summary.final_step == 2
+    assert checkpoint.exists()
+
+    payload = torch.load(checkpoint, map_location="cpu", weights_only=False)
+    assert payload["format_version"] == 1
+    assert payload["step"] == 2
+    assert "model_state" in payload
+    assert "optimizer_state" in payload
+    assert "tokenizer" in payload
+    assert "dataset_fingerprint" in payload
+    assert payload["metrics"]["train_loss"] == pytest.approx(summary.train_loss)
+
+
+def test_phase14_resume_continues_step_and_rejects_changed_dataset(tmp_path):
+    data = tmp_path / "data.jsonl"
+    changed = tmp_path / "changed.jsonl"
+    checkpoint = tmp_path / "model.pt"
+    write_algorithm_dataset(data, count=8)
+    write_algorithm_dataset(changed, count=9)
+
+    TrainingPipeline(tiny_config(steps=1)).train(data, checkpoint)
+    resumed = TrainingPipeline(tiny_config(steps=2)).train(data, checkpoint, resume=checkpoint)
+    assert resumed.start_step == 1
+    assert resumed.final_step == 3
+
+    with pytest.raises(ValueError, match="dataset fingerprint differs"):
+        TrainingPipeline(tiny_config(steps=1)).train(changed, checkpoint, resume=checkpoint)
+
+
+def test_phase14_config_rejects_invalid_attention_shape():
+    with pytest.raises(ValueError, match="divisible"):
+        TrainingConfig(embedding_dim=7, heads=2)
