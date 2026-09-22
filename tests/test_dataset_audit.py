@@ -25,6 +25,14 @@ def test_dataset_audit_detects_split_leakage():
     assert any(issue.code == "split-overlap" for issue in report.issues)
 
 
+def test_dataset_audit_supports_algorithm_records():
+    report = DatasetAuditor().audit([
+        {"problem": "sort a list", "solution": "use sorting", "tests": "[2,1] -> [1,2]"},
+    ])
+    assert report.empty_records == 0
+    assert report.records == report.unique_records == 1
+
+
 def test_dataset_audit_is_deterministic():
     data = ["alpha example", "beta example"]
     first = DatasetAuditor().audit(data)
