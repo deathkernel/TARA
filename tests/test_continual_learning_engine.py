@@ -24,3 +24,14 @@ def test_promotion_accepts_improvement_without_forgetting():
     result = ContinualLearningEngine().evaluate([0.8, 0.8], [0.9, 0.85])
     assert result.accepted
     assert result.metrics.improvement_score > 0
+
+
+def test_replay_sampler_covers_all_domains_when_budget_allows():
+    engine = ContinualLearningEngine(seed=11, replay_size=4)
+    batch = engine.build_replay([
+        {"text": "code-1", "domain": "code", "importance": 10, "verified": True},
+        {"text": "code-2", "domain": "code", "importance": 10, "verified": True},
+        {"text": "math-1", "domain": "math", "importance": 1, "verified": True},
+        {"text": "security-1", "domain": "security", "importance": 1, "verified": True},
+    ])
+    assert {item.domain for item in batch.examples} == {"code", "math", "security"}
