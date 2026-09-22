@@ -4,6 +4,7 @@ import argparse
 from pathlib import Path
 
 from src.continual_learning import ReplayCorpusBuilder
+from src.training_dataset_mixer import TargetedDatasetMixer
 from src.training_pipeline import TrainingConfig, TrainingPipeline
 
 
@@ -15,6 +16,9 @@ def main() -> None:
     parser.add_argument("--metrics-path", default=None, help="append-only JSONL experiment metrics path")
     parser.add_argument("--replay-data", default=None, help="verified knowledge JSONL for continual-learning replay")
     parser.add_argument("--replay-ratio", type=float, default=0.25)
+    parser.add_argument("--targeted-data", default=None, help="synthetic failure-targeted JSONL; kept separate from verified replay")
+    parser.add_argument("--targeted-ratio", type=float, default=0.5, help="targeted share of mixed training records")
+    parser.add_argument("--mixed-data-output", default=None, help="path for deterministic base+targeted mixed dataset")
     parser.add_argument("--steps", type=int, default=1000)
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--context", type=int, default=128)
@@ -45,26 +49,20 @@ def main() -> None:
         print(f"replay eligible={report.eligible_records} selected={report.selected_records} duplicates_removed={report.duplicates_removed} output={report.output_path}")
         data_path = replay_path
 
+    if args.targeted_data:
+        mixed_path = Path(args.mixed_data_output) if args.mixed_data_output else data_path.with_name(data_path.stem + ".targeted.jsonl")
+        report = TargetedDatasetMixer(targeted_ratio=args.targeted_ratio, seed=args.seed).mix(data_path, args.targeted_data, mixed_path)
+        print(f"targeted base={report.base_records} targeted={report.targeted_records} selected={report.selected_targeted} duplicates_removed={report.duplicates_removed} output={report.output_path} fingerprint={report.fingerprint}")
+        data_path = mixed_path
+
     config = TrainingConfig(
-        steps=args.steps,
-        batch_size=args.batch_size,
-        context=args.context,
-        embedding_dim=args.embedding_dim,
-        ff_dim=args.ff_dim,
-        heads=args.heads,
-        num_layers=args.num_layers,
-        dropout=args.dropout,
-        tie_embeddings=args.tie_embeddings,
-        lr=args.lr,
-        validation_split=args.validation_split,
-        seed=args.seed,
-        log_every=args.log_every,
-        checkpoint_every=args.checkpoint_every,
-        grad_clip=args.grad_clip,
-        gradient_accumulation_steps=args.gradient_accumulation_steps,
-        warmup_steps=args.warmup_steps,
-        min_lr_ratio=args.min_lr_ratio,
-        early_stopping_patience=args.early_stopping_patience,
+        steps=args.steps, batch_size=args.batch_size, context=args.context,
+        embedding_dim=args.embedding_dim, ff_dim=args.ff_dim, heads=args.heads,
+        num_layers=args.num_layers, dropout=args.dropout, tie_embeddings=args.tie_embeddings,
+        lr=args.lr, validation_split=args.validation_split, seed=args.seed,
+        log_every=args.log_every, checkpoint_every=args.checkpoint_every, grad_clip=args.grad_clip,
+        gradient_accumulation_steps=args.gradient_accumulation_steps, warmup_steps=args.warmup_steps,
+        min_lr_ratio=args.min_lr_ratio, early_stopping_patience=args.early_stopping_patience,
         early_stopping_min_delta=args.early_stopping_min_delta,
     )
     device = None if args.device in (None, "auto") else args.device
