@@ -12,7 +12,7 @@ from enum import Enum
 from hashlib import sha256
 import json
 from pathlib import Path
-from typing import Any, Callable, Iterable, Mapping
+from typing import Any, Callable, Iterable, Mapping, Sequence
 
 from .architecture_optimization import ArchitectureOptimizer, ArchitectureVariant, OptimizationResult
 from .autonomous_research import ResearchReport
@@ -82,7 +82,6 @@ class TARACore:
         "tools",
         "researcher",
         "experimenter",
-        "architecture_optimizer",
         "cognitive_loop",
         "continual_learning",
         "multimodal",
@@ -105,6 +104,7 @@ class TARACore:
         self._sequence = 0
         if architecture_optimizer is not None:
             self.brain.architecture_optimizer = architecture_optimizer
+        self.brain.cognitive_loop.max_cycles = self.config.max_cycles
 
     @classmethod
     def from_checkpoint(
@@ -227,6 +227,16 @@ class TARACore:
             self._emit("error", type=type(exc).__name__, message=str(exc))
             raise
 
+    def respond(self, prompt: str, **kwargs):
+        response = self.brain.respond(prompt, **kwargs)
+        self._emit("response", characters=len(response.text))
+        return response
+
+    def generate(self, prompt: str, **kwargs) -> str:
+        text = self.brain.generate(prompt, **kwargs)
+        self._emit("generation", characters=len(text))
+        return text
+
     def perceive(self, observations):
         context = self.brain.perceive_multimodal(observations)
         self._emit("perception", modalities=",".join(item.modality for item in context.observations))
@@ -263,6 +273,11 @@ class TARACore:
         report = self.brain.experience_learning.learn(experiences)
         self._emit("learning", experiences=len(experiences), updates=len(report.updates))
         return report
+
+    def build_replay(self, records):
+        batch = self.brain.build_replay(records)
+        self._emit("replay", examples=len(batch.examples))
+        return batch
 
     def snapshot(self) -> CoreSnapshot:
         cycles = len(self.brain.cognitive_loop.traces)
