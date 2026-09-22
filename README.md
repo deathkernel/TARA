@@ -148,6 +148,19 @@ Perception -> Memory -> Reasoning -> Planning -> Tools -> Action Boundary -> Ver
 
 The core is an orchestration layer, not a replacement for the specialized modules. External permissions and execution remain explicit, and model training is never silently triggered by runtime orchestration.
 
+## Phase 36 — Deep Audit & Validation Complete
+
+Phase 36 implements the validation and hardening layer that follows the architecture roadmap:
+
+- **Repository static audit** — Python syntax, required Phase 35 integration files, duplicate pytest workflows and non-deterministic `hash()` usage are checked without executing repository code.
+- **Scheduler correctness fix** — failed scheduled tasks are retained instead of being silently deleted; persisted retry budgets are honored within the global resource budget.
+- **Continual-learning correctness fix** — replay sampling now guarantees domain coverage whenever the replay budget can accommodate all domains, then uses importance-weighted sampling for remaining capacity.
+- **Regression tests** — scheduler failure retention, retry budgeting, replay domain coverage and repository-audit rules are covered by tests.
+- **CI consolidation** — the duplicate Python full-test workflow was removed; one canonical CI workflow now runs static audit, the Python suite, smoke experiments and Rust tests.
+- **Audit boundary** — the phase is deterministic and dependency-light; it does not execute arbitrary generated code during static inspection.
+
+Phase 36 is a hardening milestone, not a claim that every runtime behavior has been exhaustively proven. Full pytest/Rust execution is delegated to the repository's GitHub Actions environment.
+
 ## Roadmap
 
 - Phase 21 — Perception & Temporal Awareness: **122–127 complete**
@@ -165,3 +178,4 @@ The core is an orchestration layer, not a replacement for the specialized module
 - Phase 33 — Architecture Self-Optimization: **214–221 complete**
 - Phase 34 — Unified Cognitive Loop: **222–230 complete**
 - Phase 35 — TARA Core Integration: **231–240 complete**
+- Phase 36 — Deep Audit & Validation: **complete**
