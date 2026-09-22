@@ -2,22 +2,22 @@
 
 **TARA — Tiny Artificial Reasoning Architecture**
 
-TARA is a research-first neural-network project built from mathematical and implementation fundamentals. The goal is a highly capable, inspectable artificial reasoning system that connects a neural language core with perception, memory, structured reasoning, advanced planning, intelligent tools, algorithm discovery, self-improvement, reflection, autonomous tasks, scheduling, temporal context and an explicit world model.
+TARA is a research-first neural-network project built from mathematical and implementation fundamentals. The goal is a highly capable, inspectable artificial reasoning system that connects a neural language core with perception, memory, structured reasoning, advanced planning, intelligent tools, algorithm discovery, self-improvement, continual learning, reflection, autonomous tasks, scheduling, temporal context and an explicit world model.
 
-## Phase 26 — Advanced Self-Improvement Complete
+## Phase 27 — Advanced Continual Learning Complete
 
-Phase 26 implements steps **157–164**:
+Phase 27 implements steps **165–172**:
 
-- **157 Failure analysis** — benchmark failures become structured categories, severity and targeted optimization signals.
-- **158 Targeted mutation** — injectable mutation policies can be backed by an LM, evolutionary operator or program-synthesis model.
-- **159 Experiment generation** — bounded candidate variants are deduplicated before execution.
-- **160 Regression benchmarking** — every experiment is re-run through the deterministic benchmark boundary.
-- **161 Multi-objective improvement scoring** — correctness, speed, compactness and regression safety are combined into measurable utility.
-- **162 Promotion gate** — correctness regressions are rejected before a candidate can replace the baseline.
-- **163 Iterative improvement** — successful candidates become the next baseline for another bounded cycle.
-- **164 Brain integration** — `TARABrain` exposes improvement-cycle and iterative-improvement APIs.
+- **165 Verified replay orchestration** — learning examples are admitted only when verification is true.
+- **166 Deterministic normalization/deduplication** — examples receive stable fingerprints and provenance.
+- **167 Balanced replay sampling** — bounded importance-weighted sampling maintains domain coverage.
+- **168 Stability/plasticity measurement** — improvement and forgetting are measured separately.
+- **169 Catastrophic-forgetting diagnostics** — retained-skill degradation is quantified against a configurable budget.
+- **170 Evidence-gated promotion** — learning is rejected when forgetting exceeds the safety threshold or measurable progress is absent.
+- **171 Replay manifest generation** — reproducible replay batches can be fingerprinted and persisted.
+- **172 Brain integration** — `TARABrain` can build verified replay batches and evaluate learning promotion.
 
-`src/self_improvement_lab.py` makes the loop explicit: **failure → analysis → mutation → experiment → benchmark → regression gate → measured promotion**. Execution remains behind the existing polyglot sandbox/benchmark boundary. The architecture is ready for learned mutation and ranking policies, but no model is claimed to have trained itself merely by enabling this code.
+`src/continual_learning_engine.py` adds an ML-oriented stability/plasticity layer without pretending that dataset construction equals model training. Actual parameter updates remain an explicit training operation. This keeps learning auditable: **verified data → replay sampling → train externally → evaluate retained skills → promotion gate**.
 
 ## Architecture
 
@@ -37,22 +37,24 @@ AI Tool Intelligence
 Algorithm Discovery
         ↓
 Self-Improvement Lab
-  ├─ Failure Analysis
-  ├─ Targeted Mutation
-  ├─ Experiment Generation
-  ├─ Regression Benchmarking
-  ├─ Multi-objective Scoring
-  ├─ Promotion Gate
-  └─ Iterative Improvement
         ↓
-Reflection → Goal Progress → Learning / Continual Learning
+Continual Learning
+  ├─ Verified Replay
+  ├─ Deduplication / Provenance
+  ├─ Importance-weighted Sampling
+  ├─ Domain Balancing
+  ├─ Stability / Plasticity
+  ├─ Forgetting Diagnostics
+  └─ Evidence-gated Promotion
+        ↓
+Reflection → Goal Progress
         ↓
 Autonomous Tasks → Scheduler → Resource Budget
         ↓
 Neural Language Core
 ```
 
-The improvement stack separates **proposal** from **execution** and **promotion**. A generated mutation is never treated as correct because it looks plausible: deterministic tests and a regression gate must approve it first.
+The continual-learning layer deliberately separates **learning data selection** from **parameter updates**. A future learned replay policy can optimize sampling, but verification and forgetting gates remain explicit.
 
 ## Roadmap
 
@@ -62,7 +64,7 @@ The improvement stack separates **proposal** from **execution** and **promotion*
 - Phase 24 — Tool Intelligence: **142–148 complete**
 - Phase 25 — Algorithm Discovery: **149–156 complete**
 - Phase 26 — Self-Improvement: **157–164 complete**
-- Phase 27 — Continual Learning: **165–172**
+- Phase 27 — Continual Learning: **165–172 complete**
 - Phase 28 — Persistent Cognitive Memory: **173–180**
 - Phase 29 — Learning From Experience: **181–188**
 - Phase 30 — Multimodal Perception: **189–197**
