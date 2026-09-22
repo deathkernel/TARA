@@ -42,8 +42,12 @@ def test_select_level_rejects_unknown_level():
 class FakeStreamer:
     def stream(self, spec, limit):
         for index in range(min(limit, 2)):
+            if spec.key == "second" and index == 1:
+                text = "first-0"
+            else:
+                text = f"{spec.key}-{index}"
             yield CuratedRecord(
-                text="same" if index == 1 and spec.key == "second" else f"{spec.key}-{index}",
+                text=text,
                 source=spec.dataset_id,
                 record_id=str(index),
                 metadata={"license": spec.license},
@@ -86,8 +90,8 @@ def test_acquirer_deduplicates_and_writes_manifest(tmp_path: Path):
         level="basic",
     )
 
-    assert report.emitted_records == 4
-    assert report.duplicates_removed == 0
+    assert report.emitted_records == 3
+    assert report.duplicates_removed == 1
     assert output.exists()
     assert output.with_suffix(".jsonl.manifest.json").exists()
 
