@@ -1,9 +1,4 @@
-"""End-to-end PyTorch training pipeline for TARA's learned language core.
-
-Phase 37.3/37.4 provides gradient accumulation, warmup + cosine learning-rate
-scheduling, validation-loss early stopping, experiment tracking, and a
-configurable deeper Transformer language core.
-"""
+"""End-to-end PyTorch training pipeline for TARA's learned language core."""
 
 from __future__ import annotations
 
@@ -20,9 +15,7 @@ from src.tokenizer import CharTokenizer
 from src.torch_language_model import FastTinyLanguageModel
 from src.training_hardening import EarlyStopping, ExperimentTracker, TrainingControls, TrainingMetric, WarmupCosineScheduler
 
-
 CHECKPOINT_FORMAT_VERSION = 3
-
 
 @dataclass(frozen=True)
 class TrainingConfig:
@@ -73,26 +66,10 @@ class TrainingConfig:
         )
 
     def model_config(self, vocab_size: int) -> dict[str, int | float | bool]:
-        return {
-            "vocab_size": vocab_size,
-            "embedding_dim": self.embedding_dim,
-            "ff_dim": self.ff_dim,
-            "num_heads": self.heads,
-            "max_context": self.context,
-            "num_layers": self.num_layers,
-            "dropout": self.dropout,
-            "tie_embeddings": self.tie_embeddings,
-        }
+        return {"vocab_size": vocab_size, "embedding_dim": self.embedding_dim, "ff_dim": self.ff_dim, "num_heads": self.heads, "max_context": self.context, "num_layers": self.num_layers, "dropout": self.dropout, "tie_embeddings": self.tie_embeddings}
 
     def hardening_config(self) -> dict[str, int | float]:
-        return {
-            "gradient_accumulation_steps": self.gradient_accumulation_steps,
-            "warmup_steps": self.warmup_steps,
-            "min_lr_ratio": self.min_lr_ratio,
-            "patience": self.early_stopping_patience,
-            "min_delta": self.early_stopping_min_delta,
-        }
-
+        return {"gradient_accumulation_steps": self.gradient_accumulation_steps, "warmup_steps": self.warmup_steps, "min_lr_ratio": self.min_lr_ratio, "patience": self.early_stopping_patience, "min_delta": self.early_stopping_min_delta}
 
 @dataclass(frozen=True)
 class TrainingSummary:
@@ -106,17 +83,28 @@ class TrainingSummary:
     stopped_early: bool = False
     metrics_path: str | None = None
 
-
 def _fingerprint(texts: Iterable[str]) -> str:
     return hashlib.sha256("\n".join(texts).encode("utf-8")).hexdigest()
 
+def _record_to_text(item: object) -> str:
+    if isinstance(item, str):
+        return item.strip()
+    if not isinstance(item, dict):
+        raise ValueError("dataset record must be a string or object")
+    if "problem" in item and "solution" in item:
+        return "Problem: " + str(item["problem"]) + "\nApproach: " + str(item["solution"]) + "\nTests: " + str(item.get("tests", ""))
+    if "prompt" in item and "solution" in item:
+        return "Prompt: " + str(item["prompt"]) + "\nAnswer: " + str(item["solution"]) + "\nTests: " + str(item.get("tests", ""))
+    value = item.get("text", item.get("content", item.get("prompt")))
+    if value is None:
+        raise ValueError("dataset record has no text/content/prompt field")
+    return str(value).strip()
 
 def load_training_texts(path: str | Path) -> list[str]:
     source = Path(path)
     if not source.exists():
         raise FileNotFoundError(source)
     raw = source.read_text(encoding="utf-8")
-    records: list[str] = []
     if source.suffix.lower() in {".txt", ".text"}:
         records = [line.strip() for line in raw.splitlines() if line.strip()]
     else:
@@ -127,25 +115,11 @@ def load_training_texts(path: str | Path) -> list[str]:
             iterable = items if isinstance(items, list) else [items]
         except json.JSONDecodeError:
             iterable = [json.loads(line) for line in lines]
-        for item in iterable:
-            if isinstance(item, str):
-                text = item.strip()
-            elif isinstance(item, dict):
-                if "problem" in item and "solution" in item:
-                    text = "Problem: " + str(item["problem"]) + "\nApproach: " + str(item["solution"]) + "\nTests: " + str(item.get("tests", ""))
-                else:
-                    value = item.get("text", item.get("content", item.get("prompt")))
-                    if value is None:
-                        raise ValueError("dataset record has no text/content/prompt field")
-                    text = str(value).strip()
-            else:
-                raise ValueError("dataset record must be a string or object")
-            if text:
-                records.append(text)
+        records = [_record_to_text(item) for item in iterable]
+    records = [text for text in records if text]
     if not records:
         raise ValueError("training dataset is empty")
     return records
-
 
 def split_texts(texts: list[str], validation_split: float, seed: int) -> tuple[list[str], list[str]]:
     if not texts:
@@ -156,9 +130,7 @@ def split_texts(texts: list[str], validation_split: float, seed: int) -> tuple[l
         return [texts[i] for i in indices], []
     validation_count = min(max(1, int(len(texts) * validation_split)), len(texts) - 1)
     validation_indices = set(indices[:validation_count])
-    return ([text for i, text in enumerate(texts) if i not in validation_indices],
-            [text for i, text in enumerate(texts) if i in validation_indices])
-
+    return ([text for i, text in enumerate(texts) if i not in validation_indices], [text for i, text in enumerate(texts) if i in validation_indices])
 
 def _tokenize_corpus(texts: list[str], tokenizer: CharTokenizer, context: int) -> torch.Tensor:
     ids: list[int] = []
@@ -172,16 +144,14 @@ def _tokenize_corpus(texts: list[str], tokenizer: CharTokenizer, context: int) -
         raise ValueError("dataset is shorter than the requested context")
     return torch.tensor(ids, dtype=torch.long)
 
-
 def _sample_batch(tokens: torch.Tensor, batch_size: int, context: int, device: torch.device):
     maximum = len(tokens) - context - 1
     if maximum <= 0:
         raise ValueError("token corpus is shorter than context + 2")
     starts = torch.randint(0, maximum, (batch_size,))
-    x = torch.stack([tokens[i : i + context] for i in starts])
-    y = torch.stack([tokens[i + 1 : i + context + 1] for i in starts])
+    x = torch.stack([tokens[i:i + context] for i in starts])
+    y = torch.stack([tokens[i + 1:i + context + 1] for i in starts])
     return x.to(device), y.to(device)
-
 
 @torch.no_grad()
 def evaluate(model, tokens: torch.Tensor | None, batch_size: int, context: int, device: torch.device) -> float | None:
@@ -194,16 +164,14 @@ def evaluate(model, tokens: torch.Tensor | None, batch_size: int, context: int, 
         starts = starts[::stride][:256]
     losses = []
     for offset in range(0, len(starts), batch_size):
-        batch_starts = starts[offset : offset + batch_size]
-        x = torch.stack([tokens[i : i + context] for i in batch_starts]).to(device)
-        y = torch.stack([tokens[i + 1 : i + context + 1] for i in batch_starts]).to(device)
+        batch_starts = starts[offset:offset + batch_size]
+        x = torch.stack([tokens[i:i + context] for i in batch_starts]).to(device)
+        y = torch.stack([tokens[i + 1:i + context + 1] for i in batch_starts]).to(device)
         losses.append(float(model.loss(x, y).item()))
     return sum(losses) / len(losses) if losses else None
 
-
 class TrainingPipeline:
     """Train, validate, checkpoint, resume, and track a TARA language model."""
-
     def __init__(self, config: TrainingConfig | None = None, device: str | None = None) -> None:
         self.config = config or TrainingConfig()
         if device is None:
@@ -257,7 +225,7 @@ class TrainingPipeline:
 
     def _save(self, path: Path, model, tokenizer, optimizer, step, train_loss, validation_loss, fingerprint, scheduler, early_stopping, tracker):
         path.parent.mkdir(parents=True, exist_ok=True)
-        payload = {
+        torch.save({
             "format_version": CHECKPOINT_FORMAT_VERSION,
             "step": step,
             "model_state": model.state_dict(),
@@ -271,8 +239,7 @@ class TrainingPipeline:
             "scheduler": {"total_steps": scheduler.total_steps, "warmup_steps": scheduler.warmup_steps, "min_lr_ratio": scheduler.min_lr_ratio, "optimizer_steps": step},
             "early_stopping": {"best": early_stopping.best, "bad_steps": early_stopping.bad_steps},
             "metrics_fingerprint": tracker.fingerprint(),
-        }
-        torch.save(payload, path)
+        }, path)
 
     def train(self, data: str | Path, output: str | Path, resume: str | Path | None = None, metrics_path: str | Path | None = None) -> TrainingSummary:
         texts = load_training_texts(data)
@@ -290,14 +257,12 @@ class TrainingPipeline:
             early_stopping = EarlyStopping(self.config.early_stopping_patience, self.config.early_stopping_min_delta)
             early_stopping.best = state.get("best")
             early_stopping.bad_steps = int(state.get("bad_steps", 0))
-
         total_steps = start_step + self.config.steps
         scheduler = WarmupCosineScheduler(total_steps=max(1, total_steps), warmup_steps=min(self.config.warmup_steps, max(1, total_steps)), min_lr_ratio=self.config.min_lr_ratio)
         random.seed(self.config.seed + start_step)
         torch.manual_seed(self.config.seed + start_step)
         if self.device.type == "cuda":
             torch.cuda.manual_seed_all(self.config.seed + start_step)
-
         last_train_loss = float("nan")
         last_validation_loss = None
         stopped_early = False
@@ -313,14 +278,12 @@ class TrainingPipeline:
                 accumulated_loss += float(loss.item())
             torch.nn.utils.clip_grad_norm_(model.parameters(), self.config.grad_clip)
             update_step += 1
-            lr_multiplier = scheduler.multiplier(update_step - 1)
-            current_lr = self.config.lr * lr_multiplier
+            current_lr = self.config.lr * scheduler.multiplier(update_step - 1)
             for group in optimizer.param_groups:
                 group["lr"] = current_lr
             optimizer.step()
             optimizer.zero_grad(set_to_none=True)
             last_train_loss = accumulated_loss / self.config.gradient_accumulation_steps
-
             should_log = update_step == start_step + 1 or update_step % self.config.log_every == 0 or update_step == total_steps
             if should_log:
                 model.eval()
@@ -334,9 +297,7 @@ class TrainingPipeline:
                     stopped_early = True
                     break
                 model.train()
-
             if self.config.checkpoint_every and update_step % self.config.checkpoint_every == 0:
                 self._save(output_path, model, tokenizer, optimizer, update_step, last_train_loss, last_validation_loss, fingerprint, scheduler, early_stopping, tracker)
-
         self._save(output_path, model, tokenizer, optimizer, update_step, last_train_loss, last_validation_loss, fingerprint, scheduler, early_stopping, tracker)
         return TrainingSummary(str(output_path), start_step, update_step, last_train_loss, last_validation_loss, str(self.device), fingerprint, stopped_early, str(tracker_path))
