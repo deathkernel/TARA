@@ -8,6 +8,7 @@ not by itself establish broad reasoning capability or generalization.
 
 from __future__ import annotations
 
+import argparse
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -42,7 +43,7 @@ class CapabilityBenchmarkReport:
         return asdict(self)
 
 
-def _load_checkpoint(path: str | Path, device: torch.device) -> dict[str, Any]:
+def _load_checkpoint(path: str | Path) -> dict[str, Any]:
     payload = torch.load(path, map_location="cpu", weights_only=False)
     if payload.get("format_version") != CHECKPOINT_FORMAT_VERSION:
         raise ValueError("unsupported TARA training checkpoint format")
@@ -62,7 +63,7 @@ def benchmark_checkpoint(
 
     checkpoint_path = Path(checkpoint)
     dataset_path = Path(dataset)
-    payload = _load_checkpoint(checkpoint_path, target_device)
+    payload = _load_checkpoint(checkpoint_path)
     texts = load_training_texts(dataset_path)
     dataset_fingerprint = _fingerprint(texts)
     if payload.get("dataset_fingerprint") != dataset_fingerprint:
@@ -105,3 +106,22 @@ def benchmark_checkpoint(
         relative_improvement=improvement,
         trained_better=better,
     )
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Benchmark a TARA training checkpoint against a fresh baseline")
+    parser.add_argument("--checkpoint", required=True)
+    parser.add_argument("--data", required=True)
+    parser.add_argument("--device", default="cpu", help="cpu or cuda")
+    args = parser.parse_args()
+    report = benchmark_checkpoint(args.checkpoint, args.data, device=args.device)
+    print(json_dumps(report.as_dict()))
+
+
+def json_dumps(payload: dict[str, Any]) -> str:
+    import json
+    return json.dumps(payload, indent=2, sort_keys=True)
+
+
+if __name__ == "__main__":
+    main()
