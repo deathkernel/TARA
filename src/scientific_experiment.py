@@ -98,6 +98,10 @@ def _fingerprint(parts: Iterable[str]) -> str:
     return sha256("\x1f".join(parts).encode("utf-8")).hexdigest()
 
 
+def _stable_int(value: str) -> int:
+    return int.from_bytes(sha256(value.encode("utf-8")).digest()[:4], "big")
+
+
 def _jsonish(value: Any) -> str:
     if isinstance(value, Mapping):
         return "{" + ",".join(f"{k}={_jsonish(value[k])}" for k in sorted(value)) + "}"
@@ -241,7 +245,7 @@ class ScientificExperimentEngine:
             se = sd / math.sqrt(len(values)) if values else 0.0
             low, high = _bootstrap_ci(
                 values,
-                seed=design.seed ^ hash((condition_id, metric)) & 0xFFFFFFFF,
+                seed=design.seed ^ _stable_int(f"{condition_id}|{metric}"),
                 samples=self.bootstrap_samples,
             )
             summaries.append(MeasurementSummary(condition_id, metric, len(values), avg, sd, se, min(values), max(values), low, high))
@@ -274,7 +278,7 @@ class ScientificExperimentEngine:
                 paired = [treatment[i] - control[i] for i in range(paired_count)]
                 ci_low, ci_high = _bootstrap_ci(
                     paired,
-                    seed=design.seed ^ hash((condition.condition_id, metric, "effect")) & 0xFFFFFFFF,
+                    seed=design.seed ^ _stable_int(f"{condition.condition_id}|{metric}|effect"),
                     samples=self.bootstrap_samples,
                 )
                 interpretation = (
