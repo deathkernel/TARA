@@ -51,6 +51,11 @@ def _text(record: object) -> str:
             value = record.get(key)
             if isinstance(value, str):
                 return re.sub(r"\s+", " ", value).strip()
+        if "problem" in record and "solution" in record:
+            value = "Problem: " + str(record["problem"]) + " Approach: " + str(record["solution"])
+            if "tests" in record:
+                value += " Tests: " + str(record["tests"])
+            return re.sub(r"\s+", " ", value).strip()
     return ""
 
 
