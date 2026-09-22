@@ -7,6 +7,7 @@ from .execution import PolyglotExecutionError, PolyglotExecutor
 from .generation import ModelCandidateGenerator, build_candidate_prompt
 from .knowledge import KnowledgeExtractor, KnowledgeRecord
 from .languages import LanguageSpec, default_languages, select_language
+from .learning import LearningExport, VerifiedKnowledgeLearner
 from .model_adapter import TARAAlgorithmModel
 from .novelty import NoveltyAnalyzer, NoveltyReport, SimilarityMatch, similarity, structural_signature
 from .parser import CandidateParseError, parse_candidate
@@ -22,6 +23,7 @@ __all__ = [
     "KnowledgeExtractor",
     "KnowledgeRecord",
     "LanguageSpec",
+    "LearningExport",
     "ModelCandidateGenerator",
     "NoveltyAnalyzer",
     "NoveltyReport",
@@ -32,6 +34,7 @@ __all__ = [
     "SelfImprovementEngine",
     "SimilarityMatch",
     "TARAAlgorithmModel",
+    "VerifiedKnowledgeLearner",
     "build_candidate_prompt",
     "default_languages",
     "parse_candidate",
