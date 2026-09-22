@@ -1,19 +1,14 @@
-"""Evidence-gated orchestration for real TARA model evaluation.
-
-This module coordinates baseline/candidate checkpoint evaluation and promotion
-without performing training itself. Training remains an explicit injected
-operation so normal runtime code cannot unexpectedly consume large compute.
-"""
+"""Evidence-gated orchestration for real TARA model evaluation."""
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from hashlib import sha256
 import json
 from pathlib import Path
 from typing import Any, Callable
 
 from .capability_suite import capability_cases
-from .intelligence_benchmark import BenchmarkReport, RegressionGate
+from .intelligence_benchmark import compare_regression
 from .model_capability_runner import ModelEvaluation, evaluate_checkpoint
 
 
@@ -45,20 +40,26 @@ class EvaluationCycle:
 
 
 class CheckpointEvaluator:
-    """Compare checkpoints using the same immutable capability suite."""
+    """Compare checkpoints using the same deterministic capability suite."""
 
     def __init__(self, *, max_new_tokens: int = 32, overall_tolerance: float = 0.0, category_tolerance: float = 0.0):
         self.max_new_tokens = max_new_tokens
-        self.gate = RegressionGate(overall_tolerance=overall_tolerance, category_tolerance=category_tolerance)
+        self.overall_tolerance = overall_tolerance
+        self.category_tolerance = category_tolerance
 
     def evaluate(self, checkpoint: str | Path, *, name: str = "tara-real-model") -> ModelEvaluation:
         return evaluate_checkpoint(checkpoint, capability_cases(), name=name, max_new_tokens=self.max_new_tokens)
 
     def compare(self, baseline: ModelEvaluation, candidate: ModelEvaluation) -> EvaluationDecision:
-        regression = self.gate.check(baseline.benchmark, candidate.benchmark)
+        gate = compare_regression(
+            baseline.benchmark,
+            candidate.benchmark,
+            minimum_overall=baseline.benchmark.overall_score - self.overall_tolerance,
+            maximum_category_drop=self.category_tolerance,
+        )
         base = baseline.benchmark.overall_score
         current = candidate.benchmark.overall_score
-        if regression:
+        if not gate.passed:
             reason = "candidate failed the regression gate"
             accepted = False
         elif current <= base:
@@ -67,12 +68,12 @@ class CheckpointEvaluator:
         else:
             reason = "candidate improved overall score without regression"
             accepted = True
-        fingerprint = sha256(json.dumps({"baseline": baseline.fingerprint, "candidate": candidate.fingerprint, "accepted": accepted}, sort_keys=True).encode()).hexdigest()
-        return EvaluationDecision(accepted, reason, base, current, regression, fingerprint)
+        fingerprint = sha256(json.dumps({"baseline": baseline.fingerprint, "candidate": candidate.fingerprint, "accepted": accepted}, sort_keys=True).encode("utf-8")).hexdigest()
+        return EvaluationDecision(accepted, reason, base, current, bool(gate.regressions), fingerprint)
 
 
 class EvaluationOrchestrator:
-    """Run baseline evaluation, optional injected improvement, and promotion."""
+    """Evaluate a baseline, optionally evaluate an injected candidate, then decide."""
 
     def __init__(self, evaluator: CheckpointEvaluator | None = None):
         self.evaluator = evaluator or CheckpointEvaluator()
@@ -82,8 +83,7 @@ class EvaluationOrchestrator:
         if improve is None:
             decision = EvaluationDecision(False, "no improvement experiment was supplied", baseline.benchmark.overall_score, baseline.benchmark.overall_score, False, baseline.fingerprint)
             return EvaluationCycle(baseline, None, decision)
-        candidate_path = improve(baseline)
-        candidate = self.evaluator.evaluate(candidate_path, name="tara-candidate")
+        candidate = self.evaluator.evaluate(improve(baseline), name="tara-candidate")
         return EvaluationCycle(baseline, candidate, self.evaluator.compare(baseline, candidate))
 
 
