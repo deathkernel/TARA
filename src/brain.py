@@ -11,6 +11,8 @@ from .autonomous_research import AutonomousResearchEngine, ResearchReport
 from .scientific_experiment import ExperimentDesign, ExperimentReport, ScientificExperimentEngine
 from .architecture_optimization import ArchitectureOptimizer, ArchitectureVariant, OptimizationResult
 from .experience_learning import ExperienceLearningEngine
+from .intelligence_benchmark import BenchmarkReport, IntelligenceBenchmark
+from .intelligence_improvement import ImprovementProposal, IntelligenceImprovementEngine, IntelligenceImprovementReport
 from .unified_cognitive_loop import ActionOutcome, ActionRequest, CognitiveLoopReport, UnifiedCognitiveLoop
 from .event_router import EventRouter
 from .goal_progress import GoalProgress
@@ -34,7 +36,8 @@ class TARABrain:
     def __init__(self, model, tokenizer=None, *, engine=None, memory=None, seed=0, reflection=None,
                  progress=None, orchestrator=None, world=None, events=None, temporal=None,
                  temporal_history=256, reasoner=None, planner=None, tools=None, improver=None,
-                 continual=None, multimodal=None, researcher=None, experimenter=None, architecture_optimizer=None, cognitive_loop=None, experience_learning=None):
+                 continual=None, multimodal=None, researcher=None, experimenter=None, architecture_optimizer=None, cognitive_loop=None, experience_learning=None,
+                 intelligence_improver=None):
         self.model = model
         self.tokenizer = tokenizer
         self.engine = TARAEngine() if engine is None else engine
@@ -56,14 +59,10 @@ class TARABrain:
         self.experimenter = experimenter or ScientificExperimentEngine()
         self.architecture_optimizer = architecture_optimizer
         self.experience_learning = experience_learning or ExperienceLearningEngine()
+        self.intelligence_improver = intelligence_improver or IntelligenceImprovementEngine()
         self.cognitive_loop = cognitive_loop or UnifiedCognitiveLoop(
-            reasoner=self.reasoner,
-            planner=self.planner,
-            tools=self.tools,
-            memory=self.memory,
-            reflection=self.reflection,
-            progress=self.progress,
-            learning=self.experience_learning,
+            reasoner=self.reasoner, planner=self.planner, tools=self.tools, memory=self.memory,
+            reflection=self.reflection, progress=self.progress, learning=self.experience_learning,
         )
         self.rng = random.Random(seed)
 
@@ -84,13 +83,15 @@ class TARABrain:
     def run_experiment(self, design: ExperimentDesign, executor) -> ExperimentReport: return self.experimenter.run(design, executor)
     def optimize_architecture(self, baseline: ArchitectureVariant, *, rounds=3, candidates_per_round=4, optimizer: ArchitectureOptimizer | None = None) -> OptimizationResult:
         engine = optimizer or self.architecture_optimizer
-        if engine is None:
-            raise ValueError("an ArchitectureOptimizer with an injected evaluator is required")
+        if engine is None: raise ValueError("an ArchitectureOptimizer with an injected evaluator is required")
         return engine.optimize(baseline, rounds=rounds, candidates_per_round=candidates_per_round)
+    def benchmark_intelligence(self, benchmark: IntelligenceBenchmark, solver) -> BenchmarkReport: return benchmark.run(solver)
+    def improve_intelligence(self, baseline: BenchmarkReport, runner) -> IntelligenceImprovementReport: return self.intelligence_improver.improve(baseline, runner)
+    def propose_intelligence_improvement(self, baseline: BenchmarkReport) -> ImprovementProposal:
+        return self.intelligence_improver.planner.propose(self.intelligence_improver.analyzer.analyze(baseline))
     def start_cognitive_loop(self, goal: str, subtasks, *, total=None): return self.cognitive_loop.start(goal, subtasks, total=total)
     def cognitive_cycle(self, perception, *, action_executor, expected=None, required_capabilities=(), tool_facts=None): return self.cognitive_loop.cycle(perception, action_executor=action_executor, expected=expected, required_capabilities=required_capabilities, tool_facts=tool_facts)
-    def run_cognitive_loop(self, goal: str, subtasks, perceptions, *, action_executor, expected=None, required_capabilities=(), tool_facts=None) -> CognitiveLoopReport:
-        return self.cognitive_loop.run(goal, subtasks, perceptions, action_executor=action_executor, expected=expected, required_capabilities=required_capabilities, tool_facts=tool_facts)
+    def run_cognitive_loop(self, goal: str, subtasks, perceptions, *, action_executor, expected=None, required_capabilities=(), tool_facts=None) -> CognitiveLoopReport: return self.cognitive_loop.run(goal, subtasks, perceptions, action_executor=action_executor, expected=expected, required_capabilities=required_capabilities, tool_facts=tool_facts)
     def stop_cognitive_loop(self): self.cognitive_loop.stop()
     def resume_cognitive_loop(self): self.cognitive_loop.resume()
     def evaluate_learning(self, baseline, current) -> PromotionResult: return self.continual.evaluate(baseline, current)
@@ -100,13 +101,11 @@ class TARABrain:
         normalized = self.temporal.ingest(observation, source=source, kind=kind, confidence=confidence, timestamp=timestamp)
         self.events.emit("observation", value=observation, observation_id=normalized.observation_id, confidence=normalized.confidence, timestamp=normalized.timestamp)
         return result
-
     def observe_perception(self, observation, *, source="perception", kind="observation", confidence=1.0, timestamp=None, remember_key=None, importance=1.0):
         normalized = self.temporal.ingest(observation, source=source, kind=kind, confidence=confidence, timestamp=timestamp)
         self.agent.observe(normalized.content, remember_key=remember_key, importance=importance)
         self.events.emit("perception", observation_id=normalized.observation_id, source=normalized.source, kind=normalized.kind, content=normalized.content, confidence=normalized.confidence, timestamp=normalized.timestamp)
         return normalized
-
     def temporal_context(self, *, limit=16, min_confidence=0.0) -> TemporalContext: return self.temporal.context(limit=limit, min_confidence=min_confidence)
     def reason(self, goal, *, facts=(), assumptions=(), hypotheses=(), evidence=(), required_claim_ids=()):
         state = self.reasoner.start(goal); return self.reasoner.reason(state, facts=facts, assumptions=assumptions, hypotheses=hypotheses, evidence=evidence, required_claim_ids=required_claim_ids)
