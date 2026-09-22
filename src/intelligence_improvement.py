@@ -1,9 +1,4 @@
-"""Evidence-gated capability improvement orchestration for TARA.
-
-This module does not train models itself. It turns benchmark failures into
-bounded, reproducible improvement targets and accepts a candidate only when
-an injected training/evaluation callback produces a non-regressing benchmark.
-"""
+"""Evidence-gated capability improvement orchestration for TARA."""
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
@@ -64,20 +59,14 @@ class IntelligenceImprovementReport:
 
 
 class FailureAnalyzer:
-    """Convert benchmark failures into deterministic, actionable signals."""
-
     def analyze(self, report: BenchmarkReport) -> tuple[CapabilityFailure, ...]:
-        failures = []
-        for result in report.results:
-            if result.score < 1.0:
-                severity = "critical" if result.score == 0.0 else "warning"
-                failures.append(CapabilityFailure(result.case_id, result.category, result.score, result.error, severity))
-        return tuple(failures)
+        return tuple(
+            CapabilityFailure(r.case_id, r.category, r.score, r.error, "critical" if r.score == 0.0 else "warning")
+            for r in report.results if r.score < 1.0
+        )
 
 
 class ImprovementPlanner:
-    """Prioritize weak capabilities without claiming a particular training recipe."""
-
     def propose(self, failures: Iterable[CapabilityFailure]) -> ImprovementProposal:
         grouped: dict[str, list[CapabilityFailure]] = {}
         for failure in failures:
@@ -85,39 +74,29 @@ class ImprovementPlanner:
         targets = []
         for category, items in grouped.items():
             mean_score = sum(item.score for item in items) / len(items)
-            priority = 1.0 - mean_score
-            cases = tuple(sorted(item.case_id for item in items))
-            targets.append(ImprovementTarget(category, cases, f"{len(items)} failing cases; mean score={mean_score:.4f}", priority))
+            targets.append(ImprovementTarget(category, tuple(sorted(i.case_id for i in items)),
+                                             f"{len(items)} failing cases; mean score={mean_score:.4f}", 1.0 - mean_score))
         targets.sort(key=lambda item: (-item.priority, item.category))
         hints = tuple(f"focus:{target.category}" for target in targets)
         payload = {"targets": [asdict(t) for t in targets], "hints": hints}
-        fingerprint = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
-        proposal_id = fingerprint[:16]
-        return ImprovementProposal(proposal_id, tuple(targets), hints, fingerprint)
+        fingerprint = hashlib.sha256(json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest()
+        return ImprovementProposal(fingerprint[:16], tuple(targets), hints, fingerprint)
 
 
 class ImprovementGate:
-    """Accept only candidates that improve overall score without category regression."""
-
     def __init__(self, *, minimum_overall: float = 0.0, maximum_category_drop: float = 0.05):
         self.minimum_overall = minimum_overall
         self.maximum_category_drop = maximum_category_drop
 
     def evaluate(self, baseline: BenchmarkReport, candidate: BenchmarkReport) -> RegressionGate:
-        return compare_regression(
-            baseline,
-            candidate,
-            minimum_overall=self.minimum_overall,
-            maximum_category_drop=self.maximum_category_drop,
-        )
+        return compare_regression(baseline, candidate, minimum_overall=self.minimum_overall,
+                                  maximum_category_drop=self.maximum_category_drop)
 
 
 CandidateRunner = Callable[[ImprovementProposal], BenchmarkReport]
 
 
 class IntelligenceImprovementEngine:
-    """Run a bounded failure->proposal->candidate->regression->promotion cycle."""
-
     def __init__(self, gate: ImprovementGate | None = None):
         self.analyzer = FailureAnalyzer()
         self.planner = ImprovementPlanner()
@@ -138,7 +117,7 @@ class IntelligenceImprovementEngine:
             reason = "candidate improved without regression" if accepted else "candidate rejected by improvement/regression gate"
         decision = ImprovementDecision(accepted, reason, baseline.overall_score, candidate.overall_score, regression, proposal)
         payload = {"baseline": baseline.fingerprint, "candidate": candidate.fingerprint, "proposal": proposal.fingerprint, "accepted": accepted}
-        fingerprint = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
+        fingerprint = hashlib.sha256(json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest()
         return IntelligenceImprovementReport(baseline, candidate, failures, proposal, decision, fingerprint)
 
 
