@@ -9,6 +9,7 @@ from .continual_learning_engine import ContinualLearningEngine, PromotionResult,
 from .multimodal_perception import MultimodalContext, MultimodalObservation, MultimodalPerception
 from .autonomous_research import AutonomousResearchEngine, ResearchReport
 from .scientific_experiment import ExperimentDesign, ExperimentReport, ScientificExperimentEngine
+from .architecture_optimization import ArchitectureOptimizer, ArchitectureVariant, OptimizationResult
 from .event_router import EventRouter
 from .goal_progress import GoalProgress
 from .integration import TARAEngine
@@ -31,7 +32,7 @@ class TARABrain:
     def __init__(self, model, tokenizer=None, *, engine=None, memory=None, seed=0, reflection=None,
                  progress=None, orchestrator=None, world=None, events=None, temporal=None,
                  temporal_history=256, reasoner=None, planner=None, tools=None, improver=None,
-                 continual=None, multimodal=None, researcher=None, experimenter=None):
+                 continual=None, multimodal=None, researcher=None, experimenter=None, architecture_optimizer=None):
         self.model = model
         self.tokenizer = tokenizer
         self.engine = TARAEngine() if engine is None else engine
@@ -51,6 +52,7 @@ class TARABrain:
         self.multimodal = multimodal or MultimodalPerception()
         self.researcher = researcher or AutonomousResearchEngine()
         self.experimenter = experimenter or ScientificExperimentEngine()
+        self.architecture_optimizer = architecture_optimizer
         self.rng = random.Random(seed)
 
     @classmethod
@@ -68,6 +70,11 @@ class TARABrain:
     def perceive_screen(self, elements, *, confidence=0.9) -> MultimodalObservation: return self.multimodal.screen(elements, confidence=confidence)
     def conduct_research(self, question: str, searcher, *, max_queries=None) -> ResearchReport: return self.researcher.research(question, searcher, max_queries=max_queries)
     def run_experiment(self, design: ExperimentDesign, executor) -> ExperimentReport: return self.experimenter.run(design, executor)
+    def optimize_architecture(self, baseline: ArchitectureVariant, *, rounds=3, candidates_per_round=4, optimizer: ArchitectureOptimizer | None = None) -> OptimizationResult:
+        engine = optimizer or self.architecture_optimizer
+        if engine is None:
+            raise ValueError("an ArchitectureOptimizer with an injected evaluator is required")
+        return engine.optimize(baseline, rounds=rounds, candidates_per_round=candidates_per_round)
     def evaluate_learning(self, baseline, current) -> PromotionResult: return self.continual.evaluate(baseline, current)
 
     def observe(self, observation, *, remember_key=None, importance=1.0, confidence=1.0, source="agent", kind="observation", timestamp=None):
