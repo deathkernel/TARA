@@ -61,6 +61,6 @@ def parse_candidate(output: str, problem: str) -> PolyglotCandidate:
     return PolyglotCandidate(
         problem=problem,
         language=language,
-        source=source,
+        source=source + "\n",
         metadata={"parser": "structured-fence-v2"},
     )
