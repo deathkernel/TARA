@@ -140,7 +140,7 @@ class ReplayCorpusBuilder:
         self.seed = int(seed)
 
     @staticmethod
-    def _read(path: str | Path) -> list[str]:
+    def _read(path: str | Path, *, verified_only: bool = False) -> list[str]:
         source = Path(path)
         if not source.exists():
             raise FileNotFoundError(source)
@@ -149,19 +149,21 @@ class ReplayCorpusBuilder:
             if not line.strip():
                 continue
             item = json.loads(line)
+            if not isinstance(item, (str, dict)):
+                raise ValueError("corpus record must be a string or object")
+            if verified_only and (not isinstance(item, dict) or item.get("verified", True) is not True):
+                continue
             if isinstance(item, str):
                 text = item.strip()
-            elif isinstance(item, dict):
-                text = _knowledge_text(item)
             else:
-                raise ValueError("corpus record must be a string or object")
+                text = _knowledge_text(item)
             if text:
                 records.append(text)
         return records
 
     def merge(self, base_path: str | Path, replay_path: str | Path, output: str | Path) -> ReplayReport:
         base = self._read(base_path)
-        replay = self._read(replay_path)
+        replay = self._read(replay_path, verified_only=True)
         if not base and not replay:
             raise ValueError("both base and replay corpora are empty")
         if not replay or self.replay_ratio == 0.0:
