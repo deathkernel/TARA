@@ -4,8 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 
-from src.capability_suite import capability_cases
-from src.model_capability_runner import evaluate_checkpoint, write_evaluation
+from src.evaluation_orchestrator import CheckpointEvaluator, EvaluationOrchestrator, write_cycle
 
 
 def main() -> None:
@@ -14,14 +13,12 @@ def main() -> None:
     parser.add_argument("--output", default=None)
     parser.add_argument("--max-new-tokens", type=int, default=32)
     args = parser.parse_args()
-    evaluation = evaluate_checkpoint(
-        args.checkpoint,
-        tuple(capability_cases()),
-        max_new_tokens=args.max_new_tokens,
-    )
+    cycle = EvaluationOrchestrator(
+        CheckpointEvaluator(max_new_tokens=args.max_new_tokens)
+    ).run(args.checkpoint)
     if args.output:
-        write_evaluation(evaluation, args.output)
-    print(json.dumps(evaluation.as_dict(), indent=2, sort_keys=True, default=str))
+        write_cycle(cycle, args.output)
+    print(json.dumps(cycle.as_dict(), indent=2, sort_keys=True, default=str))
 
 
 if __name__ == "__main__":
