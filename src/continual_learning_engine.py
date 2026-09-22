@@ -98,17 +98,34 @@ class BalancedReplaySampler:
         for item in examples:
             groups.setdefault(item.domain, []).append(item)
         selected: list[LearningExample] = []
+        capacity = min(self.max_examples, len(examples))
         domains = sorted(groups)
-        # First guarantee domain coverage; remaining slots use a softmax-like
-        # importance distribution with an exploration floor.
-        while groups and len(selected) < min(self.max_examples, len(examples)):
-            available = [domain for domain in domains if groups.get(domain)]
-            if not available:
-                break
-            weights = [sum(x.importance for x in groups[d]) for d in available]
+
+        def choose_from(domain: str) -> LearningExample:
+            pool = groups[domain]
+            if self.exploration > 0.0 and rng.random() < self.exploration:
+                index = rng.randrange(len(pool))
+            else:
+                index = max(range(len(pool)), key=lambda i: (pool[i].importance, pool[i].fingerprint))
+            return pool.pop(index)
+
+        # Guarantee one example per domain whenever the replay budget permits.
+        coverage_domains = domains if capacity >= len(domains) else sorted(
+            domains,
+            key=lambda domain: (-sum(item.importance for item in groups[domain]), domain),
+        )[:capacity]
+        for domain in coverage_domains:
+            selected.append(choose_from(domain))
+            if not groups[domain]:
+                groups.pop(domain)
+
+        # Fill remaining slots using deterministic importance-weighted domain sampling.
+        while groups and len(selected) < capacity:
+            available = sorted(groups)
+            weights = [sum(item.importance for item in groups[domain]) for domain in available]
             total = sum(weights)
             if total <= 0:
-                domain = rng.choice(available)
+                domain = available[0]
             else:
                 threshold = rng.random() * total
                 running = 0.0
@@ -118,10 +135,8 @@ class BalancedReplaySampler:
                     if threshold <= running:
                         domain = candidate_domain
                         break
-            pool = groups[domain]
-            index = rng.randrange(len(pool)) if rng.random() < self.exploration else max(range(len(pool)), key=lambda i: pool[i].importance)
-            selected.append(pool.pop(index))
-            if not pool:
+            selected.append(choose_from(domain))
+            if not groups[domain]:
                 groups.pop(domain)
         selected.sort(key=lambda x: (x.domain, x.fingerprint))
         weights = tuple(item.importance / max(0.01, sum(x.importance for x in selected)) for item in selected)
