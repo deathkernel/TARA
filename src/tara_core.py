@@ -74,26 +74,11 @@ class TARACore:
     """Single top-level runtime for TARA's cognitive architecture."""
 
     REQUIRED_COMPONENTS = (
-        "brain",
-        "memory",
-        "world",
-        "reasoner",
-        "planner",
-        "tools",
-        "researcher",
-        "experimenter",
-        "cognitive_loop",
-        "continual_learning",
-        "multimodal",
+        "brain", "memory", "world", "reasoner", "planner", "tools",
+        "researcher", "experimenter", "cognitive_loop", "continual_learning", "multimodal",
     )
 
-    def __init__(
-        self,
-        brain: TARABrain,
-        *,
-        config: CoreConfig | None = None,
-        architecture_optimizer: ArchitectureOptimizer | None = None,
-    ) -> None:
+    def __init__(self, brain: TARABrain, *, config: CoreConfig | None = None, architecture_optimizer: ArchitectureOptimizer | None = None) -> None:
         if not isinstance(brain, TARABrain):
             raise TypeError("brain must be a TARABrain")
         self.config = config or CoreConfig()
@@ -107,31 +92,18 @@ class TARACore:
         self.brain.cognitive_loop.max_cycles = self.config.max_cycles
 
     @classmethod
-    def from_checkpoint(
-        cls,
-        path: str | Path,
-        *,
-        config: CoreConfig | None = None,
-        engine=None,
-        memory=None,
-    ) -> "TARACore":
+    def from_checkpoint(cls, path: str | Path, *, config: CoreConfig | None = None, engine=None, memory=None) -> "TARACore":
         brain = TARABrain.from_checkpoint(path, engine=engine, memory=memory, seed=(config or CoreConfig()).seed)
         return cls(brain, config=config)
 
     @property
     def components(self) -> dict[str, Any]:
         return {
-            "brain": self.brain,
-            "memory": self.brain.memory,
-            "world": self.brain.world,
-            "reasoner": self.brain.reasoner,
-            "planner": self.brain.planner,
-            "tools": self.brain.tools,
-            "researcher": self.brain.researcher,
-            "experimenter": self.brain.experimenter,
+            "brain": self.brain, "memory": self.brain.memory, "world": self.brain.world,
+            "reasoner": self.brain.reasoner, "planner": self.brain.planner, "tools": self.brain.tools,
+            "researcher": self.brain.researcher, "experimenter": self.brain.experimenter,
             "architecture_optimizer": self.brain.architecture_optimizer,
-            "cognitive_loop": self.brain.cognitive_loop,
-            "continual_learning": self.brain.continual,
+            "cognitive_loop": self.brain.cognitive_loop, "continual_learning": self.brain.continual,
             "multimodal": self.brain.multimodal,
         }
 
@@ -147,8 +119,7 @@ class TARACore:
     def health(self) -> CoreHealth:
         components = self.components
         missing = tuple(name for name in self.REQUIRED_COMPONENTS if components.get(name) is None)
-        healthy = self.status != CoreStatus.ERROR and not missing
-        return CoreHealth(self.status, len(components), missing, len(self._events), healthy)
+        return CoreHealth(self.status, len(components), missing, len(self._events), self.status != CoreStatus.ERROR and not missing)
 
     def events(self, *, limit: int | None = None) -> tuple[CoreEvent, ...]:
         if limit is None:
@@ -164,61 +135,28 @@ class TARACore:
         self.brain.start_cognitive_loop(self._goal, subtasks, total=total)
         self._emit("goal_started", goal=self._goal)
 
-    def cycle(
-        self,
-        perception: Any,
-        *,
-        action_executor: Callable[[Any], ActionOutcome | Mapping[str, Any] | Any],
-        expected: Any = None,
-        required_capabilities: Iterable[str] = (),
-        tool_facts: Mapping[str, str] | None = None,
-    ):
+    def cycle(self, perception: Any, *, action_executor: Callable[[Any], ActionOutcome | Mapping[str, Any] | Any], expected: Any = None, required_capabilities: Iterable[str] = (), tool_facts: Mapping[str, str] | None = None):
         if self.status == CoreStatus.STOPPED:
             raise RuntimeError("core is stopped")
         self.status = CoreStatus.RUNNING
         try:
-            trace = self.brain.cognitive_cycle(
-                perception,
-                action_executor=action_executor,
-                expected=expected,
-                required_capabilities=required_capabilities,
-                tool_facts=tool_facts,
-            )
+            trace = self.brain.cognitive_cycle(perception, action_executor=action_executor, expected=expected, required_capabilities=required_capabilities, tool_facts=tool_facts)
             self._emit("cycle", cycle_id=trace.cycle_id, status=trace.status, verified=trace.verified)
-            if trace.status == "completed":
-                self.status = CoreStatus.READY
+            if trace.status == "completed": self.status = CoreStatus.READY
             return trace
         except Exception as exc:
             self.status = CoreStatus.ERROR
             self._emit("error", type=type(exc).__name__, message=str(exc))
             raise
 
-    def run(
-        self,
-        goal: str,
-        subtasks,
-        perceptions: Iterable[Any],
-        *,
-        action_executor: Callable[[Any], ActionOutcome | Mapping[str, Any] | Any],
-        expected: Any = None,
-        required_capabilities: Iterable[str] = (),
-        tool_facts: Mapping[str, str] | None = None,
-    ) -> CognitiveLoopReport:
+    def run(self, goal: str, subtasks, perceptions: Iterable[Any], *, action_executor: Callable[[Any], ActionOutcome | Mapping[str, Any] | Any], expected: Any = None, required_capabilities: Iterable[str] = (), tool_facts: Mapping[str, str] | None = None) -> CognitiveLoopReport:
         if self.status == CoreStatus.STOPPED:
             raise RuntimeError("core is stopped")
         self.status = CoreStatus.RUNNING
         self._goal = str(goal)
         self._emit("goal_started", goal=self._goal)
         try:
-            report = self.brain.run_cognitive_loop(
-                self._goal,
-                subtasks,
-                perceptions,
-                action_executor=action_executor,
-                expected=expected,
-                required_capabilities=required_capabilities,
-                tool_facts=tool_facts,
-            )
+            report = self.brain.run_cognitive_loop(self._goal, subtasks, perceptions, action_executor=action_executor, expected=expected, required_capabilities=required_capabilities, tool_facts=tool_facts)
             self._emit("run_finished", completed=report.completed, cycles=len(report.traces))
             self.status = CoreStatus.READY
             return report
@@ -237,6 +175,15 @@ class TARACore:
         self._emit("generation", characters=len(text))
         return text
 
+    def evaluate_checkpoint(self, path: str | Path, *, output: str | Path | None = None, max_new_tokens: int = 32):
+        from .capability_suite import capability_cases
+        from .model_capability_runner import evaluate_checkpoint, write_evaluation
+        evaluation = evaluate_checkpoint(path, tuple(capability_cases()), max_new_tokens=max_new_tokens)
+        if output is not None:
+            write_evaluation(evaluation, output)
+        self._emit("capability_evaluation", checkpoint=str(path), score=evaluation.benchmark.overall_score)
+        return evaluation
+
     def perceive(self, observations):
         context = self.brain.perceive_multimodal(observations)
         self._emit("perception", modalities=",".join(item.modality for item in context.observations))
@@ -252,20 +199,8 @@ class TARACore:
         self._emit("experiment", trials=len(report.trials), conclusions=len(report.conclusions))
         return report
 
-    def optimize_architecture(
-        self,
-        baseline: ArchitectureVariant,
-        *,
-        optimizer: ArchitectureOptimizer | None = None,
-        rounds: int = 3,
-        candidates_per_round: int = 4,
-    ) -> OptimizationResult:
-        result = self.brain.optimize_architecture(
-            baseline,
-            rounds=rounds,
-            candidates_per_round=candidates_per_round,
-            optimizer=optimizer,
-        )
+    def optimize_architecture(self, baseline: ArchitectureVariant, *, optimizer: ArchitectureOptimizer | None = None, rounds: int = 3, candidates_per_round: int = 4) -> OptimizationResult:
+        result = self.brain.optimize_architecture(baseline, rounds=rounds, candidates_per_round=candidates_per_round, optimizer=optimizer)
         self._emit("architecture_optimization", promoted=len(result.history) > 1)
         return result
 
@@ -282,51 +217,20 @@ class TARACore:
     def snapshot(self) -> CoreSnapshot:
         cycles = len(self.brain.cognitive_loop.traces)
         components = tuple(sorted(name for name, item in self.components.items() if item is not None))
-        fingerprint = _fingerprint([
-            self.status.value,
-            self._goal or "",
-            str(len(self._events)),
-            str(cycles),
-            *components,
-        ])
+        fingerprint = _fingerprint([self.status.value, self._goal or "", str(len(self._events)), str(cycles), *components])
         return CoreSnapshot(self.status.value, self._goal, len(self._events), cycles, components, fingerprint)
 
     def save_runtime_manifest(self, path: str | Path) -> CoreSnapshot:
         snapshot = self.snapshot()
-        payload = {
-            "status": snapshot.status,
-            "goal": snapshot.goal,
-            "event_count": snapshot.event_count,
-            "cognitive_cycles": snapshot.cognitive_cycles,
-            "components": snapshot.components,
-            "fingerprint": snapshot.fingerprint,
-            "config": {
-                "seed": self.config.seed,
-                "max_cycles": self.config.max_cycles,
-                "max_events": self.config.max_events,
-            },
-        }
+        payload = {"status": snapshot.status, "goal": snapshot.goal, "event_count": snapshot.event_count, "cognitive_cycles": snapshot.cognitive_cycles, "components": snapshot.components, "fingerprint": snapshot.fingerprint, "config": {"seed": self.config.seed, "max_cycles": self.config.max_cycles, "max_events": self.config.max_events}}
         Path(path).write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
         return snapshot
 
     def stop(self) -> None:
-        self.brain.stop_cognitive_loop()
-        self.brain.stop_tasks()
-        self.status = CoreStatus.STOPPED
-        self._emit("stopped")
+        self.brain.stop_cognitive_loop(); self.brain.stop_tasks(); self.status = CoreStatus.STOPPED; self._emit("stopped")
 
     def resume(self) -> None:
-        self.brain.resume_cognitive_loop()
-        self.brain.resume_tasks()
-        self.status = CoreStatus.READY
-        self._emit("resumed")
+        self.brain.resume_cognitive_loop(); self.brain.resume_tasks(); self.status = CoreStatus.READY; self._emit("resumed")
 
 
-__all__ = [
-    "CoreConfig",
-    "CoreEvent",
-    "CoreHealth",
-    "CoreSnapshot",
-    "CoreStatus",
-    "TARACore",
-]
+__all__ = ["CoreConfig", "CoreEvent", "CoreHealth", "CoreSnapshot", "CoreStatus", "TARACore"]
