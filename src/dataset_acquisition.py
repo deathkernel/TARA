@@ -14,8 +14,6 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
-from src.dataset_registry import DatasetSpec
-
 
 @dataclass(frozen=True)
 class PublicDatasetSpec:
@@ -77,7 +75,17 @@ def load_public_dataset_manifest(path: str | Path) -> list[PublicDatasetSpec]:
     for item in items:
         if not isinstance(item, dict):
             raise DatasetAcquisitionError("dataset manifest entries must be objects")
-        required = ("key", "name", "organization", "dataset_id", "split", "text_field", "level", "license", "role")
+        required = (
+            "key",
+            "name",
+            "organization",
+            "dataset_id",
+            "split",
+            "text_field",
+            "level",
+            "license",
+            "role",
+        )
         missing = [key for key in required if not item.get(key)]
         if missing:
             raise DatasetAcquisitionError(f"manifest entry missing fields: {', '.join(missing)}")
@@ -105,7 +113,9 @@ def select_level(specs: Iterable[PublicDatasetSpec], level: str) -> list[PublicD
     selected = [spec for spec in specs if spec.level.lower() == key]
     if not selected:
         available = ", ".join(sorted({spec.level for spec in specs}))
-        raise DatasetAcquisitionError(f"no datasets registered for level {key!r}; available: {available}")
+        raise DatasetAcquisitionError(
+            f"no datasets registered for level {key!r}; available: {available}"
+        )
     return selected
 
 
@@ -128,10 +138,12 @@ class HuggingFaceStreamer:
         self.max_chars = max_chars
         self.seed = seed
         self.shuffle_buffer = shuffle_buffer
+        self.last_filtered = 0
 
     def stream(self, spec: PublicDatasetSpec, limit: int) -> Iterable[CuratedRecord]:
         if limit <= 0:
             raise ValueError("limit must be positive")
+
         try:
             from datasets import load_dataset
         except ImportError as exc:
@@ -151,21 +163,28 @@ class HuggingFaceStreamer:
         if hasattr(dataset, "shuffle"):
             dataset = dataset.shuffle(seed=self.seed, buffer_size=self.shuffle_buffer)
 
+        self.last_filtered = 0
         emitted = 0
         for index, example in enumerate(dataset):
             if emitted >= limit:
                 break
             if not isinstance(example, Mapping):
+                self.last_filtered += 1
                 continue
+
             text = _normalize_text(example.get(spec.text_field, ""))
             if spec.answer_field:
                 answer = _normalize_text(example.get(spec.answer_field, ""))
                 if answer:
                     text = f"Question: {text} Answer: {answer}"
+
             if len(text) < self.min_chars:
+                self.last_filtered += 1
                 continue
+
             text = text[: self.max_chars].strip()
             if not text:
+                self.last_filtered += 1
                 continue
 
             record_id = str(example.get("id", index))
@@ -179,7 +198,12 @@ class HuggingFaceStreamer:
                 "role": spec.role,
                 "source_notes": spec.notes,
             }
-            yield CuratedRecord(text=text, source=spec.dataset_id, record_id=record_id, metadata=metadata)
+            yield CuratedRecord(
+                text=text,
+                source=spec.dataset_id,
+                record_id=record_id,
+                metadata=metadata,
+            )
             emitted += 1
 
 
@@ -200,9 +224,7 @@ class PublicDatasetAcquirer:
         if max_records_per_source <= 0:
             raise ValueError("max_records_per_source must be positive")
 
-        selected = [spec for spec in specs if spec.level.lower() == level.lower()]
-        if not selected:
-            raise DatasetAcquisitionError(f"no source datasets selected for level {level!r}")
+        selected = select_level(specs, level)
 
         output_path = Path(output)
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -213,7 +235,6 @@ class PublicDatasetAcquirer:
         filtered = 0
 
         for spec in selected:
-            before = len(written)
             for record in self.streamer.stream(spec, max_records_per_source):
                 key = _fingerprint(record.text)
                 if key in seen:
@@ -221,7 +242,7 @@ class PublicDatasetAcquirer:
                     continue
                 seen.add(key)
                 written.append(record)
-            filtered += max(0, max_records_per_source - (len(written) - before))
+            filtered += getattr(self.streamer, "last_filtered", 0)
 
         with output_path.open("w", encoding="utf-8") as handle:
             for record in written:
