@@ -29,3 +29,13 @@ def test_scheduler_respects_budget(tmp_path):
     report = scheduler.run_due(lambda task: task.task_id)
     assert report.completed == 2
     assert len(store.load()) == 3
+
+
+def test_scheduler_retains_failed_due_task_and_applies_retries(tmp_path):
+    store = TaskStore(tmp_path / "tasks.jsonl")
+    store.save([ScheduledTask("retry", "retry me", metadata={"retries": 2})])
+    scheduler = TaskScheduler(store, budget=ResourceBudget(max_tasks=1, max_retries=1))
+    report = scheduler.run_due(lambda task: (_ for _ in ()).throw(RuntimeError("boom")))
+    assert report.failed == 1
+    remaining = store.load()
+    assert len(remaining) == 1
