@@ -10,11 +10,13 @@ import random
 from pathlib import Path
 
 from .agent import AgentLoop
-from .autonomous_orchestrator import AutonomousOrchestrator, TaskNode, TaskQueue
+from .autonomous_orchestrator import AutonomousOrchestrator, TaskNode
+from .event_router import EventRouter
 from .goal_progress import GoalProgress
 from .integration import TARAEngine
 from .memory import LongTermMemory
 from .reflection_loop import ReflectionLoop
+from .world_state import WorldContext, WorldModel
 
 
 @dataclass(frozen=True)
@@ -30,7 +32,8 @@ class TARABrain:
     """Connect TARA's learned language core to explicit cognitive layers."""
 
     def __init__(self, model, tokenizer=None, *, engine=None, memory=None, seed=0,
-                 reflection=None, progress=None, orchestrator=None):
+                 reflection=None, progress=None, orchestrator=None, world=None,
+                 events=None):
         self.model = model
         self.tokenizer = tokenizer
         self.engine = TARAEngine() if engine is None else engine
@@ -39,6 +42,8 @@ class TARABrain:
         self.reflection = reflection or ReflectionLoop()
         self.progress = progress or GoalProgress()
         self.orchestrator = orchestrator or AutonomousOrchestrator()
+        self.world = world or WorldModel()
+        self.events = events or EventRouter(self.world)
         self.rng = random.Random(seed)
 
     @classmethod
@@ -49,7 +54,16 @@ class TARABrain:
         return cls(model, tokenizer, engine=engine, memory=memory, seed=seed)
 
     def observe(self, observation, *, remember_key=None, importance=1.0):
-        return self.agent.observe(observation, remember_key=remember_key, importance=importance)
+        result = self.agent.observe(observation, remember_key=remember_key, importance=importance)
+        self.events.emit("observation", value=observation)
+        return result
+
+    def observe_world(self, event_type, **data):
+        """Update the explicit world model and route the event to host actions."""
+        return self.events.emit(event_type, **data)
+
+    def world_context(self, *, event_limit=8) -> WorldContext:
+        return self.world.context(event_limit=event_limit)
 
     def set_goal(self, description, success_conditions=()):
         return self.engine.set_goal(description, success_conditions)
