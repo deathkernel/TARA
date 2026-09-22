@@ -1,8 +1,13 @@
 import math
 
+import pytest
+
+torch = pytest.importorskip("torch")
+
 from src.brain import TARABrain
 from src.language_model import TinyLanguageModel
 from src.tokenizer import CharTokenizer
+from src.torch_language_model import FastTinyLanguageModel
 
 
 def make_brain():
@@ -46,3 +51,34 @@ def test_brain_rejects_invalid_generation_arguments():
             pass
         else:
             raise AssertionError("invalid generation argument should fail")
+
+
+def test_brain_can_load_phase14_checkpoint(tmp_path):
+    text = "tara learns from verified examples."
+    tokenizer = CharTokenizer(text)
+    model = FastTinyLanguageModel(
+        vocab_size=tokenizer.vocab_size,
+        embedding_dim=8,
+        ff_dim=16,
+        num_heads=2,
+        max_context=16,
+        seed=3,
+    )
+    checkpoint = tmp_path / "brain.pt"
+    torch.save(
+        {
+            "model_state": model.state_dict(),
+            "model_config": {
+                "vocab_size": tokenizer.vocab_size,
+                "embedding_dim": 8,
+                "ff_dim": 16,
+                "num_heads": 2,
+                "max_context": 16,
+            },
+            "tokenizer": {"itos": tokenizer.itos, "stoi": tokenizer.stoi},
+        },
+        checkpoint,
+    )
+    brain = TARABrain.from_checkpoint(checkpoint, seed=3)
+    assert brain.tokenizer.vocab_size == tokenizer.vocab_size
+    assert brain.generate("tara", max_new_tokens=2).startswith("tara")
