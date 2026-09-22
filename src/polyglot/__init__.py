@@ -1,5 +1,6 @@
 """Polyglot algorithm planning, candidates, execution, and improvement."""
 
+from .archive import CandidateArchive
 from .benchmark import BenchmarkResult, PolyglotBenchmark, rank_benchmarks
 from .candidate import PolyglotCandidate
 from .execution import PolyglotExecutionError, PolyglotExecutor
@@ -12,6 +13,7 @@ from .self_improvement import ImprovementResult, SelfImprovementEngine
 
 __all__ = [
     "BenchmarkResult",
+    "CandidateArchive",
     "CandidateParseError",
     "ExecutionResult",
     "ImprovementResult",
