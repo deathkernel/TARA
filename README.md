@@ -2,18 +2,18 @@
 
 **TARA — Tiny Artificial Reasoning Architecture**
 
-TARA is a research-first neural-network project built from mathematical and implementation fundamentals. The goal is a small, inspectable artificial reasoning system that can connect a neural language core with perception, memory, reasoning, planning, reflection and controlled PC tools.
+TARA is a research-first neural-network project built from mathematical and implementation fundamentals. The goal is a small, inspectable artificial reasoning system that can connect a neural language core with perception, memory, reasoning, planning, reflection, controlled PC tools, autonomous tasks, scheduling and an explicit world model.
 
-## Phase 19 — Basic Persistent Scheduling and Resource Awareness Complete
+## Phase 20 — Basic World Model and Event Routing Complete
 
-Phase 19 contains a **basic implementation of all planned scheduling steps (110–115)**. TARA can persist scheduled task metadata, identify due work, apply deterministic priority ordering, enforce simple resource budgets, restore pending tasks after restart, and feed due work into the bounded Phase 18 orchestrator.
+Phase 20 contains a **basic implementation of all planned world-model steps (116–121)**. TARA can maintain a bounded explicit world state, record normalized events, assemble read-only context for reasoning, route selected events to explicit host actions, and expose the world model through the brain.
 
-- Persistent task store: JSONL-backed scheduled task metadata.
-- Due-task detection: tasks can be scheduled for a future ISO timestamp.
-- Resource awareness: explicit maximum-task and retry budgets bound execution.
-- Deterministic scheduling: due tasks are ordered by priority and task ID.
-- Restart continuity: persisted tasks can be loaded by a new scheduler instance.
-- Orchestrator integration: due tasks execute through the existing bounded host executor boundary.
+- World state: explicit key/value state with bounded event history.
+- Event stream: normalized timestamped `WorldEvent` records.
+- Context assembly: bounded recent events plus a state snapshot.
+- Event routing: event types can trigger only explicitly registered host callables.
+- Brain integration: observations update the world model and world events can be observed directly.
+- Prompt context: world state can be converted into a compact reasoning context.
 
 ## Current architecture
 
@@ -21,6 +21,8 @@ Phase 19 contains a **basic implementation of all planned scheduling steps (110�
 Input / Perception
        ↓
 Working Memory → Long-Term Memory
+       ↓
+World Model → Event Router → Context
        ↓
 Neural Language Core
        ↓
@@ -45,7 +47,7 @@ Emergency Stop / Rollback boundary
 
 ## Safety boundary
 
-Scheduling and resource budgeting do not create permissions. A scheduled task can execute only through the callable supplied by the host application. The existing Tool Controller remains the permission boundary for PC actions. Execution remains bounded by explicit task and resource limits.
+The world model stores state and routes events, but does not grant permissions. Event handlers are explicit host-provided callables. Scheduled tasks still execute only through the bounded host executor, and PC actions remain behind the Tool Controller permission boundary.
 
 These controls are defense-in-depth and are not a claim of perfect isolation against hostile code. Truly untrusted code should use a separate OS/container/VM sandbox before production use.
 
@@ -87,4 +89,13 @@ These controls are defense-in-depth and are not a claim of perfect isolation aga
 114. ✅ Restart/recovery continuity
 115. ✅ Orchestrator integration
 
-Phase 19 is complete at the **basic architecture level**. Future phases can deepen resource accounting, calendar/time semantics, distributed scheduling, richer task persistence, and learned scheduling policies without removing the explicit control boundaries.
+### Phase 20 — World Model / Event Routing
+
+116. ✅ Explicit world state
+117. ✅ Bounded event history
+118. ✅ Reasoning context assembly
+119. ✅ Event routing to explicit host handlers
+120. ✅ Brain integration
+121. ✅ World-state prompt context
+
+Phase 20 is complete at the **basic architecture level**. Future phases can deepen perception adapters, persistent world-state storage, richer event schemas, temporal reasoning, and learned environment modeling without removing the explicit control boundaries.
