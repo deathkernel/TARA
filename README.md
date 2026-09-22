@@ -4,6 +4,20 @@
 
 TARA is a research-first neural-network project built from mathematical and implementation fundamentals. The goal is a highly capable, inspectable artificial reasoning system that connects a neural language core with perception, memory, structured reasoning, advanced planning, intelligent tools, algorithm discovery, self-improvement, continual learning, reflection, autonomous tasks, scheduling, temporal context and an explicit world model.
 
+## Phase 37.4 — Neural Core Upgrade Complete
+
+Phase 37.4 strengthens the learned language core without hiding the architecture behind a framework abstraction:
+
+- **Configurable Transformer depth** — the language model can use multiple decoder blocks instead of a fixed single block.
+- **RMSNorm** — pre-normalization uses RMSNorm for a simpler normalization path suited to deeper Transformer stacks.
+- **Attention/MLP dropout** — configurable regularization is active during training and automatically disabled during evaluation.
+- **Weight tying** — optional sharing of token embedding and language-head weights reduces redundant parameters.
+- **Architecture-aware checkpoints** — model configuration is persisted and incompatible resumes are rejected.
+- **CLI controls** — `train_algorithm_lm.py` exposes `--num-layers`, `--dropout`, and `--tie-embeddings` alongside the Phase 37.3 training controls.
+- **Regression coverage** — depth, forward-shape, weight-sharing, evaluation determinism and configuration validation are tested.
+
+This is an architecture/training capability upgrade, not a claim that TARA has already been trained to a new intelligence level. Actual capability must be demonstrated by the intelligence benchmark after training.
+
 ## Phase 37.3 — Training Hardening Complete
 
 Phase 37.3 connects the training-control layer to the real PyTorch pipeline:
@@ -12,11 +26,11 @@ Phase 37.3 connects the training-control layer to the real PyTorch pipeline:
 - **Warmup + cosine decay** — learning rate is scheduled per optimizer update with a configurable minimum ratio.
 - **Validation early stopping** — validation loss drives explicit patience/min-delta stopping decisions.
 - **Append-only experiment tracking** — training metrics are persisted as JSONL with a stable SHA-256 fingerprint.
-- **Checkpoint continuity** — checkpoint format 2 stores hardening configuration, scheduler progress, early-stopping state and metric fingerprint.
+- **Checkpoint continuity** — checkpoint format 3 stores hardening configuration, architecture configuration, scheduler progress, early-stopping state and metric fingerprint.
 - **Resume safety** — incompatible dataset fingerprints, model configuration or training controls are rejected rather than silently mixing experiments.
-- **CLI controls** — `train_algorithm_lm.py` exposes accumulation, scheduler, early-stopping and metrics-path options.
+- **CLI controls** — `train_algorithm_lm.py` exposes accumulation, scheduler, early-stopping, model-depth and metrics-path options.
 
-Actual model training remains an explicit offline operation. This phase implements the controls; it does not claim that a new model has already been trained.
+Actual model training remains an explicit offline operation. These phases implement the controls; they do not claim that a new model has already been trained.
 
 ## Phase 37.2 — Dataset Intelligence Audit Complete
 
@@ -97,4 +111,4 @@ Memory persistence is deliberately separate from learning, and model training is
 - Phase 34 — Unified Cognitive Loop: **222–230 complete**
 - Phase 35 — TARA Core Integration: **231–240 complete**
 - Phase 36 — Deep Audit & Validation: **complete**
-- Phase 37 — Real Intelligence & Training: **37.1 + 37.2 + 37.3 complete**
+- Phase 37 — Real Intelligence & Training: **37.1 + 37.2 + 37.3 + 37.4 complete**
