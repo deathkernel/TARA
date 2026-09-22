@@ -2,128 +2,78 @@
 
 **TARA — Tiny Artificial Reasoning Architecture**
 
-TARA is a research-first neural-network project built from mathematical and implementation fundamentals. The goal is a highly capable, inspectable artificial reasoning system that connects a neural language core with perception, memory, structured reasoning, planning, reflection, controlled tools, autonomous tasks, scheduling, temporal context and an explicit world model.
+TARA is a research-first neural-network project built from mathematical and implementation fundamentals. The goal is a highly capable, inspectable artificial reasoning system that connects a neural language core with perception, memory, structured reasoning, advanced planning, intelligent tools, reflection, autonomous tasks, scheduling, temporal context and an explicit world model.
 
-## Phase 22 — Structured Reasoning Complete
+## Phase 24 — AI Tool Intelligence Complete
 
-Phase 22 implements steps **128–134**:
+Phase 24 implements steps **142–148**:
 
-- **Explicit reasoning state:** bounded, inspectable state for one reasoning goal.
-- **Facts / assumptions separation:** claims are explicitly typed rather than mixed together.
-- **Hypothesis generation:** candidate hypotheses receive stable identifiers and initial confidence.
-- **Evidence tracking:** evidence is attached to claims with source, support/opposition and strength.
-- **Contradiction detection:** explicit incompatible claims are surfaced instead of silently merged.
-- **Reasoning verification:** required claims, contradictions and evidence confidence contribute to a deterministic verification result.
-- **Brain integration:** `TARABrain.reason()` and `verify_reasoning()` expose the reasoning engine to the cognitive loop.
+- **142 Tool capability registry** — explicit capability representations and fallback metadata.
+- **143 Tool precondition checking** — fact-backed and injectable predicate checks before selection.
+- **144 Tool selection reasoning** — contextual utility scoring using capability coverage, reliability, risk, latency and cost.
+- **145 Tool-result interpretation** — structured attempt/result representation for downstream diagnosis.
+- **146 Tool failure diagnosis** — transient, authorization, precondition and execution classification with confidence.
+- **147 Safer tool fallback** — declared fallback validation plus contextual alternative selection.
+- **148 Brain integration** — `TARABrain` can register capabilities, choose tools and recover from failed tool attempts.
 
-## Current architecture
+The new `src/tool_intelligence.py` layer is model-agnostic: its utility scorer can later be replaced or augmented by a learned policy trained from verified tool outcomes. It does not execute tools itself; actual execution remains behind the existing `ToolController` safety boundary.
+
+## Architecture
 
 ```text
-Input / Perception Adapters
-       ↓
-Normalization → Confidence → Temporal Ordering
-       ↓
+Input / Perception
+        ↓
 Working Memory → Long-Term Memory
-       ↓
-World Model → Event Router → Temporal Context
-       ↓
+        ↓
+World Model → Temporal Context
+        ↓
 Structured Reasoning
-   ├── Facts
-   ├── Assumptions
-   ├── Hypotheses
-   ├── Evidence
-   ├── Contradictions
-   └── Verification
-       ↓
-Neural Language Core
-       ↓
-Planning
-       ↓
-Persistent Task Store → Scheduler
-       ↓
-Resource Budget → Task Queue → Autonomous Orchestrator
-       ↓
+        ↓
+Advanced Planning
+  ├─ Goal Decomposition
+  ├─ Dependency Graph
+  ├─ Validation
+  ├─ Alternative Plans
+  ├─ Cost / Risk Evaluation
+  └─ Failure-driven Revision
+        ↓
+AI Tool Intelligence
+  ├─ Capability Registry
+  ├─ Preconditions
+  ├─ Contextual Utility Scoring
+  ├─ Tool Selection
+  ├─ Failure Diagnosis
+  └─ Safe Fallback
+        ↓
 Tool Controller
-       ↓
+        ↓
 File / Terminal / App / Browser / Input Tools
-       ↓
-Observation → Verification
-       ↓
-Experience Memory → Reflection → Goal Progress
-       ↓
-Learning / Continual Learning
-       ↓
-Emergency Stop / Rollback boundary
+        ↓
+Observation → Verification → Experience
+        ↓
+Reflection → Goal Progress → Learning / Continual Learning
+        ↓
+Autonomous Tasks → Scheduler → Resource Budget
+        ↓
+Neural Language Core
 ```
 
-## Safety boundary
-
-Structured reasoning records are inspectable data; they do not grant permissions or execute host actions. Tool use remains behind explicit controller boundaries and truly untrusted code should use a separate OS/container/VM sandbox.
+The project intentionally separates **decision intelligence** from **action execution**. AI/ML methods can improve selection and planning, while explicit verification, permissions, bounded execution and emergency-stop mechanisms remain deterministic safety boundaries.
 
 ## Roadmap
 
-### Phase 16 — PC Automation / Tools
-
-92. ✅ File tools
-93. ✅ Terminal tools
-94. ✅ Application/browser tools
-95. ✅ Controlled keyboard/mouse interaction
-96. ✅ Tool selection and execution verification
-97. ✅ Emergency stop / rollback where possible
-
-### Phase 17 — Reflection / Experience
-
-98. ✅ Experience memory
-99. ✅ Outcome evaluation
-100. ✅ Failure/feedback analysis
-101. ✅ Goal progress tracking
-102. ✅ Reflection cycle
-103. ✅ Brain integration
-
-### Phase 18 — Autonomous Task Orchestration
-
-104. ✅ Explicit task queue
-105. ✅ Dependency-aware scheduling
-106. ✅ Priority-based task selection
-107. ✅ Bounded execution loop
-108. ✅ Retry / failure recovery
-109. ✅ Brain integration + stop/resume control
-
-### Phase 19 — Persistent Scheduling / Resource Awareness
-
-110. ✅ Persistent task store
-111. ✅ Due-task scheduling
-112. ✅ Resource budgets
-113. ✅ Deterministic scheduler ordering
-114. ✅ Restart/recovery continuity
-115. ✅ Orchestrator integration
-
-### Phase 20 — World Model / Event Routing
-
-116. ✅ Explicit world state
-117. ✅ Bounded event history
-118. ✅ Reasoning context assembly
-119. ✅ Event routing to explicit host handlers
-120. ✅ Brain integration
-121. ✅ World-state prompt context
-
-### Phase 21 — Perception / Temporal Awareness
-
-122. ✅ Perception adapters
-123. ✅ Input normalization
-124. ✅ Confidence-aware observations
-125. ✅ Temporal event ordering
-126. ✅ Temporal context for reasoning
-127. ✅ Brain integration
-
-### Phase 22 — Structured Reasoning
-
-128. ✅ Explicit reasoning state
-129. ✅ Facts / assumptions separation
-130. ✅ Hypothesis generation
-131. ✅ Evidence tracking
-132. ✅ Contradiction detection
-133. ✅ Reasoning verification
-134. ✅ Brain integration
-
-Phase 22 is complete at an **advanced implementation level**. The reasoning representation is intentionally auditable and model-agnostic; it is infrastructure for a future learned reasoner rather than a claim of human-level reasoning.
+- Phase 21 — Perception & Temporal Awareness: **122–127 complete**
+- Phase 22 — Structured Reasoning: **128–134 complete**
+- Phase 23 — Advanced Planning: **135–141 complete**
+- Phase 24 — Tool Intelligence: **142–148 complete**
+- Phase 25 — Algorithm Discovery: **149–156**
+- Phase 26 — Self-Improvement: **157–164**
+- Phase 27 — Continual Learning: **165–172**
+- Phase 28 — Persistent Cognitive Memory: **173–180**
+- Phase 29 — Learning From Experience: **181–188**
+- Phase 30 — Multimodal Perception: **189–197**
+- Phase 31 — Autonomous Research: **198–205**
+- Phase 32 — Scientific Experiment Engine: **206–213**
+- Phase 33 — Architecture Self-Optimization: **214–221**
+- Phase 34 — Unified Cognitive Loop: **222–230**
+- Phase 35 — TARA Core Integration: **231–240**
