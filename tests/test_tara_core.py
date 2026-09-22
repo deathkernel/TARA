@@ -59,3 +59,13 @@ def test_architecture_api_requires_evaluator():
         assert "ArchitectureOptimizer" in str(exc)
     else:
         raise AssertionError("expected evaluator boundary")
+
+
+def test_core_replay_boundary():
+    core = TARACore(TARABrain(DummyModel()))
+    batch = core.build_replay([
+        {"text": "verified example", "domain": "core", "verified": True},
+        {"text": "ignored example", "domain": "core", "verified": False},
+    ])
+    assert len(batch.examples) == 1
+    assert batch.examples[0].verified is True
