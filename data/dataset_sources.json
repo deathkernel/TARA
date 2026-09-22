@@ -1,0 +1,67 @@
+{
+  "version": "1",
+  "datasets": [
+    {
+      "key": "fineweb_edu",
+      "name": "FineWeb-Edu",
+      "organization": "Hugging Face",
+      "dataset_id": "HuggingFaceFW/fineweb-edu",
+      "config": null,
+      "split": "train",
+      "text_field": "text",
+      "level": "basic",
+      "license": "ODC-By 1.0",
+      "role": "high-quality educational web text for general language and knowledge learning",
+      "notes": "Upstream dataset card should be reviewed for downstream use; document-level rights remain relevant."
+    },
+    {
+      "key": "gsm8k",
+      "name": "GSM8K",
+      "organization": "OpenAI",
+      "dataset_id": "openai/gsm8k",
+      "config": "main",
+      "split": "train",
+      "text_field": "question",
+      "answer_field": "answer",
+      "level": "basic",
+      "license": "MIT",
+      "role": "grade-school mathematical reasoning and worked answers"
+    },
+    {
+      "key": "tinystories",
+      "name": "TinyStories",
+      "organization": "Community / research dataset",
+      "dataset_id": "roneneldan/TinyStories",
+      "config": null,
+      "split": "train",
+      "text_field": "text",
+      "level": "basic",
+      "license": "See upstream dataset card",
+      "role": "small, simple-language corpus for early language-model training"
+    },
+    {
+      "key": "fineweb",
+      "name": "FineWeb",
+      "organization": "Hugging Face",
+      "dataset_id": "HuggingFaceFW/fineweb",
+      "config": null,
+      "split": "train",
+      "text_field": "text",
+      "level": "advanced",
+      "license": "ODC-By 1.0",
+      "role": "broad large-scale English web pretraining data"
+    },
+    {
+      "key": "the_stack_v2_smol",
+      "name": "The Stack v2 Smol",
+      "organization": "BigCode (Hugging Face + ServiceNow)",
+      "dataset_id": "bigcode/the-stack-v2-train-smol",
+      "config": null,
+      "split": "train",
+      "text_field": "content",
+      "level": "advanced",
+      "license": "Mixed source licenses; follow upstream terms and provenance",
+      "role": "advanced programming and repository-context code training"
+    }
+  ]
+}
