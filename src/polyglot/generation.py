@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 
 from .candidate import PolyglotCandidate
-from .languages import default_languages, select_language
+from .languages import LanguageSpec, default_languages, select_language
 from .parser import CandidateParseError, parse_candidate
 
 GenerateText = Callable[..., str]
@@ -36,7 +36,11 @@ def build_candidate_prompt(problem: str, language: str, feedback: Iterable[str] 
 
 
 class ModelCandidateGenerator:
-    """Adapt TARA's text-generation callable to SelfImprovementEngine."""
+    """Adapt TARA's text-generation callable to SelfImprovementEngine.
+
+    By default the generator targets the language selected for the problem.
+    Supplying ``languages`` enables true cross-language candidate search.
+    """
 
     def __init__(
         self,
@@ -44,31 +48,38 @@ class ModelCandidateGenerator:
         *,
         max_new_tokens: int = 512,
         temperatures: tuple[float, ...] = (0.65, 0.85, 1.05),
+        languages: tuple[LanguageSpec, ...] | None = None,
     ) -> None:
         if max_new_tokens <= 0:
             raise ValueError("max_new_tokens must be positive")
         if not temperatures or any(value <= 0 for value in temperatures):
             raise ValueError("temperatures must contain positive values")
+        if languages is not None and not languages:
+            raise ValueError("languages must not be empty")
         self.generate_text = generate_text
         self.max_new_tokens = max_new_tokens
         self.temperatures = temperatures
+        self.languages = languages
 
     def __call__(self, problem: str, feedback_text: str, feedback: tuple[str, ...], count: int) -> Iterable[PolyglotCandidate]:
         if count <= 0:
             return ()
-        requested_language = select_language(problem).name
+        requested = self.languages or (select_language(problem),)
         feedback_items = feedback or tuple(line.strip("- ") for line in feedback_text.splitlines() if line.strip())
         candidates: list[PolyglotCandidate] = []
         seen: set[tuple[str, str]] = set()
         for index in range(count):
+            language = requested[index % len(requested)].name
             temperature = self.temperatures[index % len(self.temperatures)]
-            prompt = build_candidate_prompt(problem, requested_language, feedback_items)
+            prompt = build_candidate_prompt(problem, language, feedback_items)
             try:
                 output = self.generate_text(prompt, max_new_tokens=self.max_new_tokens, temperature=temperature)
                 candidate = parse_candidate(output, problem)
-            except (CandidateParseError, ValueError, TypeError) as exc:
-                # Parsing failures are surfaced as feedback on the next round,
-                # but malformed model output is never sent to an executor.
+            except (CandidateParseError, ValueError, TypeError):
+                continue
+            if candidate.language != language:
+                # Do not silently benchmark a candidate generated for a
+                # different target language than the requested slot.
                 continue
             key = (candidate.language, candidate.source)
             if key not in seen:
