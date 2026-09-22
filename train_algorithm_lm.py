@@ -21,6 +21,9 @@ def main() -> None:
     parser.add_argument("--embedding-dim", type=int, default=64)
     parser.add_argument("--ff-dim", type=int, default=128)
     parser.add_argument("--heads", type=int, default=4)
+    parser.add_argument("--num-layers", type=int, default=2)
+    parser.add_argument("--dropout", type=float, default=0.1)
+    parser.add_argument("--tie-embeddings", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--lr", type=float, default=3e-4)
     parser.add_argument("--validation-split", type=float, default=0.1)
     parser.add_argument("--seed", type=int, default=42)
@@ -49,6 +52,9 @@ def main() -> None:
         embedding_dim=args.embedding_dim,
         ff_dim=args.ff_dim,
         heads=args.heads,
+        num_layers=args.num_layers,
+        dropout=args.dropout,
+        tie_embeddings=args.tie_embeddings,
         lr=args.lr,
         validation_split=args.validation_split,
         seed=args.seed,
