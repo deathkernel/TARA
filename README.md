@@ -4,16 +4,16 @@
 
 TARA is a research-first neural-network project built from mathematical and implementation fundamentals. The goal is a small, inspectable artificial reasoning system that can connect a neural language core with perception, memory, reasoning, planning, reflection and controlled PC tools.
 
-## Phase 17 — Basic Reflection and Experience Complete
+## Phase 18 — Basic Autonomous Task Orchestration Complete
 
-Phase 17 contains a **basic implementation of all planned reflection steps (98–103)**. The layer records outcomes, tracks goal progress, produces deterministic reflections and feeds the result back into the brain without claiming human-like self-awareness.
+Phase 18 contains a **basic implementation of all planned orchestration steps (104–109)**. The layer manages finite task graphs, dependencies, priorities, bounded retries and stop/resume control while keeping actual external actions behind explicit host-provided executors.
 
-- Experience memory: bounded JSONL-backed history of actions, outcomes, success and feedback.
-- Outcome reflection: computes attempts, successes, failures and success rate.
-- Failure analysis: turns recorded failure feedback into a simple lesson.
-- Goal progress: tracks bounded verified milestones and completion status.
-- Reflection loop: connects experience recording to immediate reflection.
-- Brain integration: `TARABrain` can record experiences, reflect and track progress.
+- Task queue: explicit task records with status, priority, dependencies and retry budget.
+- Dependency scheduling: only tasks whose dependencies are completed become runnable.
+- Priority selection: ready tasks are selected deterministically by priority and task ID.
+- Bounded execution loop: a maximum step count prevents an unbounded control loop.
+- Failure recovery: failed tasks can retry within their budget or be explicitly requeued.
+- Brain integration: `TARABrain` can add, run, stop and resume orchestrated tasks.
 
 ## Current architecture
 
@@ -25,6 +25,8 @@ Working Memory → Long-Term Memory
 Neural Language Core
        ↓
 Reasoning → Planning
+       ↓
+Task Queue → Autonomous Orchestrator
        ↓
 Tool Controller
        ↓
@@ -41,7 +43,7 @@ Emergency Stop / Rollback boundary
 
 ## Safety boundary
 
-Tool access is explicit and host-controlled. File access requires configured roots; terminal execution requires an allow-listed executable; browser/application actions require registered host functions; keyboard/mouse operations require an injected backend. Reflection only records and evaluates supplied outcomes; it does not grant additional permissions.
+Autonomous orchestration does not create permissions. A task can execute only through the callable supplied by the host application. The existing Tool Controller remains the permission boundary for PC actions. The orchestrator has bounded steps, explicit dependencies, retry limits, and stop/resume controls.
 
 These controls are defense-in-depth and are not a claim of perfect isolation against hostile code. Truly untrusted code should use a separate OS/container/VM sandbox before production use.
 
@@ -65,4 +67,13 @@ These controls are defense-in-depth and are not a claim of perfect isolation aga
 102. ✅ Reflection cycle
 103. ✅ Brain integration
 
-Phase 17 is complete at the **basic architecture level**. Future phases can deepen learned reflection, richer planning, long-horizon memory, evaluation, and model training without changing the basic boundaries above.
+### Phase 18 — Autonomous Task Orchestration
+
+104. ✅ Explicit task queue
+105. ✅ Dependency-aware scheduling
+106. ✅ Priority-based task selection
+107. ✅ Bounded execution loop
+108. ✅ Retry / failure recovery
+109. ✅ Brain integration + stop/resume control
+
+Phase 18 is complete at the **basic architecture level**. Future phases can deepen learned planning, richer dependency graphs, persistent scheduling, resource awareness, and stronger evaluation without removing these explicit control boundaries.
