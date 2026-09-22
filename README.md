@@ -4,16 +4,16 @@
 
 TARA is a research-first neural-network project built from mathematical and implementation fundamentals. The goal is a small, inspectable artificial reasoning system that can connect a neural language core with perception, memory, reasoning, planning, reflection and controlled PC tools.
 
-## Phase 18 — Basic Autonomous Task Orchestration Complete
+## Phase 19 — Basic Persistent Scheduling and Resource Awareness Complete
 
-Phase 18 contains a **basic implementation of all planned orchestration steps (104–109)**. The layer manages finite task graphs, dependencies, priorities, bounded retries and stop/resume control while keeping actual external actions behind explicit host-provided executors.
+Phase 19 contains a **basic implementation of all planned scheduling steps (110–115)**. TARA can persist scheduled task metadata, identify due work, apply deterministic priority ordering, enforce simple resource budgets, restore pending tasks after restart, and feed due work into the bounded Phase 18 orchestrator.
 
-- Task queue: explicit task records with status, priority, dependencies and retry budget.
-- Dependency scheduling: only tasks whose dependencies are completed become runnable.
-- Priority selection: ready tasks are selected deterministically by priority and task ID.
-- Bounded execution loop: a maximum step count prevents an unbounded control loop.
-- Failure recovery: failed tasks can retry within their budget or be explicitly requeued.
-- Brain integration: `TARABrain` can add, run, stop and resume orchestrated tasks.
+- Persistent task store: JSONL-backed scheduled task metadata.
+- Due-task detection: tasks can be scheduled for a future ISO timestamp.
+- Resource awareness: explicit maximum-task and retry budgets bound execution.
+- Deterministic scheduling: due tasks are ordered by priority and task ID.
+- Restart continuity: persisted tasks can be loaded by a new scheduler instance.
+- Orchestrator integration: due tasks execute through the existing bounded host executor boundary.
 
 ## Current architecture
 
@@ -26,7 +26,9 @@ Neural Language Core
        ↓
 Reasoning → Planning
        ↓
-Task Queue → Autonomous Orchestrator
+Persistent Task Store → Scheduler
+       ↓
+Resource Budget → Task Queue → Autonomous Orchestrator
        ↓
 Tool Controller
        ↓
@@ -43,7 +45,7 @@ Emergency Stop / Rollback boundary
 
 ## Safety boundary
 
-Autonomous orchestration does not create permissions. A task can execute only through the callable supplied by the host application. The existing Tool Controller remains the permission boundary for PC actions. The orchestrator has bounded steps, explicit dependencies, retry limits, and stop/resume controls.
+Scheduling and resource budgeting do not create permissions. A scheduled task can execute only through the callable supplied by the host application. The existing Tool Controller remains the permission boundary for PC actions. Execution remains bounded by explicit task and resource limits.
 
 These controls are defense-in-depth and are not a claim of perfect isolation against hostile code. Truly untrusted code should use a separate OS/container/VM sandbox before production use.
 
@@ -76,4 +78,13 @@ These controls are defense-in-depth and are not a claim of perfect isolation aga
 108. ✅ Retry / failure recovery
 109. ✅ Brain integration + stop/resume control
 
-Phase 18 is complete at the **basic architecture level**. Future phases can deepen learned planning, richer dependency graphs, persistent scheduling, resource awareness, and stronger evaluation without removing these explicit control boundaries.
+### Phase 19 — Persistent Scheduling / Resource Awareness
+
+110. ✅ Persistent task store
+111. ✅ Due-task scheduling
+112. ✅ Resource budgets
+113. ✅ Deterministic scheduler ordering
+114. ✅ Restart/recovery continuity
+115. ✅ Orchestrator integration
+
+Phase 19 is complete at the **basic architecture level**. Future phases can deepen resource accounting, calendar/time semantics, distributed scheduling, richer task persistence, and learned scheduling policies without removing the explicit control boundaries.
