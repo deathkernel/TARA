@@ -5,6 +5,7 @@ from pathlib import Path
 from .advanced_planning import AdaptivePlan, AdvancedPlanner, PlanAlternative, PlanStep
 from .agent import AgentLoop
 from .autonomous_orchestrator import AutonomousOrchestrator, TaskNode
+from .continual_learning_engine import ContinualLearningEngine, PromotionResult, ReplayBatch
 from .event_router import EventRouter
 from .goal_progress import GoalProgress
 from .integration import TARAEngine
@@ -26,7 +27,8 @@ class BrainResponse:
 class TARABrain:
     def __init__(self, model, tokenizer=None, *, engine=None, memory=None, seed=0, reflection=None,
                  progress=None, orchestrator=None, world=None, events=None, temporal=None,
-                 temporal_history=256, reasoner=None, planner=None, tools=None, improver=None):
+                 temporal_history=256, reasoner=None, planner=None, tools=None, improver=None,
+                 continual=None):
         self.model = model
         self.tokenizer = tokenizer
         self.engine = TARAEngine() if engine is None else engine
@@ -42,6 +44,7 @@ class TARABrain:
         self.planner = planner or AdvancedPlanner()
         self.tools = tools or ToolIntelligence()
         self.improver = improver or SelfImprovementLab()
+        self.continual = continual or ContinualLearningEngine(seed=seed)
         self.rng = random.Random(seed)
 
     @classmethod
@@ -49,6 +52,9 @@ class TARABrain:
         from .model_runtime import load_checkpoint
         model, tokenizer = load_checkpoint(path)
         return cls(model, tokenizer, engine=engine, memory=memory, seed=seed)
+
+    def build_replay(self, records) -> ReplayBatch: return self.continual.build_replay(records)
+    def evaluate_learning(self, baseline, current) -> PromotionResult: return self.continual.evaluate(baseline, current)
 
     def observe(self, observation, *, remember_key=None, importance=1.0, confidence=1.0, source="agent", kind="observation", timestamp=None):
         result = self.agent.observe(observation, remember_key=remember_key, importance=importance)
@@ -62,31 +68,20 @@ class TARABrain:
         self.events.emit("perception", observation_id=normalized.observation_id, source=normalized.source, kind=normalized.kind, content=normalized.content, confidence=normalized.confidence, timestamp=normalized.timestamp)
         return normalized
 
-    def temporal_context(self, *, limit=16, min_confidence=0.0) -> TemporalContext:
-        return self.temporal.context(limit=limit, min_confidence=min_confidence)
-
+    def temporal_context(self, *, limit=16, min_confidence=0.0) -> TemporalContext: return self.temporal.context(limit=limit, min_confidence=min_confidence)
     def reason(self, goal, *, facts=(), assumptions=(), hypotheses=(), evidence=(), required_claim_ids=()):
-        state = self.reasoner.start(goal)
-        return self.reasoner.reason(state, facts=facts, assumptions=assumptions, hypotheses=hypotheses, evidence=evidence, required_claim_ids=required_claim_ids)
-
+        state = self.reasoner.start(goal); return self.reasoner.reason(state, facts=facts, assumptions=assumptions, hypotheses=hypotheses, evidence=evidence, required_claim_ids=required_claim_ids)
     def verify_reasoning(self, state: ReasoningState, *, required_claim_ids=()): return self.reasoner.verifier.verify(state, required_claim_ids=required_claim_ids)
     def create_plan(self, goal, subtasks, *, max_cost=None) -> AdaptivePlan:
-        planner = self.planner if max_cost is None else AdvancedPlanner(max_cost=max_cost)
-        plan = planner.create(goal, subtasks); self.engine.set_goal(goal); self.engine.state.plan = None; return plan
+        planner = self.planner if max_cost is None else AdvancedPlanner(max_cost=max_cost); plan = planner.create(goal, subtasks); self.engine.set_goal(goal); self.engine.state.plan = None; return plan
     def validate_plan(self, plan: AdaptivePlan): return self.planner.validate(plan)
     def plan_alternatives(self, plan: AdaptivePlan, *, count=3) -> tuple[PlanAlternative, ...]: return self.planner.alternatives(plan, count=count)
     def revise_plan(self, plan: AdaptivePlan, failed_step_id, feedback, replacement: PlanStep | None = None): return self.planner.revise(plan, failed_step_id, feedback, replacement)
     def register_tool_capability(self, capability: ToolCapability) -> None: self.tools.register(capability)
     def choose_tool(self, goal: str, required_capabilities, *, facts=None, preferred_latency=None, risk_tolerance=.5): return self.tools.choose(goal, required_capabilities, facts=facts, preferred_latency=preferred_latency, risk_tolerance=risk_tolerance)
     def recover_tool(self, attempt: ToolAttempt, goal: str, required_capabilities, *, facts=None, risk_tolerance=.5): return self.tools.recover(attempt, goal, required_capabilities, facts=facts, risk_tolerance=risk_tolerance)
-
-    def improve_candidate(self, baseline, problem, *, rounds=3, mutation_count=4) -> tuple:
-        """Run bounded failure-driven improvement and return promoted result + cycles."""
-        return self.improver.iterate(baseline, problem, rounds=rounds, mutation_count=mutation_count)
-
-    def improvement_cycle(self, baseline, problem, *, mutation_count=4) -> ImprovementCycle:
-        return self.improver.cycle(baseline, problem, mutation_count=mutation_count)
-
+    def improve_candidate(self, baseline, problem, *, rounds=3, mutation_count=4) -> tuple: return self.improver.iterate(baseline, problem, rounds=rounds, mutation_count=mutation_count)
+    def improvement_cycle(self, baseline, problem, *, mutation_count=4) -> ImprovementCycle: return self.improver.cycle(baseline, problem, mutation_count=mutation_count)
     def observe_world(self, event_type, **data): return self.events.emit(event_type, **data)
     def world_context(self, *, event_limit=8) -> WorldContext: return self.world.context(event_limit=event_limit)
     def set_goal(self, description, success_conditions=()): return self.engine.set_goal(description, success_conditions)
@@ -112,14 +107,11 @@ class TARABrain:
         token_ids = self.tokenizer.encode(prompt)
         if not token_ids: raise ValueError("prompt must encode to at least one token")
         for _ in range(max_new_tokens):
-            token_id = self.model.sample_next_token(token_ids, temperature=temperature, top_k=top_k, rng=self.rng) if top_p is None else self._sample_top_p(token_ids, temperature, top_p)
-            token_ids.append(token_id)
+            token_id = self.model.sample_next_token(token_ids, temperature=temperature, top_k=top_k, rng=self.rng) if top_p is None else self._sample_top_p(token_ids, temperature, top_p); token_ids.append(token_id)
         return self.tokenizer.decode(token_ids)
     def _sample_top_p(self, token_ids, temperature, top_p):
         import math
-        logits = list(self.model.forward_numeric(token_ids)[-1]); scaled = [value / temperature for value in logits]; maximum = max(scaled)
-        probabilities = [math.exp(value - maximum) for value in scaled]; total = sum(probabilities); probabilities = [value / total for value in probabilities]
-        ranked = sorted(range(len(probabilities)), key=probabilities.__getitem__, reverse=True); selected=[]; cumulative=0.0
+        logits = list(self.model.forward_numeric(token_ids)[-1]); scaled = [value / temperature for value in logits]; maximum = max(scaled); probabilities = [math.exp(value - maximum) for value in scaled]; total = sum(probabilities); probabilities = [value / total for value in probabilities]; ranked = sorted(range(len(probabilities)), key=probabilities.__getitem__, reverse=True); selected=[]; cumulative=0.0
         for index in ranked:
             selected.append(index); cumulative += probabilities[index]
             if cumulative >= top_p: break
@@ -129,11 +121,8 @@ class TARABrain:
             if threshold < cumulative: return index
         return selected[-1]
     def build_reasoning_context(self, prompt, *, memory_limit=8, event_limit=8, temporal_limit=16, min_confidence=0.0):
-        recalled = tuple(self.memory.retrieve(prompt, limit=memory_limit)); world=self.world_context(event_limit=event_limit); temporal=self.temporal_context(limit=temporal_limit, min_confidence=min_confidence)
-        memory_text="\n".join(str(item) for item in recalled) or "none"
-        return f"User/task: {prompt}\n\nMemory:\n{memory_text}\n\n{world.as_prompt_context()}\n\n{temporal.as_prompt_context()}"
+        recalled = tuple(self.memory.retrieve(prompt, limit=memory_limit)); world=self.world_context(event_limit=event_limit); temporal=self.temporal_context(limit=temporal_limit, min_confidence=min_confidence); memory_text="\n".join(str(item) for item in recalled) or "none"; return f"User/task: {prompt}\n\nMemory:\n{memory_text}\n\n{world.as_prompt_context()}\n\n{temporal.as_prompt_context()}"
     def respond(self, prompt, *, remember_key=None, importance=1.0, max_new_tokens=32, temperature=1.0, top_k=None, top_p=None):
-        self.observe(prompt, remember_key=remember_key, importance=importance, source="user", kind="prompt"); recalled=tuple(self.memory.retrieve(prompt)); context=self.build_reasoning_context(prompt); text=self.generate(context, max_new_tokens=max_new_tokens, temperature=temperature, top_k=top_k, top_p=top_p)
-        return BrainResponse(text=text, recalled=recalled, observations=tuple(self.engine.state.observations.recent()), temporal_context=self.temporal_context().as_prompt_context())
+        self.observe(prompt, remember_key=remember_key, importance=importance, source="user", kind="prompt"); recalled=tuple(self.memory.retrieve(prompt)); context=self.build_reasoning_context(prompt); text=self.generate(context, max_new_tokens=max_new_tokens, temperature=temperature, top_k=top_k, top_p=top_p); return BrainResponse(text=text, recalled=recalled, observations=tuple(self.engine.state.observations.recent()), temporal_context=self.temporal_context().as_prompt_context())
     def verify_result(self, observed, expected): return self.agent.submit_result(observed, expected)
     def recover(self, replacement_tasks): return self.agent.recover(replacement_tasks)
