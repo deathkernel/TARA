@@ -8,6 +8,7 @@ before any future tool/PC execution layer is attached.
 
 from dataclasses import dataclass
 import random
+from pathlib import Path
 
 from .agent import AgentLoop
 from .integration import TARAEngine
@@ -34,6 +35,14 @@ class TARABrain:
         self.memory = LongTermMemory() if memory is None else memory
         self.agent = AgentLoop(engine=self.engine, memory=self.memory)
         self.rng = random.Random(seed)
+
+    @classmethod
+    def from_checkpoint(cls, path: str | Path, *, engine=None, memory=None, seed=0):
+        """Build a brain directly from a trained PyTorch TARA checkpoint."""
+        from .model_runtime import load_checkpoint
+
+        model, tokenizer = load_checkpoint(path)
+        return cls(model, tokenizer, engine=engine, memory=memory, seed=seed)
 
     def observe(self, observation, *, remember_key=None, importance=1.0):
         return self.agent.observe(
