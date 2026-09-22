@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable, Iterable
 
+from .archive import CandidateArchive
 from .benchmark import BenchmarkResult, PolyglotBenchmark, rank_benchmarks
 from .candidate import PolyglotCandidate
 
@@ -20,14 +21,15 @@ class ImprovementResult:
 
 
 class SelfImprovementEngine:
-    """Generate, test, learn from failures, and retain only benchmarked candidates.
+    """Generate, test, learn from failures, and optionally retain benchmark memory."""
 
-    The engine never marks a candidate as correct merely because generation
-    succeeded. Verification is always performed by the executable benchmark.
-    """
-
-    def __init__(self, benchmark: PolyglotBenchmark | None = None) -> None:
+    def __init__(
+        self,
+        benchmark: PolyglotBenchmark | None = None,
+        archive: CandidateArchive | None = None,
+    ) -> None:
         self.benchmark = benchmark or PolyglotBenchmark()
+        self.archive = archive
 
     def improve(
         self,
@@ -42,21 +44,31 @@ class SelfImprovementEngine:
         history: list[BenchmarkResult] = []
         feedback: tuple[str, ...] = ()
         best: BenchmarkResult | None = None
+        completed_rounds = 0
 
-        for round_index in range(rounds):
+        for _ in range(rounds):
             generated = list(generator(problem, "\n".join(feedback), feedback, candidates_per_round))
             if not generated:
                 break
             results = [self.benchmark.run(candidate, problem) for candidate in generated]
             history.extend(results)
+            if self.archive is not None:
+                for result in results:
+                    self.archive.save(result)
+
             ranked = rank_benchmarks(results)
             round_best = ranked[0]
             if best is None or rank_benchmarks([best, round_best])[0] is round_best:
                 best = round_best
-            feedback = tuple(message for result in ranked[:2] for message in result.failures)
-            if round_best.verified:
-                # A fully verified solution is retained immediately. Further
-                # rounds may still be useful for performance optimization.
-                feedback = (f"Verified candidate runtime: {round_best.total_runtime_ms:.3f} ms",)
 
-        return ImprovementResult(best=best, history=tuple(history), rounds=round_index + 1 if history else 0)
+            # Preserve concrete failures for the next generation round. Once
+            # a candidate verifies, add its runtime as an optimization signal
+            # instead of throwing away all information from failed peers.
+            failure_feedback = tuple(message for result in ranked[:2] for message in result.failures)
+            if round_best.verified:
+                feedback = (f"A verified candidate ran in {round_best.total_runtime_ms:.3f} ms; seek a correct candidate with equal or lower runtime.",) + failure_feedback
+            else:
+                feedback = failure_feedback
+            completed_rounds += 1
+
+        return ImprovementResult(best=best, history=tuple(history), rounds=completed_rounds)
