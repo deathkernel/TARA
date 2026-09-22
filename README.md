@@ -118,6 +118,14 @@ retain useful / forget low-use memories
 
 This is a continual-learning **mechanism**, not a claim that the model automatically becomes smarter after every interaction. Actual training remains an explicit operation, and only verified knowledge is promoted into replay.
 
+## Phase 16 — Controlled PC tools
+
+Phase 16 has now started with the filesystem boundary in `src/tools/file_tools.py`. File access is **not enabled by default**: a host application must explicitly provide allowed root directories. Paths are resolved before access, traversal outside those roots is rejected, reads are bounded by a byte limit, and write/delete/move operations require explicit operation-specific confirmation tokens.
+
+The tool layer is intentionally separate from the cognitive core. `ToolRegistry` can host these tools later, but the model does not receive unrestricted filesystem access and does not get an implicit path to execute arbitrary commands.
+
+Terminal, browser/application control and keyboard/mouse automation remain separate future steps and will require their own allow-lists, confirmation boundaries, execution limits, verification and audit integration.
+
 ## Completed AI/model layers
 
 - Custom scalar reverse-mode automatic differentiation
@@ -156,6 +164,7 @@ This is a continual-learning **mechanism**, not a claim that the model automatic
 - Explicit PyTorch training pipeline with validation, checkpointing and resume
 - Verified bounded replay and continual-learning corpus construction
 - Deterministic long-term-memory consolidation
+- Allow-listed, bounded filesystem tools with destructive-operation confirmation
 
 The language model is intentionally small and CPU-friendly. TARA is an educational/research implementation of the underlying mechanisms, not a reproduction of GPT, Gemini, or any frontier model.
 
@@ -186,8 +195,9 @@ Safety remains a separate boundary around future tools. The current foundation u
 - confirmation gates for designated destructive actions
 - immutable authorization decisions
 - an audit log
+- filesystem allow-lists and bounded reads for Phase 16 file tools
 
-No PC action is executed by the current brain. Tool execution begins only after the complete AI/model architecture has been developed, tested and evaluated.
+No unrestricted PC action is executed by the current brain. Tool execution is being introduced incrementally with explicit host-controlled boundaries.
 
 ## Run locally
 
@@ -351,11 +361,9 @@ The current repository has both the detailed AI/model foundation and a complete 
 90. ⬜ Catastrophic-forgetting benchmark
 91. ⬜ Automatic knowledge-promotion policy based on repeated verification
 
-### Phase 16 — PC Automation / Tools — intentionally deferred
+### Phase 16 — PC Automation / Tools
 
-Only after the AI/model architecture is complete and final validation is run:
-
-92. ⬜ File tools
+92. ✅ File tools: allow-listed, bounded reads and confirmed writes/deletes/moves
 93. ⬜ Terminal tools
 94. ⬜ Application/browser tools
 95. ⬜ Controlled keyboard/mouse interaction
