@@ -110,6 +110,7 @@ class FastTinyLanguageModel(nn.Module):
             ])
             self.final_norm = nn.RMSNorm(embedding_dim)
             self.lm_head = nn.Linear(embedding_dim, vocab_size, bias=not tie_embeddings)
+            self._initialize_weights()
             if tie_embeddings:
                 self.lm_head.weight = self.embedding.weight
         self.vocab_size = vocab_size
@@ -117,6 +118,15 @@ class FastTinyLanguageModel(nn.Module):
         self.num_layers = num_layers
         self.dropout = dropout
         self.tie_embeddings = tie_embeddings
+
+    def _initialize_weights(self):
+        # Small GPT-style initialization keeps initial logits well-scaled.
+        nn.init.normal_(self.embedding.weight, mean=0.0, std=0.02)
+        for module in self.modules():
+            if isinstance(module, nn.Linear):
+                nn.init.normal_(module.weight, mean=0.0, std=0.02)
+                if module.bias is not None:
+                    nn.init.zeros_(module.bias)
 
     def forward(self, token_ids):
         if token_ids.ndim != 2:
