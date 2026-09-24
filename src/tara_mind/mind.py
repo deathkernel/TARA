@@ -76,7 +76,7 @@ class TaraMind:
             evidence_count=len(self.state.observations),
             prediction_error=world_update.surprise if world_update else 0.0,
             ambiguity=1.0 - appraisal.confidence,
-            consequence_cost=decision.score if decision.blocked else 0.0,
+            consequence_cost=min(1.0, max(0.0, decision.score)) if decision.blocked else 0.0,
         )
         plan = None
         if plan_goal and self.world.current_state:
