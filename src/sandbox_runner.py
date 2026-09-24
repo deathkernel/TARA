@@ -17,12 +17,19 @@ import sys
 from dataclasses import dataclass
 
 
-BLOCKED_MODULES = {
-    "os", "sys", "subprocess", "socket", "pathlib", "shutil", "ctypes",
-    "signal", "resource", "multiprocessing", "threading", "asyncio",
+ALLOWED_MODULES = {
+    "bisect", "collections", "decimal", "fractions", "functools", "heapq",
+    "itertools", "json", "math", "operator", "random", "re", "statistics",
+    "string",
 }
-BLOCKED_CALLS = {"eval", "exec", "compile", "open", "input", "__import__"}
-BLOCKED_NAMES = {"globals", "locals", "vars", "breakpoint"}
+BLOCKED_CALLS = {
+    "eval", "exec", "compile", "open", "input", "__import__",
+    "getattr", "setattr", "delattr", "globals", "locals", "vars", "breakpoint",
+}
+BLOCKED_NAMES = {
+    "object", "type", "super", "__builtins__", "__loader__", "__spec__",
+    "__package__", "__name__",
+}
 
 
 @dataclass(frozen=True)
@@ -49,12 +56,12 @@ def validate_candidate(source: str) -> tuple[bool, str]:
         if isinstance(node, ast.Import):
             for alias in node.names:
                 root = alias.name.split(".", 1)[0]
-                if root in BLOCKED_MODULES:
-                    return False, f"blocked import: {root}"
+                if root not in ALLOWED_MODULES:
+                    return False, f"import not allowed: {root}"
         elif isinstance(node, ast.ImportFrom):
             root = (node.module or "").split(".", 1)[0]
-            if root in BLOCKED_MODULES:
-                return False, f"blocked import: {root}"
+            if root not in ALLOWED_MODULES:
+                return False, f"import not allowed: {root}"
         elif isinstance(node, ast.Call):
             if isinstance(node.func, ast.Name) and node.func.id in BLOCKED_CALLS | BLOCKED_NAMES:
                 return False, f"blocked call: {node.func.id}"
