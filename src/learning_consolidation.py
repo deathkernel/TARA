@@ -56,6 +56,10 @@ class LearningConsolidator:
     ) -> ConsolidationReport:
         if not outcome.strip():
             raise ValueError("outcome must be non-empty")
+        if promoted and regression_passed is not True:
+            raise ValueError(
+                "promoted=True requires regression_passed=True"
+            )
         cycle_id = self._cycle_id(checkpoint, dataset_fingerprint, outcome)
         payload = {
             "cycle_id": cycle_id,
