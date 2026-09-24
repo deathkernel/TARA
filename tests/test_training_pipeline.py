@@ -89,7 +89,7 @@ def test_phase14_writes_self_contained_checkpoint(tmp_path):
     assert summary.final_step == 2
     assert checkpoint.exists()
     payload = torch.load(checkpoint, map_location="cpu", weights_only=False)
-    assert payload["format_version"] == 3
+    assert payload["format_version"] == 4
     assert payload["step"] == 2
     assert "model_state" in payload
     assert "optimizer_state" in payload
