@@ -1,37 +1,5 @@
-"""Compatibility layer for TARA dataset loading."""
+"""Compatibility wrapper; canonical streaming loader lives in src.tara_mind.data.streaming."""
 
-from src.dataset_registry import DATASETS, get_dataset_spec, load_text_slice
+from src.tara_mind.data.streaming import describe_dataset, list_datasets, load_dataset_text, load_tinystories_text
 
-
-def list_datasets():
-    """Return registered dataset keys."""
-    return sorted(DATASETS)
-
-
-def describe_dataset(name):
-    """Return a serializable description of one registered dataset."""
-    spec = get_dataset_spec(name)
-    config = "wikitext-2-raw-v1" if name.strip().lower() == "wikitext2" else None
-    return {
-        "dataset_id": spec.dataset_id,
-        "config": config,
-        "description": spec.role,
-        "train_split": spec.train_split,
-        "validation_split": spec.validation_split,
-    }
-
-
-def load_dataset_text(name, max_chars=512, split="train", seed=42, shuffle=True):
-    """Load a bounded streamed text slice from a registered dataset."""
-    return load_text_slice(
-        name,
-        max_chars=max_chars,
-        split=split,
-        seed=seed,
-        shuffle=shuffle,
-    )
-
-
-def load_tinystories_text(max_chars=512, split="train"):
-    """Backward-compatible TinyStories loader."""
-    return load_dataset_text("tinystories", max_chars=max_chars, split=split)
+__all__ = ["describe_dataset", "list_datasets", "load_dataset_text", "load_tinystories_text"]
