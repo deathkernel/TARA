@@ -26,7 +26,7 @@ DATASETS = {
         name="SODA",
         dataset_id="allenai/soda",
         train_split="train",
-        validation_split="valid",
+        validation_split="validation",
         text_field=None,
         role=(
             "large-scale social dialogue for natural conversation, "
@@ -163,7 +163,7 @@ def load_text_slice(name, max_chars=4096, split="train", seed=42, shuffle=True):
         from datasets import load_dataset
     except ImportError as exc:
         raise ImportError(
-            "dataset loading requires the 'datasets' package'. "
+            "dataset loading requires the 'datasets' package. "
             "Install it with: python -m pip install datasets"
         ) from exc
 
