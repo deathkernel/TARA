@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import sys
 import tempfile
 import time
 from pathlib import Path
@@ -30,11 +31,17 @@ class PolyglotExecutor:
         compile_timeout: float = 20.0,
         run_timeout: float = 5.0,
         output_limit: int = 64 * 1024,
+        memory_limit_mb: int = 512,
     ) -> None:
+        if compile_timeout <= 0 or run_timeout <= 0:
+            raise ValueError("timeouts must be positive")
+        if output_limit <= 0 or memory_limit_mb <= 0:
+            raise ValueError("output and memory limits must be positive")
         self.languages = languages or default_languages()
         self.compile_timeout = compile_timeout
         self.run_timeout = run_timeout
         self.output_limit = output_limit
+        self.memory_limit_mb = memory_limit_mb
 
     def execute(self, candidate: PolyglotCandidate, stdin: str = "") -> ExecutionResult:
         spec = self._language(candidate.language)
@@ -117,7 +124,19 @@ class PolyglotExecutor:
                 return spec
         raise PolyglotExecutionError(f"Unknown language: {name}")
 
-    def _run(self, command: list[str], stdin: str, timeout: float):
+    def _resource_limits(self, timeout: float):
+        if os.name == "nt":
+            return None
+        import resource
+        memory = self.memory_limit_mb * 1024 * 1024
+        cpu = max(1, int(timeout) + 1)
+        def apply_limits():
+            resource.setrlimit(resource.RLIMIT_AS, (memory, memory))
+            resource.setrlimit(resource.RLIMIT_CPU, (cpu, cpu))
+            resource.setrlimit(resource.RLIMIT_NOFILE, (64, 64))
+        return apply_limits
+
+    def _run(self, command: list[str], stdin: str, timeout: float, *, cwd: Path | None = None):
         env = {"PATH": os.environ.get("PATH", "")}
         start = time.perf_counter()
         try:
@@ -128,8 +147,10 @@ class PolyglotExecutor:
                 capture_output=True,
                 timeout=timeout,
                 shell=False,
-                cwd=None,
+                cwd=str(cwd) if cwd is not None else None,
                 env=env,
+                start_new_session=(os.name != "nt"),
+                preexec_fn=self._resource_limits(timeout) if os.name != "nt" else None,
             )
             duration_ms = (time.perf_counter() - start) * 1000.0
             return (
