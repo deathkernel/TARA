@@ -67,6 +67,7 @@ class PolyglotExecutor:
                     [spec.executable, "-std=c++17", "-O2", str(source), "-o", str(binary)],
                     "",
                     self.compile_timeout,
+                    cwd=root,
                 )
                 command = [str(binary)]
             elif spec.name == "go":
@@ -75,6 +76,7 @@ class PolyglotExecutor:
                     [spec.executable, "build", "-o", str(binary), str(source)],
                     "",
                     self.compile_timeout,
+                    cwd=root,
                 )
                 command = [str(binary)]
             elif spec.name == "java":
@@ -82,6 +84,7 @@ class PolyglotExecutor:
                     ["javac", str(source)],
                     "",
                     self.compile_timeout,
+                    cwd=root,
                 )
                 command = [spec.executable, "-cp", str(root), "candidate"]
             else:
