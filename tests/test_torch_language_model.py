@@ -123,3 +123,33 @@ def test_fast_model_constructor_does_not_change_global_rng():
     actual = torch.rand(5)
 
     assert torch.equal(actual, expected)
+
+
+def test_rope_and_swiglu_are_used():
+    model = FastTinyLanguageModel(
+        vocab_size=13,
+        embedding_dim=16,
+        ff_dim=32,
+        num_heads=4,
+        max_context=16,
+        num_layers=2,
+        seed=9,
+    )
+    assert isinstance(model.position, torch.nn.Identity)
+    assert all(hasattr(block.attention, "rope") for block in model.transformer)
+    assert all(hasattr(block, "ff_gate") and hasattr(block, "ff_up") for block in model.transformer)
+    inputs = torch.tensor([[0, 1, 2, 3, 4]])
+    logits = model(inputs)
+    assert logits.shape == (1, 5, 13)
+    assert torch.isfinite(logits).all()
+
+
+def test_rope_requires_even_head_dimension():
+    with pytest.raises(ValueError):
+        FastTinyLanguageModel(
+            vocab_size=9,
+            embedding_dim=12,
+            ff_dim=24,
+            num_heads=4,
+            max_context=8,
+        )
