@@ -5,3 +5,4 @@ datasets
 pytest
 torch
 pyarrow
+groq
