@@ -156,8 +156,15 @@ class UnifiedCognitiveLoop:
             )
 
         request = ActionRequest(cycle_id, step, selection, perception_text, remembered)
-        raw = action_executor(request)
-        outcome = self._normalize_outcome(raw)
+        try:
+            raw = action_executor(request)
+            outcome = self._normalize_outcome(raw)
+        except Exception as exc:
+            outcome = ActionOutcome(
+                observed=None,
+                success=False,
+                feedback=f"{type(exc).__name__}: {exc}",
+            )
 
         verified = self._verify(outcome, expected)
         step.attempts += 1
