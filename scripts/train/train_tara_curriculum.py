@@ -23,7 +23,7 @@ import torch
 
 from src.tara_mind.core.tokenizer import FastBPETokenizer
 from src.tara_mind.core.transformer import FastTinyLanguageModel
-from src.tara_mind.data.registry import load_dataset_text
+from src.tara_mind.data.registry import get_dataset_spec, load_dataset_text
 
 
 STAGES = {
@@ -119,11 +119,14 @@ def load_stage_text(
         train_parts.append(
             load_dataset_text(dataset, per_dataset_train, "train", seed + index)
         )
+        spec = get_dataset_spec(dataset)
+        if spec.validation_split is None:
+            raise ValueError(f"{dataset} has no validation split; curriculum evaluation would be invalid")
         validation_parts.append(
             load_dataset_text(
                 dataset,
                 per_dataset_validation,
-                "validation" if dataset not in {"gsm8k"} else "test",
+                spec.validation_split,
                 seed + index + 1000,
             )
         )
