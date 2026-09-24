@@ -166,3 +166,461 @@ Phase 37 begins with measurement before model changes. This avoids treating arch
 - **Failure capture** — solver exceptions become measured failed cases rather than crashing the entire benchmark.
 - **Stable fingerprints** — benchmark inputs and measured results receive SHA-256 fingerprints for experiment traceability.
 - **Regression gate** — candidate reports are compared against a baseline with explicit overall and category-drop tolerances.
+
+
+---
+
+# TARA — Complete Engineering Phase Report
+
+> **Status note:** This report describes capabilities and engineering milestones that are represented by the current repository history and source tree. A phase being marked complete means the corresponding software/tests/documentation were implemented; it does **not** by itself prove that TARA has achieved human-level intelligence, autonomous general intelligence, or a production-ready trained model.
+
+## 1. Architecture foundation
+
+The earliest TARA work established the project as a modular artificial-reasoning architecture rather than a single opaque model. The foundation separates language generation from cognitive subsystems such as memory, perception, planning, tools, verification and learning. The repository continues to preserve that separation through explicit Python modules and testable interfaces.
+
+## 2. Core neural/data foundations
+
+The early development stages established the mathematical and software primitives required by later cognitive layers: model components, datasets/tokenization, training utilities, losses/optimization and deterministic testing. These foundations support both small experimental models and the later accelerated language-model pipeline.
+
+**Historical documentation note:** the current repository does not preserve a standalone phase brief for every early numbered milestone (especially 1, 2 and 4, and some transition phases before Phase 14). This report therefore does not invent undocumented feature lists for those milestones.
+
+## 3. Memory primitives
+
+Phase 3 introduced explicit memory primitives. The design treats memory as structured state that can be stored, retrieved and used by higher-level reasoning rather than assuming that neural weights alone are the complete memory system.
+
+## 4. Transition/foundation milestone
+
+No standalone Phase 4 specification is currently preserved in the repository history. Later perception, cognition and training layers build on the early model/data/memory foundations.
+
+## 5. Perception primitives
+
+Phase 5 added perception primitives and corresponding tests. Perception became an explicit subsystem so observations can be represented and passed into the cognitive stack instead of being mixed directly into model internals.
+
+## 6. Cognitive integration layer
+
+Phase 6 connected the early subsystems into a cognitive integration layer and added integration tests. The goal was to make memory, perception and reasoning components composable inside a single architecture.
+
+## 7. Agent loop
+
+Phase 7 introduced the agent loop: iterative processing of a task through cognitive state, decision logic and bounded execution. Tests cover the loop behavior separately from individual components.
+
+## 8. Safety foundation
+
+Phase 8 established safety boundaries around agent behavior. The architecture emphasizes explicit permissions, bounded operations and tests around safety conditions rather than granting unrestricted authority to generated output.
+
+## 9–13. AI-system consolidation and transition to learned training
+
+The repository history shows an extended consolidation period between the early cognitive architecture and the explicit training pipeline. During this period the project separated deferred PC-specific tools from the core AI architecture and prepared the dataset/model interfaces used by Phase 14.
+
+Because the current tree does not retain standalone specifications for each of Phases 9–13, they are documented here as a transition block rather than assigning unsupported feature claims to individual numbers.
+
+## 14. Training ↔ Brain integration
+
+Phase 14 established the reproducible learned-language training path:
+
+- deterministic train/validation splitting;
+- character/token sequence preparation;
+- checkpoint save/load and resume;
+- validation loss measurement;
+- integration of the trained language core with TARA's brain/runtime;
+- an algorithm-language-model CLI and training tests.
+
+The training pipeline is explicit: normal runtime code does not silently start expensive training.
+
+## 15. Continual learning and memory consolidation
+
+Phase 15 introduced controlled continual-learning primitives:
+
+- bounded replay of verified knowledge;
+- memory consolidation using deterministic access/importance signals;
+- evidence-gated learning;
+- explicit separation between knowledge preparation and actual training.
+
+The system is designed so verified information can become training material without allowing generated code or unverified output to silently retrain the model.
+
+## 16. Controlled tool stack
+
+Phase 16 added an allow-listed file/tool layer. Tools are exposed through explicit interfaces with safety boundaries and tests. The architecture distinguishes between a model suggesting an action and TARA actually being permitted to execute it.
+
+## 17. Reflection and experience
+
+Phase 17 added:
+
+- experience/outcome records;
+- success/failure signals;
+- reflection notes;
+- goal-progress tracking;
+- a reflection loop;
+- brain integration and tests.
+
+This is deterministic experience tracking, not a claim of human-like self-awareness.
+
+## 18. Autonomous task orchestration
+
+Phase 18 introduced explicit task orchestration with:
+
+- task dependencies;
+- priorities;
+- bounded retries;
+- verification feedback;
+- stop/resume controls;
+- integration into the brain.
+
+External work remains bounded by supplied callables or already-authorized tools.
+
+## 19. Resources and persistent scheduling
+
+Phase 19 added resource-aware task scheduling and persistence. TARA can represent scheduled work, priorities and resource constraints without turning scheduling into unrestricted autonomous execution.
+
+## 20. World model and event context
+
+Phase 20 added a world-state/event-context layer and event routing. Tasks can react to explicit world-state changes and triggers, while the brain receives structured contextual information.
+
+## 21. Confidence-aware perception and temporal awareness
+
+Phase 21 added confidence-aware temporal perception. The system can represent temporal context and confidence rather than treating every observation as equally certain.
+
+## 22. Structured reasoning
+
+Phase 22 added a structured reasoning engine with explicit state and verification. The reasoning layer is connected to the brain so intermediate reasoning state can be inspected and validated instead of being treated as an opaque text response.
+
+## 23. Reasoning-system transition
+
+The current repository history does not retain a standalone Phase 23 specification. It sits between structured reasoning and the documented Phase 24 tool-intelligence milestone, so this report does not assign unsupported features to it.
+
+## 24. Tool intelligence
+
+Phase 24 added AI-driven tool selection and recovery:
+
+- tool capability selection;
+- verification-aware execution;
+- recovery behavior;
+- integration into the brain;
+- tests for selection and recovery.
+
+The important architectural boundary is that tool intelligence can select among **already available/authorized** tools; it does not manufacture permissions.
+
+## 25. Integration transition
+
+No standalone Phase 25 specification is currently preserved in the repository. Later self-improvement work builds on the reasoning/tool stack.
+
+## 26. Self-improvement
+
+Phase 26 added a verified self-improvement system:
+
+- benchmark-driven improvement proposals;
+- iterative improvement experiments;
+- persistent benchmark evidence;
+- promotion checks;
+- an advanced self-improvement lab;
+- brain integration.
+
+The promotion loop is evidence-gated: an attempted improvement is not automatically accepted merely because it was generated.
+
+## 27. Continual-learning engine
+
+Phase 27 expanded continual learning beyond the Phase 15 primitives. The repository added a persistent continual-learning cycle that can export verified knowledge and failed attempts into deterministic replay/targeted examples, construct training material and connect to the existing training pipeline.
+
+## 28. Persistent cognitive memory
+
+Phase 28 documented persistent cognitive memory as a durable layer for retaining useful experiences/knowledge across runtime sessions. This complements the learned model rather than treating model weights as the only persistent state.
+
+## 29. Cognitive-system transition
+
+No standalone Phase 29 specification is currently preserved. The next documented milestone is the multimodal perception core in Phase 30.
+
+## 30. Multimodal perception core
+
+Phase 30 introduced a multimodal perception core and integrated it into the brain. The architecture was extended so perception is not restricted to a single text-only representation.
+
+## 31. Autonomous research engine
+
+Phase 31 implemented an autonomous research engine with tests and brain integration. Research is treated as an explicit workflow with bounded operations rather than unrestricted browsing or action.
+
+## 32. Scientific experiment engine
+
+Phase 32 introduced a scientific experiment engine with:
+
+- explicit experiment definitions;
+- reproducibility controls;
+- tests;
+- process-stable reproducibility;
+- brain integration.
+
+The purpose is to make experiments repeatable and auditable rather than merely generating plausible-looking conclusions.
+
+## 33. Architecture self-optimization
+
+Phase 33 added architecture self-optimization with tests and brain integration. Candidate architectural changes remain explicit experiments rather than automatically replacing the running system.
+
+## 34. Unified cognitive loop
+
+Phase 34 connected the major cognitive subsystems into a unified loop. The loop brings together perception/context, memory, reasoning, planning, tools, verification, reflection and learning-related signals under explicit orchestration.
+
+## 35. TARA Core runtime
+
+Phase 35 consolidated the architecture behind a top-level `TARACore` runtime. It owns:
+
+- lifecycle management;
+- component discovery;
+- health diagnostics;
+- event tracing;
+- safe shutdown;
+- neural/runtime APIs.
+
+Domain logic remains in specialized modules, keeping the core runtime as an orchestrator rather than a monolithic implementation.
+
+## 36. Repository audit and validation
+
+Phase 36 added a static repository auditor and canonical CI validation. The audit checks repository structure, Python syntax and required project components. The CI consolidation provides one canonical validation path instead of fragmented checks.
+
+## 37. Intelligence measurement and evidence-gated learning
+
+Phase 37 is a measurement-first intelligence program and is now subdivided into concrete engineering milestones.
+
+### Phase 37.1 — Intelligence baseline benchmark
+Introduced deterministic capability measurement before changing the model:
+
+- benchmark case IDs and categories;
+- expected results and custom scorers;
+- weighted category/overall aggregation;
+- failure capture;
+- stable SHA-256 fingerprints;
+- regression gates.
+
+### Phase 37.2 — Dataset intelligence audit
+Added dataset quality and contamination auditing:
+
+- empty/short-example detection;
+- normalized duplicate fingerprints;
+- train/validation/test leakage detection;
+- configurable contamination markers;
+- reproducible audit fingerprints;
+- non-destructive JSONL auditing.
+
+### Phase 37.3 — Training hardening
+Connected advanced controls to the real PyTorch pipeline:
+
+- gradient accumulation;
+- warmup + cosine learning-rate decay;
+- validation-based early stopping;
+- append-only JSONL experiment metrics;
+- checkpoint continuity;
+- resume compatibility checks;
+- CLI controls for training behavior.
+
+### Phase 37.4 — Neural core upgrade
+Upgraded the Transformer language core with configurable:
+
+- model depth;
+- RMSNorm;
+- dropout;
+- optional embedding/output weight tying;
+- checkpoint architecture metadata.
+
+### Phase 37.5 — Auditable training experiments
+Made training an explicit experiment boundary:
+
+- dataset preflight;
+- deterministic experiment identity;
+- explicit training handoff;
+- checkpoint output;
+- metrics;
+- JSON experiment manifests;
+- reproducible provenance.
+
+### Phase 37.6 — Capability benchmark suite
+Expanded measurement into separate capability categories:
+
+- coding;
+- reasoning;
+- memory;
+- planning;
+- tool use;
+- algorithms;
+- learning.
+
+The suite uses injected solvers and does not execute arbitrary model output.
+
+### Phase 37.7 — Evidence-gated intelligence improvement
+Connected measurement failures to bounded improvement proposals:
+
+- failure analysis;
+- capability targeting;
+- experiment boundaries;
+- regression protection;
+- promotion gates;
+- deterministic proposal/report fingerprints;
+- brain-level improvement APIs.
+
+### Phase 37.8 — Real-model capability evaluation
+Moved capability evaluation from synthetic solvers to actual checkpoints:
+
+- real checkpoint loading;
+- deterministic greedy inference;
+- 21-case capability suite;
+- model/evaluation fingerprints;
+- dedicated evaluation CLI;
+- `TARACore.evaluate_checkpoint()`;
+- inference-only evaluation with no promotion side effects.
+
+### Phase 37.9 — Evaluation/training continuity
+The current Phase 37 stack preserves a continuous evidence chain between dataset preparation, training, checkpoint generation and capability measurement. The key design rule is that a score is only reported after the corresponding real execution has occurred.
+
+### Phase 37.10 — Learning experiment pipeline
+Added `src/learning_experiment.py` for baseline/candidate evaluation, capability deltas, checkpoint checks, regression protection and experiment fingerprints.
+
+### Phase 37.11 — Single-command learning pipeline
+Connected baseline evaluation, explicit training, candidate evaluation and evidence-gated promotion:
+
+```bash
+python run_learning_experiment.py checkpoints/baseline.pt data/algorithm_tasks.jsonl checkpoints/candidate.pt --steps 100
+```
+
+A candidate is accepted only when measured improvement satisfies the configured regression/progression gates.
+
+### Phase 37.12 — Learning consolidation
+Added post-training evidence consolidation so an executed learning result can become durable cognitive memory. The consolidation layer does not independently promote checkpoints; promotion remains an explicit evidence-based decision.
+
+---
+
+# Current architecture
+
+At a high level, the current TARA design is:
+
+```text
+                         ┌─────────────────────┐
+                         │       User/Input    │
+                         └──────────┬──────────┘
+                                    │
+                         perception / context
+                                    │
+                                    ▼
+                    ┌────────────────────────────┐
+                    │       TARA Core / Brain    │
+                    │                            │
+                    │ memory · reasoning         │
+                    │ planning · reflection      │
+                    │ world model · temporal     │
+                    │ task orchestration         │
+                    └───────┬─────────┬──────────┘
+                            │         │
+                    authorized tools  │ language reasoning
+                            │         │
+                            ▼         ▼
+                       Tool layer   Local/Hosted LLM
+                            │         │
+                            └────┬────┘
+                                 │
+                           verification
+                                 │
+                                 ▼
+                       learning / consolidation
+                                 │
+                                 ▼
+                         measured evidence
+```
+
+## Optional Groq language backend
+
+TARA now includes an optional Groq provider. Groq is an **inference backend**, not the owner of TARA's cognitive architecture.
+
+The intended boundary is:
+
+```text
+User
+  ↓
+TARA perception / memory / planning / context
+  ↓
+Groq (optional language/reasoning backend)
+  ↓
+TARA verification / tool execution
+  ↓
+memory / reflection / learning evidence
+```
+
+The provider supports TARA-side daily request/token budgets and reads the API key from `GROQ_API_KEY`. The real API key must remain local and must never be committed to Git.
+
+Example local configuration:
+
+```env
+GROQ_API_KEY=gsk_...
+TARA_GROQ_MODEL=openai/gpt-oss-20b
+TARA_GROQ_MAX_DAILY_REQUESTS=20
+TARA_GROQ_MAX_DAILY_TOKENS=50000
+TARA_GROQ_MAX_COMPLETION_TOKENS=1024
+```
+
+**Important:** an API integration being present in source code does not mean an API call has been successfully authenticated or that a trained TARA checkpoint exists. Those are execution-time facts and should be reported only after testing.
+
+---
+
+# Training and evaluation map
+
+## Preflight
+
+```bash
+python training_preflight.py --data data/algorithm_tasks.jsonl --context 128
+```
+
+## Fast TinyStories experiment
+
+```bash
+python train_fast.py --dataset tinystories --steps 1000 --batch-size 16
+```
+
+## Algorithm language-model training
+
+```bash
+python train_algorithm_lm.py --data data/algorithm_tasks.jsonl
+```
+
+## Capability evaluation
+
+```bash
+python evaluate_tara_capabilities.py checkpoints/algorithm_lm.pt --output experiments/tara-capability-baseline.json
+```
+
+## Evidence-gated learning experiment
+
+```bash
+python run_learning_experiment.py checkpoints/baseline.pt data/algorithm_tasks.jsonl checkpoints/candidate.pt --steps 100
+```
+
+---
+
+# Engineering principles
+
+1. **Measurement before claims** — architecture size and training loss are not treated as intelligence scores.
+2. **Explicit training** — normal runtime execution does not silently launch heavy training.
+3. **Evidence-gated promotion** — a candidate checkpoint must pass measurable evaluation and regression checks before promotion.
+4. **Deterministic provenance** — datasets, experiments and benchmark reports receive stable fingerprints where supported.
+5. **Bounded tools** — generated text does not automatically receive permissions.
+6. **Verification before learning** — unverified model output is not silently promoted into durable knowledge.
+7. **Separation of concerns** — TARA owns cognition/orchestration; optional providers such as Groq supply inference.
+8. **Reproducibility** — seeds, configuration, dataset identity, checkpoints and metrics are treated as first-class experiment data.
+9. **No invented capability claims** — a capability is reported only when the relevant code path and measurement have actually executed.
+10. **Inspectable architecture** — major cognitive functions remain represented as explicit modules instead of being hidden behind one opaque call.
+
+# What is implemented vs. what still requires execution
+
+Implemented in the repository:
+- modular cognitive architecture;
+- memory/perception/reasoning/planning/tool layers;
+- reflection and continual-learning primitives;
+- training and checkpoint pipeline;
+- training hardening;
+- benchmark/evaluation infrastructure;
+- evidence-gated learning workflows;
+- repository audit/CI;
+- optional Groq provider.
+
+Still dependent on actual runtime experiments:
+- successful authentication to any external LLM provider;
+- a newly trained checkpoint;
+- benchmark scores for that checkpoint;
+- measured improvement over a baseline;
+- real-world autonomous performance;
+- claims about general intelligence or human-level reasoning.
+
+This distinction is intentional: **source-code capability, executed capability, and measured capability are three different things in TARA.**
