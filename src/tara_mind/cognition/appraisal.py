@@ -53,7 +53,8 @@ class AppraisalEngine:
         urgency = min(1.0, 0.55 * abs(x.goal_relevance) + 0.25 * abs(x.goal_congruence) + 0.20 * arousal)
         approach = max(-1.0, min(1.0, valence * (0.5 + 0.5 * x.controllability)))
         inhibition = max(0.0, min(1.0, 0.5 * (1.0 - x.controllability) + 0.35 * (1.0 - x.certainty) + 0.15 * abs(min(0.0, valence))))
-        confidence = max(-1.0, min(1.0, 0.65 * x.certainty + 0.35 * x.controllability))
+        confidence_signal = 0.65 * x.certainty + 0.35 * x.controllability
+        confidence = max(0.0, min(1.0, 0.5 + 0.5 * confidence_signal))
         return AppraisalState(valence, arousal, urgency, approach, inhibition, confidence)
 
     @staticmethod
