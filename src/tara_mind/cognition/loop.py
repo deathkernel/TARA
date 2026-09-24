@@ -28,6 +28,8 @@ class CognitiveLoop:
         "working_memory",
         "world_state",
         "reasoning",
+        "appraisal",
+        "executive_control",
         "planning",
         "action",
         "observation",
