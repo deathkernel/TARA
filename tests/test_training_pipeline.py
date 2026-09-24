@@ -135,3 +135,16 @@ def test_phase37_gradient_accumulation_scheduler_and_tracker(tmp_path):
     assert payload["hardening_config"]["gradient_accumulation_steps"] == 2
     assert payload["scheduler"]["optimizer_steps"] == 3
     assert payload["metrics_fingerprint"]
+
+
+def test_bpe_tokenizer_is_default_and_persisted(tmp_path):
+    data = tmp_path / "data.jsonl"
+    checkpoint = tmp_path / "model.pt"
+    write_algorithm_dataset(data, count=12)
+    config = TrainingConfig(steps=1, batch_size=2, context=8, embedding_dim=8, ff_dim=16, heads=2, lr=1e-3, validation_split=0.25, seed=11, log_every=1, vocab_size=64)
+    summary = TrainingPipeline(config).train(data, checkpoint)
+    assert summary.final_step == 1
+    payload = torch.load(checkpoint, map_location="cpu", weights_only=False)
+    assert payload["format_version"] == 4
+    assert payload["tokenizer"]["type"] == "bpe"
+    assert payload["tokenizer"]["merges"]
