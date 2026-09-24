@@ -62,13 +62,15 @@ def validate_candidate(source: str) -> tuple[bool, str]:
             root = (node.module or "").split(".", 1)[0]
             if root not in ALLOWED_MODULES:
                 return False, f"import not allowed: {root}"
+        elif isinstance(node, ast.Name) and node.id in BLOCKED_NAMES:
+            return False, f"blocked name: {node.id}"
         elif isinstance(node, ast.Call):
             if isinstance(node.func, ast.Name) and node.func.id in BLOCKED_CALLS | BLOCKED_NAMES:
                 return False, f"blocked call: {node.func.id}"
-            if isinstance(node.func, ast.Attribute) and node.func.attr.startswith("__"):
-                return False, f"blocked dunder attribute: {node.func.attr}"
-        elif isinstance(node, ast.Attribute) and node.attr.startswith("__"):
-            return False, f"blocked dunder attribute: {node.attr}"
+            if isinstance(node.func, ast.Attribute) and node.func.attr.startswith("_"):
+                return False, f"blocked private attribute: {node.func.attr}"
+        elif isinstance(node, ast.Attribute) and node.attr.startswith("_"):
+            return False, f"blocked private attribute: {node.attr}"
 
     return True, ""
 
