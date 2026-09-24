@@ -194,9 +194,15 @@ class PlanReviser:
         plan.history.append(f"step {failed_step_id} failed: {feedback}")
         plan.revision += 1
         if replacement is not None:
+            if replacement.step_id in plan.steps and replacement.step_id != failed_step_id:
+                raise ValueError(f"replacement step already exists: {replacement.step_id}")
             replacement.dependencies = tuple(
                 dep for dep in replacement.dependencies if dep in plan.steps and dep != failed_step_id
             )
+            if replacement.step_id == failed_step_id:
+                replacement.status = StepStatus.PENDING
+                replacement.attempts = 0
+                replacement.failure = None
             plan.steps[replacement.step_id] = replacement
             for step in plan.steps.values():
                 if failed_step_id in step.dependencies and step.status == StepStatus.PENDING:

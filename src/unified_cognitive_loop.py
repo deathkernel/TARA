@@ -156,8 +156,15 @@ class UnifiedCognitiveLoop:
             )
 
         request = ActionRequest(cycle_id, step, selection, perception_text, remembered)
-        raw = action_executor(request)
-        outcome = self._normalize_outcome(raw)
+        try:
+            raw = action_executor(request)
+            outcome = self._normalize_outcome(raw)
+        except Exception as exc:
+            outcome = ActionOutcome(
+                observed=None,
+                success=False,
+                feedback=f"{type(exc).__name__}: {exc}",
+            )
 
         verified = self._verify(outcome, expected)
         step.attempts += 1
@@ -170,7 +177,18 @@ class UnifiedCognitiveLoop:
 
         key = f"{self.goal}:{cycle_id}"
         try:
-            self.memory.remember(key, outcome.observed, importance=max(0.1, abs(outcome.score) + 0.5))
+            memory_value = {
+                "observed": outcome.observed,
+                "verified": verified,
+                "success": outcome.success,
+                "feedback": outcome.feedback,
+                "score": outcome.score,
+            }
+            self.memory.remember(
+                key,
+                memory_value,
+                importance=max(0.1, abs(outcome.score) + 0.5),
+            )
         except Exception:
             pass
 

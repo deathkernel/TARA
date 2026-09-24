@@ -151,9 +151,9 @@ def _tokenize_corpus(texts: list[str], tokenizer: CharTokenizer | BPETokenizer, 
     return torch.tensor(ids, dtype=torch.long)
 
 def _sample_batch(tokens: torch.Tensor, batch_size: int, context: int, device: torch.device):
-    maximum = len(tokens) - context - 1
+    maximum = len(tokens) - context
     if maximum <= 0:
-        raise ValueError("token corpus is shorter than context + 2")
+        raise ValueError("token corpus is shorter than context + 1")
     starts = torch.randint(0, maximum, (batch_size,))
     x = torch.stack([tokens[i:i + context] for i in starts])
     y = torch.stack([tokens[i + 1:i + context + 1] for i in starts])
