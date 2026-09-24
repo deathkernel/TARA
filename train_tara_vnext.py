@@ -9,7 +9,7 @@ import torch
 
 from src.dataset_registry import get_dataset_spec
 from src.text_dataset import load_dataset_text, list_datasets
-from src.tokenizer import BPETokenizer
+from src.fast_tokenizer import FastBPETokenizer
 from src.torch_language_model import FastTinyLanguageModel
 
 
@@ -75,13 +75,13 @@ def main():
     )
     print(f"[2/5] Validation text: {len(val_text):,} chars", flush=True)
 
-    print("[3/5] Training BPE tokenizer...", flush=True)
-    tokenizer = BPETokenizer(train_text, vocab_size=args.vocab_size)
+    print("[3/5] Training Rust-backed BPE tokenizer...", flush=True)
+    tokenizer = FastBPETokenizer(train_text, vocab_size=args.vocab_size)
     train = windows(tokenizer.encode(train_text), args.context)
     val = windows(tokenizer.encode(val_text), args.context)
     print(
         f"[3/5] Tokenizer vocab={tokenizer.vocab_size:,} "
-        f"train_tokens={len(train)+args.context-0:,} val_tokens={len(val)+args.context-0:,}",
+        f"train_tokens={len(train_ids):,} val_tokens={len(val_ids):,}",
         flush=True,
     )
 
@@ -139,7 +139,7 @@ def main():
                 Path(args.checkpoint).parent.mkdir(parents=True, exist_ok=True)
                 torch.save(
                     {
-                        "format_version": 6,
+                        "format_version": 7,
                         "model_state": model.state_dict(),
                         "model_config": {
                             "vocab_size": tokenizer.vocab_size,
@@ -152,10 +152,9 @@ def main():
                             "tie_embeddings": True,
                         },
                         "tokenizer": {
-                            "type": "bpe",
-                            "itos": tokenizer.itos,
-                            "stoi": tokenizer.stoi,
-                            "merges": tokenizer.merges,
+                            "type": "fast_bpe",
+                            "json": tokenizer.to_json(),
+                            "vocab_size": tokenizer.vocab_size,
                         },
                         "step": step,
                         "validation_loss": vloss,
