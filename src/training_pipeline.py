@@ -11,11 +11,11 @@ from typing import Iterable
 
 import torch
 
-from src.tokenizer import CharTokenizer
+from src.tokenizer import BPETokenizer, CharTokenizer
 from src.torch_language_model import FastTinyLanguageModel
 from src.training_hardening import EarlyStopping, ExperimentTracker, TrainingControls, TrainingMetric, WarmupCosineScheduler
 
-CHECKPOINT_FORMAT_VERSION = 3
+CHECKPOINT_FORMAT_VERSION = 4
 
 @dataclass(frozen=True)
 class TrainingConfig:
@@ -28,6 +28,8 @@ class TrainingConfig:
     num_layers: int = 2
     dropout: float = 0.1
     tie_embeddings: bool = True
+    tokenizer: str = "bpe"
+    vocab_size: int = 2048
     lr: float = 3e-4
     validation_split: float = 0.1
     seed: int = 42
@@ -49,6 +51,10 @@ class TrainingConfig:
             raise ValueError("embedding_dim must be divisible by heads")
         if not 0.0 <= self.dropout < 1.0:
             raise ValueError("dropout must be in [0, 1)")
+        if self.tokenizer not in {"char", "bpe"}:
+            raise ValueError("tokenizer must be char or bpe")
+        if self.vocab_size <= 0:
+            raise ValueError("vocab_size must be positive")
         if self.lr <= 0:
             raise ValueError("lr must be positive")
         if not 0.0 <= self.validation_split < 1.0:
@@ -132,7 +138,7 @@ def split_texts(texts: list[str], validation_split: float, seed: int) -> tuple[l
     validation_indices = set(indices[:validation_count])
     return ([text for i, text in enumerate(texts) if i not in validation_indices], [text for i, text in enumerate(texts) if i in validation_indices])
 
-def _tokenize_corpus(texts: list[str], tokenizer: CharTokenizer, context: int) -> torch.Tensor:
+def _tokenize_corpus(texts: list[str], tokenizer: CharTokenizer | BPETokenizer, context: int) -> torch.Tensor:
     ids: list[int] = []
     separator = tokenizer.stoi.get("\n", 0)
     for text in texts:
@@ -182,7 +188,7 @@ class TrainingPipeline:
 
     def _new_state(self, texts: list[str]):
         train_texts, validation_texts = split_texts(texts, self.config.validation_split, self.config.seed)
-        tokenizer = CharTokenizer("\n".join(train_texts))
+        tokenizer = (BPETokenizer("\n".join(train_texts), vocab_size=self.config.vocab_size) if self.config.tokenizer == "bpe" else CharTokenizer("\n".join(train_texts)))
         train_tokens = _tokenize_corpus(train_texts, tokenizer, self.config.context)
         validation_tokens = _tokenize_corpus(validation_texts, tokenizer, self.config.context) if validation_texts else None
         model = FastTinyLanguageModel(**self.config.model_config(tokenizer.vocab_size), seed=self.config.seed).to(self.device)
@@ -190,14 +196,23 @@ class TrainingPipeline:
         return model, tokenizer, optimizer, train_tokens, validation_tokens
 
     @staticmethod
-    def _load_tokenizer(payload: dict) -> CharTokenizer:
+    def _load_tokenizer(payload: dict) -> CharTokenizer | BPETokenizer:
         data = payload.get("tokenizer")
         if not isinstance(data, dict) or not isinstance(data.get("itos"), list):
             raise ValueError("checkpoint tokenizer is missing or invalid")
-        tokenizer = CharTokenizer("a")
-        tokenizer.itos = list(data["itos"])
-        tokenizer.stoi = dict(data["stoi"])
-        return tokenizer
+        kind = data.get("type", "char")
+        if kind == "char":
+            tokenizer = CharTokenizer("a")
+            tokenizer.itos = list(data["itos"])
+            tokenizer.stoi = dict(data["stoi"])
+            return tokenizer
+        if kind == "bpe":
+            tokenizer = BPETokenizer("a", vocab_size=max(2, len(data["itos"])))
+            tokenizer.itos = list(data["itos"])
+            tokenizer.stoi = dict(data["stoi"])
+            tokenizer.merges = [tuple(pair) for pair in data.get("merges", [])]
+            return tokenizer
+        raise ValueError("unsupported checkpoint tokenizer type")
 
     def _resume_state(self, checkpoint_path: Path, texts: list[str]):
         payload = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
@@ -230,7 +245,12 @@ class TrainingPipeline:
             "step": step,
             "model_state": model.state_dict(),
             "model_config": self.config.model_config(tokenizer.vocab_size),
-            "tokenizer": {"itos": tokenizer.itos, "stoi": tokenizer.stoi},
+            "tokenizer": {
+                "type": "bpe" if isinstance(tokenizer, BPETokenizer) else "char",
+                "itos": tokenizer.itos,
+                "stoi": tokenizer.stoi,
+                "merges": tokenizer.merges if isinstance(tokenizer, BPETokenizer) else [],
+            },
             "optimizer_state": optimizer.state_dict(),
             "metrics": {"train_loss": float(train_loss), "validation_loss": None if validation_loss is None else float(validation_loss)},
             "dataset_fingerprint": fingerprint,
