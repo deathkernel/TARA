@@ -2,6 +2,26 @@
 
 **TARA — Tiny Artificial Reasoning Architecture**
 
+> **Current vNext direction: TARA Baby**
+>
+> TARA Baby is being developed as a friend-like conversational assistant with emotionally appropriate responses, scientific reasoning, memory, planning and safe PC automation.
+>
+> The project is **not** being developed as a coding assistant. The learning curriculum is organized around language/social interaction, mathematics, physics, natural sciences, scientific method, tool use and memory.
+>
+> ## Canonical organization
+>
+> - `src/tara_mind/` — new cognitive architecture and neural systems
+> - `scripts/` — runnable training/utility entry points
+> - `data/curriculum/` — dataset and curriculum manifests
+> - `docs/tara_baby/` — architecture, curriculum and research decisions
+> - existing `src/` modules — legacy/compatibility surface, migrated only when deliberately tested
+>
+> Core design: **neural model = learned substrate; cognitive systems = mind functions; tools = actions; memory = durable state.**
+>
+> See [TARA Baby architecture](docs/tara_baby/ARCHITECTURE.md) and [TARA Baby curriculum](docs/tara_baby/CURRICULUM.md).
+>
+> ---
+>
 TARA is a research-first neural-network project built from mathematical and implementation fundamentals. The goal is a highly capable, inspectable artificial reasoning system that connects a neural language core with perception, memory, structured reasoning, advanced planning, intelligent tools, algorithm discovery, self-improvement, continual learning, reflection, autonomous tasks, scheduling, temporal context and an explicit world model.
 
 ## Pre-training readiness — complete
