@@ -153,3 +153,24 @@ def test_rope_requires_even_head_dimension():
             num_heads=4,
             max_context=8,
         )
+
+
+def test_vnext_rope_swiglu_forward_and_backward():
+    import torch
+    from src.torch_language_model import FastTinyLanguageModel
+    model = FastTinyLanguageModel(vocab_size=32, embedding_dim=16, ff_dim=32, num_heads=4, max_context=32, num_layers=2, tie_embeddings=True, seed=3)
+    x = torch.randint(0, 32, (2, 8))
+    y = torch.randint(0, 32, (2, 8))
+    loss = model.loss(x, y)
+    loss.backward()
+    assert torch.isfinite(loss)
+    assert model.transformer[0].attention.rope.cos.shape[-1] == 2
+    assert model.transformer[0].ff.gate.out_features == 32
+    assert model.lm_head.weight is model.embedding.weight
+
+
+def test_vnext_rejects_odd_head_dimension():
+    import pytest
+    from src.torch_language_model import FastTinyLanguageModel
+    with pytest.raises(ValueError, match="even"):
+        FastTinyLanguageModel(vocab_size=16, embedding_dim=12, ff_dim=24, num_heads=4, max_context=16)
