@@ -1,5 +1,5 @@
-"""Canonical package for TARA Baby vNext.
+"""TARA Baby canonical package."""
 
-New cognitive, learning and automation code belongs under this package.
-Legacy modules under src/ remain compatibility code until deliberately migrated.
-"""
+from .mind import MindStep, TaraMind
+
+__all__ = ["MindStep", "TaraMind"]
