@@ -5,8 +5,4 @@ datasets
 pytest
 torch
 pyarrow
-<<<<<<< HEAD
 tokenizers
-=======
-groq
->>>>>>> origin/main
