@@ -2,67 +2,148 @@
 
 ## Goal
 
-Build a small but principled neural system that can converse naturally, respond appropriately to conversational affect, reason over mathematics and science, maintain short- and long-term context, plan multi-step tasks, use explicit PC/browser tools, observe outcomes and verify actions.
+Build TARA Baby as a **science- and biology-grounded computational mind** for natural conversation, affect-aware interaction, scientific and mathematical reasoning, memory, planning, and controlled PC automation.
 
-## Mind loop
+The neural language model is one subsystem. It is not the entire mind.
 
-User -> perception -> attention -> working memory -> reasoning/planning -> action -> observation -> reflection -> memory
+## Scientific stack
 
-The neural language model is the learned language/reasoning substrate, not the whole mind.
+```
+Biology / Neuroscience
+        ↓
+Cognitive hypotheses
+        ↓
+Mathematical representations
+        ↓
+Computational mechanisms
+        ↓
+Experiments + evaluations
+        ↓
+Revision
+```
 
-## 1. Neural core
+## Canonical mind loop
+
+```
+Environment / conversation
+        ↓
+Perception
+        ↓
+Attention
+        ↓
+Working memory
+        ↓
+World state / belief state
+        ↓
+Inference + prediction
+        ↓
+Planning
+        ↓
+Action selection
+        ↓
+Controlled tool/action interface
+        ↓
+Outcome observation
+        ↓
+Prediction-error / reflection
+        ↓
+Long-term memory + learning
+        ↺
+```
+
+## Biological grounding
+
+The architecture uses functional analogies to well-studied brain systems:
+
+| Cognitive function | Biological motivation | Computational role |
+| --- | --- | --- |
+| Perception | hierarchical sensory processing | turn raw inputs into structured representations |
+| Attention | selective/limited processing | allocate computation to relevant information |
+| Working memory | limited active maintenance | hold current task state and intermediate results |
+| Episodic memory | hippocampal–neocortical interactions | bind events, context and time for later retrieval |
+| Executive control | prefrontal goal-directed behavior | maintain goals, resolve conflicts and choose actions |
+| Affect/appraisal | interacting affective-cognitive systems | alter priorities, urgency, approach/avoidance and response style |
+
+These are scientific design hypotheses, not claims that software modules correspond literally to individual brain regions. Working-memory capacity and prefrontal/hippocampal interactions are established research topics, while the exact mapping from neuroscience to artificial cognition is still open. citeturn524900search10turn524900search11turn524900search14
+
+## Mathematical substrate
+
+Canonical components should support:
+- probability distributions and calibrated uncertainty
+- vector/tensor representations
+- optimization and gradient-based learning
+- discrete symbolic structures where exactness matters
+- state-space and dynamical models
+- quantitative evaluation and error analysis
+
+## Neural core
+
+Current learned substrate:
 
 - byte-level/subword tokenizer
 - decoder-only Transformer
-- RoPE
+- rotary positional encoding
 - RMSNorm
 - causal self-attention
-- SwiGLU
+- SwiGLU feed-forward blocks
 - tied language head
 - AdamW training
-- checkpointed experiments
 
-## 2. Cognitive systems
+Future changes must be justified by an explicit experiment and scientific hypothesis.
 
-Attention: select the parts of the current context that matter.
+## Memory
 
-Working memory: hold the current conversation, task state, intermediate results and active goals.
+Use separate memory functions instead of treating one text context as "memory":
 
-Long-term memory: store and retrieve durable facts, preferences and experiences outside the model weights.
+- working memory: current active state
+- episodic memory: events and experiences
+- semantic memory: consolidated facts and concepts
+- procedural memory: learned action policies
+- retrieval/index layer: efficient access to durable memories
 
-Affect/appraisal: represent conversational state such as mood cues, urgency and frustration as behavioral control signals. This is not a claim that TARA experiences human emotion.
+The hippocampal/neocortical literature motivates separating event encoding from longer-term consolidation, while the implementation remains an engineering hypothesis. citeturn524900search0turn524900search1
 
-Reasoning: combine neural representations with exact numerical, symbolic and causal procedures where appropriate.
+## Affect
 
-Executive control: break requests into goals, subgoals and tool actions.
+Affect is a control signal built from observable/appraised context. Candidate dimensions include valence, arousal, urgency, frustration and confidence. The project must distinguish:
+- observed cues
+- inferred appraisal
+- internal control state
+- generated language
 
-World model: track entities, state, relationships, time and expected consequences.
+This avoids equating an implementation variable with subjective human emotion. citeturn524900search2turn524900search9
 
-Reflection: compare intended actions with observed results and trigger correction.
+## Action and automation
 
-## 3. Action layer
+Automation is downstream of cognition:
 
-The neural core must not directly execute arbitrary commands.
+```
+goal → plan → proposed action → permission check → tool execution → observation → verification
+```
 
-A tool policy layer exposes explicit actions such as:
-- open_app
-- open_url
-- read_file
-- write_file
-- move_file
-- type_text
-- mouse_click
-- press_key
-- take_screenshot
+The learned model does not receive unrestricted operating-system access.
 
-The policy layer validates arguments, applies permissions and can stop execution.
+## Learning
 
-## 4. Learning loop
+The curriculum must be staged and scientifically evaluated:
 
-dataset -> audit -> tokenizer -> pretraining/fine-tuning -> validation -> checkpoint -> capability evaluation
+1. social/language foundations
+2. emotion and social reasoning
+3. mathematics
+4. physics
+5. broader natural sciences
+6. scientific method and causal reasoning
+7. planning and controlled tool use
 
-Training loss alone is not treated as a measure of a human-like mind.
+Coding is excluded from the training objective.
 
-## 5. Development rule
+## Development rule
 
-Prefer one canonical implementation per capability. Before adding a new module, check whether an existing implementation can be migrated, tested and reused.
+Before adding a module, record:
+- scientific motivation
+- computational hypothesis
+- interfaces/state
+- measurable evaluation
+- failure modes
+
+One canonical implementation per capability. Legacy code is migrated deliberately rather than duplicated.
