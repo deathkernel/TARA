@@ -178,7 +178,103 @@ Phase 37 begins with measurement before model changes. This avoids treating arch
 
 The earliest TARA work established the project as a modular artificial-reasoning architecture rather than a single opaque model. The foundation separates language generation from cognitive subsystems such as memory, perception, planning, tools, verification and learning. The repository continues to preserve that separation through explicit Python modules and testable interfaces.
 
-## 2. Core neural/data foundations
+## Phase-by-Phase Coverage Index
+
+The report below intentionally covers **every numbered phase from Phase 1 through Phase 37**. Where the current repository history contains a dedicated implementation/documentation trail, the concrete work is described. Where no standalone phase specification is preserved, the entry explicitly says so rather than inventing undocumented features.
+
+| Phase | Repository-supported focus | Documentation status |
+|---|---|---|
+| 1 | Project/neural architecture foundation | Historical details not preserved as a standalone phase document |
+| 2 | Early model/data foundation and transition work | Historical details not preserved as a standalone phase document |
+| 3 | Memory primitives | Documented |
+| 4 | Early architecture/data transition | Standalone specification not preserved |
+| 5 | Perception primitives | Implemented + tested |
+| 6 | Cognitive integration layer | Implemented + tested |
+| 7 | Agent loop | Implemented + tested |
+| 8 | Safety foundation | Implemented + tested |
+| 9 | AI architecture consolidation | Standalone specification not preserved |
+| 10 | AI architecture consolidation | Standalone specification not preserved |
+| 11 | AI architecture consolidation | Standalone specification not preserved |
+| 12 | AI architecture consolidation | Standalone specification not preserved |
+| 13 | Training/data transition | Standalone specification not preserved |
+| 14 | Training ↔ Brain integration | Implemented + documented |
+| 15 | Continual learning + memory consolidation | Implemented + documented |
+| 16 | Controlled file/tool stack | Implemented + tested |
+| 17 | Reflection + experience | Implemented + tested |
+| 18 | Autonomous task orchestration | Implemented + tested |
+| 19 | Resources + persistent scheduling | Implemented + tested |
+| 20 | World model + event context | Implemented + tested |
+| 21 | Confidence-aware perception + temporal awareness | Implemented + documented |
+| 22 | Structured reasoning | Implemented + tested |
+| 23 | Reasoning-system transition | Standalone specification not preserved |
+| 24 | Tool intelligence | Implemented + tested |
+| 25 | Integration transition | Standalone specification not preserved |
+| 26 | Verified self-improvement | Implemented + tested |
+| 27 | Advanced/persistent continual learning | Implemented + documented |
+| 28 | Persistent cognitive memory | Documented |
+| 29 | Cognitive-system transition | Standalone specification not preserved |
+| 30 | Multimodal perception | Implemented + integrated |
+| 31 | Autonomous research | Implemented + tested |
+| 32 | Scientific experiments | Implemented + tested |
+| 33 | Architecture self-optimization | Implemented + tested |
+| 34 | Unified cognitive loop | Implemented + tested |
+| 35 | TARA Core runtime | Implemented + tested |
+| 36 | Repository audit + canonical CI | Implemented + tested |
+| 37 | Intelligence measurement, training and evidence-gated learning | Implemented through 37.12 |
+
+## Phase 1 — Foundation
+
+Phase 1 is part of TARA's earliest architecture history. The current repository does not preserve a standalone Phase 1 specification detailed enough to safely reconstruct every original requirement. The phase is therefore recorded as the project/neural architecture foundation without inventing historical implementation claims.
+
+## Phase 2 — Early model/data foundation
+
+Phase 2 belongs to the early model/data foundation and transition into the explicit cognitive architecture. A dedicated Phase 2 specification is not currently preserved in the repository, so its historical details are intentionally not fabricated.
+
+## Phase 3 — Memory primitives
+
+Phase 3 established explicit memory primitives: structured state that can be stored, retrieved and consumed by later cognitive layers.
+
+## Phase 4 — Early architecture/data transition
+
+No standalone Phase 4 specification is currently preserved. Later perception, cognition and training layers build on the early model/data/memory foundations.
+
+## Phase 5 — Perception primitives
+
+Phase 5 added perception primitives and tests, making observations an explicit subsystem in the architecture.
+
+## Phase 6 — Cognitive integration
+
+Phase 6 connected early perception, memory and reasoning components into a cognitive integration layer and added integration tests.
+
+## Phase 7 — Agent loop
+
+Phase 7 introduced the agent loop for iterative task processing, decision-making and bounded execution.
+
+## Phase 8 — Safety foundation
+
+Phase 8 established safety boundaries around agent behavior, including explicit permissions and bounded operations.
+
+## Phase 9 — AI architecture consolidation
+
+The repository history does not preserve a standalone Phase 9 specification. It is included here as an explicit historical phase entry without unsupported feature claims.
+
+## Phase 10 — AI architecture consolidation
+
+No standalone Phase 10 specification is currently preserved. The phase is retained in the complete chronology rather than silently omitted.
+
+## Phase 11 — AI architecture consolidation
+
+No standalone Phase 11 specification is currently preserved. Later milestones build on the consolidated AI architecture.
+
+## Phase 12 — AI architecture consolidation
+
+No standalone Phase 12 specification is currently preserved. The project history transitions toward the explicit training pipeline that became Phase 14.
+
+## Phase 13 — Training/data transition
+
+No standalone Phase 13 specification is currently preserved. It is treated as the transition into the reproducible learned-language training path of Phase 14.
+
+# 2. Core neural/data foundations
 
 The early development stages established the mathematical and software primitives required by later cognitive layers: model components, datasets/tokenization, training utilities, losses/optimization and deterministic testing. These foundations support both small experimental models and the later accelerated language-model pipeline.
 
