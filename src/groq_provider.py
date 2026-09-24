@@ -13,6 +13,10 @@ from datetime import date
 import os
 from typing import Any
 
+from .env import load_dotenv
+
+load_dotenv()
+
 
 @dataclass
 class GroqUsage:
