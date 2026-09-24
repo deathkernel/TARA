@@ -14,6 +14,7 @@ from .cognition.appraisal import AppraisalEngine, AppraisalInput, AppraisalState
 from .cognition.attention import AttentionItem, AttendedItem, SelectiveAttention
 from .cognition.executive import ActionCandidate, Decision, ExecutiveController, Goal
 from .cognition.metacognition import MetacognitiveMonitor, MetacognitiveReport
+from .cognition.reflection import Reflection, ReflectionEngine
 from .cognition.planning import ModelBasedPlanner, Plan
 from .cognition.state import CognitiveState
 from .cognition.world_model import WorldModel, WorldUpdate
@@ -29,6 +30,7 @@ class MindStep:
     world_update: WorldUpdate | None
     decision: Decision
     plan: Plan | None
+    reflection: Reflection | None
 
 
 class TaraMind:
@@ -39,6 +41,7 @@ class TaraMind:
         self.attention = SelectiveAttention()
         self.appraisal = AppraisalEngine()
         self.metacognition = MetacognitiveMonitor()
+        self.reflection = ReflectionEngine()
         self.executive = ExecutiveController()
         self.world = WorldModel()
         self.memory = MemorySystem()
@@ -70,6 +73,15 @@ class TaraMind:
         self.state.affect.confidence = appraisal.confidence
 
         world_update = self.world.observe(*transition) if transition else None
+        reflection = (
+            self.reflection.compare_states(
+                world_update.predicted_state,
+                world_update.observation.next_state,
+                appraisal.confidence,
+            )
+            if world_update
+            else None
+        )
         decision = self.executive.choose(actions or [])
         report = self.metacognition.assess(
             base_confidence=appraisal.confidence,
@@ -83,7 +95,7 @@ class TaraMind:
             plan = ModelBasedPlanner(self.world.predictive_map).plan(
                 self.world.current_state, plan_goal
             )
-        return MindStep(attended, appraisal, report, world_update, decision, plan)
+        return MindStep(attended, appraisal, report, world_update, decision, plan, reflection)
 
     def remember_episode(self, episode: Episode) -> None:
         self.memory.remember(episode)
