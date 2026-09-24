@@ -6,6 +6,7 @@ Uses Hugging Face tokenizers for efficient BPE training/encoding.
 from tokenizers import Tokenizer
 from tokenizers.models import BPE
 from tokenizers.pre_tokenizers import ByteLevel
+from tokenizers.decoders import ByteLevel as ByteLevelDecoder
 from tokenizers.trainers import BpeTrainer
 
 
@@ -22,6 +23,7 @@ class FastBPETokenizer:
 
         self._tokenizer = Tokenizer(BPE(unk_token="<UNK>"))
         self._tokenizer.pre_tokenizer = ByteLevel(add_prefix_space=False)
+        self._tokenizer.decoder = ByteLevelDecoder()
         trainer = BpeTrainer(
             vocab_size=vocab_size,
             special_tokens=["<UNK>"],
