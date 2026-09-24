@@ -12,6 +12,8 @@ from dataclasses import dataclass
 
 from .cognition.appraisal import AppraisalEngine, AppraisalInput, AppraisalState
 from .cognition.attention import AttentionItem, AttendedItem, SelectiveAttention
+from .cognition.global_workspace import GlobalWorkspace, WorkspaceItem
+from .cognition.neuromodulation import NeuromodulatoryController, NeuromodulatoryState
 from .cognition.executive import ActionCandidate, Decision, ExecutiveController, Goal
 from .cognition.metacognition import MetacognitiveMonitor, MetacognitiveReport
 from .cognition.reflection import Reflection, ReflectionEngine
@@ -31,6 +33,7 @@ class MindStep:
     decision: Decision
     plan: Plan | None
     reflection: Reflection | None
+    neuromodulation: NeuromodulatoryState
 
 
 class TaraMind:
@@ -39,6 +42,8 @@ class TaraMind:
     def __init__(self) -> None:
         self.state = CognitiveState()
         self.attention = SelectiveAttention()
+        self.workspace = GlobalWorkspace()
+        self.neuromodulation = NeuromodulatoryController()
         self.appraisal = AppraisalEngine()
         self.metacognition = MetacognitiveMonitor()
         self.reflection = ReflectionEngine()
@@ -65,6 +70,7 @@ class TaraMind:
         self.state.observe(text)
         for item in attended:
             self.state.remember_working(item.item.content, source="attention", importance=item.score)
+            self.workspace.broadcast(WorkspaceItem(item.item.content, "attention", item.score))
 
         appraisal = self.appraisal.evaluate(appraisal_input)
         self.state.affect.valence = appraisal.valence
@@ -73,6 +79,11 @@ class TaraMind:
         self.state.affect.confidence = appraisal.confidence
 
         world_update = self.world.observe(*transition) if transition else None
+        neuro = self.neuromodulation.update(
+            novelty=appraisal_input.novelty,
+            reward=appraisal_input.goal_congruence,
+            surprise=world_update.surprise if world_update else 0.0,
+        )
         reflection = (
             self.reflection.compare_states(
                 world_update.predicted_state,
@@ -95,7 +106,7 @@ class TaraMind:
             plan = ModelBasedPlanner(self.world.predictive_map).plan(
                 self.world.current_state, plan_goal
             )
-        return MindStep(attended, appraisal, report, world_update, decision, plan, reflection)
+        return MindStep(attended, appraisal, report, world_update, decision, plan, reflection, neuro)
 
     def remember_episode(self, episode: Episode) -> None:
         self.memory.remember(episode)
