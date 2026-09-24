@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "program": "TARA Baby",
+  "goal": "friend-like conversation, emotion-aware behavior, scientific reasoning, memory, and safe PC automation",
+  "stages": [
+    {
+      "id": "A_social",
+      "datasets": [
+        {"name": "SODA", "id": "allenai/soda", "role": "broad social dialogue; synthetic conversations"},
+        {"name": "EmpatheticDialogues", "id": "facebookresearch/EmpatheticDialogues", "role": "emotion-grounded dialogue"},
+        {"name": "DailyDialog", "id": "li2017dailydialog/daily_dialog", "role": "human-written everyday dialogue with emotion and intent labels"},
+        {"name": "BlendedSkillTalk", "id": "anezatra/blended-skill-talk", "role": "persona + empathy + knowledge dialogue"}
+      ]
+    },
+    {
+      "id": "B_math",
+      "datasets": [
+        {"name": "GSM8K", "id": "openai/gsm8k", "role": "grade-school mathematical reasoning"},
+        {"name": "MATH", "id": "hendrycks/competition_math", "role": "competition mathematics; verify upstream terms"}
+      ]
+    },
+    {
+      "id": "C_physics",
+      "datasets": [
+        {"name": "PHYSICS", "id": "Zhengsh123/PHYSICS", "role": "multi-domain physics reasoning; verify upstream terms"},
+        {"name": "PhysicsEval", "id": "IUTVanguard/PhysicsEval", "role": "annotated physics problems with stepwise solution structure; verify upstream provenance"}
+      ]
+    },
+    {
+      "id": "D_science",
+      "datasets": [
+        {"name": "SciQ", "id": "allenai/sciq", "role": "science question answering"},
+        {"name": "AI2 ARC", "id": "allenai/ai2_arc", "role": "grade-school science reasoning benchmark"}
+      ]
+    },
+    {
+      "id": "E_method",
+      "datasets": [
+        {"name": "curated_scientific_method", "source": "TARA-generated", "role": "observation, hypothesis, prediction, measurement, uncertainty and conclusion; deterministic validation required"}
+      ]
+    },
+    {
+      "id": "F_automation",
+      "datasets": [
+        {"name": "tara_tool_traces", "source": "TARA-generated", "role": "request -> plan -> tool -> observation -> verification traces"}
+      ]
+    }
+  ],
+  "policy": {
+    "default_training_order": ["A_social", "B_math", "C_physics", "D_science", "E_method", "F_automation"],
+    "do_not_use_code_training": true,
+    "do_not_treat_synthetic_dialogue_as_human_authored": true,
+    "external_data_license_review_required": true,
+    "openstax_policy": "Do not ingest OpenStax textbook content into LLM training without the permission required by its current reuse terms."
+  }
+}
