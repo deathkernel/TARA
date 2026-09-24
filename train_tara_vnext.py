@@ -77,11 +77,14 @@ def main():
 
     print("[3/5] Training Rust-backed BPE tokenizer...", flush=True)
     tokenizer = FastBPETokenizer(train_text, vocab_size=args.vocab_size)
-    train = windows(tokenizer.encode(train_text), args.context)
-    val = windows(tokenizer.encode(val_text), args.context)
+    train_ids = tokenizer.encode(train_text)
+    val_ids = tokenizer.encode(val_text)
+    train = windows(train_ids, args.context)
+    val = windows(val_ids, args.context)
     print(
         f"[3/5] Tokenizer vocab={tokenizer.vocab_size:,} "
-        f"train_tokens={len(train_ids):,} val_tokens={len(val_ids):,}",
+        f"train_tokens={len(train_ids):,} val_tokens={len(val_ids):,} "
+        f"windows={len(train):,}/{len(val):,}",
         flush=True,
     )
 
@@ -139,7 +142,7 @@ def main():
                 Path(args.checkpoint).parent.mkdir(parents=True, exist_ok=True)
                 torch.save(
                     {
-                        "format_version": 7,
+                        "format_version": 8,
                         "model_state": model.state_dict(),
                         "model_config": {
                             "vocab_size": tokenizer.vocab_size,
