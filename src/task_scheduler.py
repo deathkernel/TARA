@@ -16,7 +16,11 @@ class TaskScheduler:
 
     def due_tasks(self, now: datetime | None = None) -> list[ScheduledTask]:
         tasks = self.store.load() if self.store else []
-        return order_ready(tasks, now or datetime.now(timezone.utc))[: self.budget.max_tasks]
+        active = [
+            task for task in tasks
+            if not bool(task.metadata.get("terminal_failed", False))
+        ]
+        return order_ready(active, now or datetime.now(timezone.utc))[: self.budget.max_tasks]
 
     def run_due(self, executor, *, now: datetime | None = None):
         due = self.due_tasks(now)
