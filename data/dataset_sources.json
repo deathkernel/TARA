@@ -12,7 +12,7 @@
       "text_field": null,
       "dialogue_field": "dialogue",
       "speaker_field": "speakers",
-      "level": "active-vnext",
+      "level": "conversation-v1",
       "license": "CC BY 4.0",
       "role": "million-scale social dialogue with broad interaction coverage and emotion-grounded conversations",
       "notes": "Dialogue is machine-generated and must be treated as synthetic data. TARA will use the conversation turns as language-model training text."

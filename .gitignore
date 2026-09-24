@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Python
 __pycache__/
 *.py[cod]
@@ -48,13 +47,3 @@ dist/
 build/
 *.egg-info/
 target/
-=======
-.env
-.env.*
-!.env.example
-__pycache__/
-*.py[cod]
-.pytest_cache/
-.venv/
-venv/
->>>>>>> origin/main
