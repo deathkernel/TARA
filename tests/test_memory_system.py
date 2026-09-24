@@ -15,8 +15,9 @@ def test_episodic_memory_preserves_context_and_retrieves_overlap():
 def test_semantic_memory_increases_confidence_with_repeated_evidence():
     memory = SemanticMemory()
     first = memory.learn("water", "liquid", 0.6, "e1")
+    first_confidence = first.confidence
     second = memory.learn("water", "liquid", 0.6, "e2")
-    assert second.confidence > first.confidence
+    assert second.confidence > first_confidence
     assert second.evidence_count == 2
 
 
