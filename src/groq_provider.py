@@ -108,11 +108,21 @@ class GroqProvider:
             messages.append({"role": "system", "content": system})
         messages.append({"role": "user", "content": prompt})
 
+        requested_max = max_completion_tokens or self.max_completion_tokens
+        if requested_max <= 0:
+            raise ValueError("max_completion_tokens must be positive")
+        remaining_tokens = self.remaining_daily_tokens
+        effective_max = min(requested_max, self.max_completion_tokens)
+        if remaining_tokens is not None:
+            if remaining_tokens <= 0:
+                raise RuntimeError("TARA Groq daily token budget exhausted")
+            effective_max = min(effective_max, remaining_tokens)
+
         response = self.client.chat.completions.create(
             model=self.model,
             messages=messages,
             temperature=temperature,
-            max_completion_tokens=max_completion_tokens or self.max_completion_tokens,
+            max_completion_tokens=effective_max,
         )
         text = response.choices[0].message.content or ""
 
