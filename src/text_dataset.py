@@ -1,9 +1,4 @@
-"""Compatibility layer for TARA dataset loading.
-
-The canonical dataset definitions live in src.dataset_registry. This module
-keeps the earlier public loader names stable while routing all dataset access
-through that single registry.
-"""
+"""Compatibility layer for TARA dataset loading."""
 
 from src.dataset_registry import DATASETS, get_dataset_spec, load_text_slice
 
@@ -26,9 +21,15 @@ def describe_dataset(name):
     }
 
 
-def load_dataset_text(name, max_chars=512, split="train"):
-    """Load a small streamed text slice from a registered dataset."""
-    return load_text_slice(name, max_chars=max_chars, split=split)
+def load_dataset_text(name, max_chars=512, split="train", seed=42, shuffle=True):
+    """Load a bounded streamed text slice from a registered dataset."""
+    return load_text_slice(
+        name,
+        max_chars=max_chars,
+        split=split,
+        seed=seed,
+        shuffle=shuffle,
+    )
 
 
 def load_tinystories_text(max_chars=512, split="train"):
