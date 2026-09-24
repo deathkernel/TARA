@@ -8,6 +8,7 @@ from pathlib import Path
 
 import torch
 from tokenizers import Tokenizer
+from tokenizers.decoders import ByteLevel as ByteLevelDecoder
 
 from src.tara_mind.core.transformer import FastTinyLanguageModel
 
@@ -37,6 +38,8 @@ def load_checkpoint(path: str | Path, device: torch.device):
     if not tokenizer_info or tokenizer_info.get("type") != "fast_bpe":
         raise ValueError("checkpoint does not contain a supported TARA BPE tokenizer")
     tokenizer = Tokenizer.from_str(tokenizer_info["json"])
+    # Older checkpoints may have been serialized before the ByteLevel decoder was added.
+    tokenizer.decoder = ByteLevelDecoder()
     return model, tokenizer, checkpoint
 
 
@@ -101,11 +104,7 @@ def generate_reply(
         next_id = sample_token(logits, rng, temperature, top_k, top_p)
         ids.append(next_id)
 
-    decoded = tokenizer.decode(ids)
-    generated = decoded
-    prefix = tokenizer.decode(ids[:original_len])
-    if generated.startswith(prefix):
-        generated = generated[len(prefix):]
+    generated = tokenizer.decode(ids[original_len:])
     return generated.strip()
 
 
