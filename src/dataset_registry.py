@@ -1,8 +1,9 @@
-"""Small, explicit dataset registry for TARA research experiments.
+"""Explicit dataset registry for TARA research experiments.
 
-The goal is not to download giant corpora. Each dataset has a documented role
-and can be sampled through the Hugging Face streaming interface so a normal PC
-can run controlled experiments.
+The active vNext conversational curriculum starts with SODA because it provides
+million-scale social dialogue, broad interaction coverage, and a large
+emotion-grounded subset. Datasets that are not active can remain registered
+for reproducibility, but the vNext runner defaults to SODA.
 """
 
 from dataclasses import dataclass
@@ -14,18 +15,33 @@ class DatasetSpec:
     dataset_id: str
     train_split: str
     validation_split: str | None
-    text_field: str
+    text_field: str | None
     role: str
+    dialogue_field: str | None = None
+    speaker_field: str | None = None
 
 
 DATASETS = {
+    "soda": DatasetSpec(
+        name="SODA",
+        dataset_id="allenai/soda",
+        train_split="train",
+        validation_split="valid",
+        text_field=None,
+        role=(
+            "large-scale social dialogue for natural conversation, "
+            "commonsense, interpersonal interaction, and emotion-aware behavior"
+        ),
+        dialogue_field="dialogue",
+        speaker_field="speakers",
+    ),
     "tinystories": DatasetSpec(
         name="TinyStories",
         dataset_id="roneneldan/TinyStories",
         train_split="train",
         validation_split="validation",
         text_field="text",
-        role="small language-model learning and generalization",
+        role="legacy small-language-model warm-up corpus",
     ),
     "wikitext2": DatasetSpec(
         name="WikiText-2",
@@ -65,7 +81,7 @@ DATASETS = {
         train_split="train",
         validation_split=None,
         text_field="content",
-        role="advanced programming and repository-context code training",
+        role="legacy programming-data registry entry",
     ),
 }
 
@@ -101,11 +117,36 @@ def describe_dataset(name):
         "train_split": spec.train_split,
         "validation_split": spec.validation_split,
         "text_field": spec.text_field,
+        "dialogue_field": spec.dialogue_field,
+        "speaker_field": spec.speaker_field,
     }
 
 
-def load_text_slice(name, max_chars=4096, split="train"):
-    """Stream one deterministic text slice without loading the full corpus."""
+def _example_to_text(spec, example):
+    if spec.dialogue_field:
+        dialogue = example.get(spec.dialogue_field)
+        if not isinstance(dialogue, list):
+            return ""
+        speakers = example.get(spec.speaker_field, []) if spec.speaker_field else []
+        lines = []
+        for index, utterance in enumerate(dialogue):
+            if not isinstance(utterance, str) or not utterance.strip():
+                continue
+            speaker = "Speaker"
+            if isinstance(speakers, list) and index < len(speakers):
+                candidate = speakers[index]
+                if isinstance(candidate, str) and candidate.strip():
+                    speaker = candidate.strip()
+            lines.append(f"{speaker}: {utterance.strip()}")
+        return "\n".join(lines)
+    if not spec.text_field:
+        return ""
+    value = example.get(spec.text_field, "")
+    return value if isinstance(value, str) else ""
+
+
+def load_text_slice(name, max_chars=4096, split="train", seed=42, shuffle=True):
+    """Stream a bounded, reproducible text slice without loading the full corpus."""
     if not isinstance(max_chars, int) or isinstance(max_chars, bool):
         raise TypeError("max_chars must be an integer")
     if max_chars <= 0:
@@ -122,7 +163,7 @@ def load_text_slice(name, max_chars=4096, split="train"):
         from datasets import load_dataset
     except ImportError as exc:
         raise ImportError(
-            "dataset loading requires the 'datasets' package. "
+            "dataset loading requires the 'datasets' package'. "
             "Install it with: python -m pip install datasets"
         ) from exc
 
@@ -132,21 +173,21 @@ def load_text_slice(name, max_chars=4096, split="train"):
     elif name.strip().lower() == "gsm8k":
         config = "main"
 
-    kwargs = {
-        "split": split,
-        "streaming": True,
-    }
+    kwargs = {"split": split, "streaming": True}
     if config is None:
         dataset = load_dataset(spec.dataset_id, **kwargs)
     else:
         dataset = load_dataset(spec.dataset_id, config, **kwargs)
 
+    if shuffle:
+        dataset = dataset.shuffle(seed=seed, buffer_size=10_000)
+
     chunks = []
     total = 0
 
     for example in dataset:
-        text = example.get(spec.text_field, "")
-        if not isinstance(text, str) or not text:
+        text = _example_to_text(spec, example)
+        if not text:
             continue
 
         remaining = max_chars - total
@@ -158,7 +199,5 @@ def load_text_slice(name, max_chars=4096, split="train"):
 
     result = "\n".join(chunks)[:max_chars]
     if not result:
-        raise ValueError(
-            f"{spec.name} returned no text for split {split!r}"
-        )
+        raise ValueError(f"{spec.name} returned no text for split {split!r}")
     return result
