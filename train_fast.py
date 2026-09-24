@@ -48,16 +48,16 @@ def sample_batch(windows, batch_size, rng, device):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", choices=list_datasets(), default="tinystories")
-    parser.add_argument("--tokenizer", choices=("char", "bpe"), default="char")
-    parser.add_argument("--vocab-size", type=int, default=128)
+    parser.add_argument("--tokenizer", choices=("char", "bpe"), default="bpe")
+    parser.add_argument("--vocab-size", type=int, default=4096)
     parser.add_argument("--train-chars", type=int, default=16384)
     parser.add_argument("--validation-chars", type=int, default=4096)
     parser.add_argument("--steps", type=int, default=500)
     parser.add_argument("--batch-size", type=int, default=16)
-    parser.add_argument("--context-length", type=int, default=32)
-    parser.add_argument("--embedding-dim", type=int, default=32)
-    parser.add_argument("--ff-dim", type=int, default=64)
-    parser.add_argument("--num-heads", type=int, default=4)
+    parser.add_argument("--context-length", type=int, default=256)
+    parser.add_argument("--embedding-dim", type=int, default=256)
+    parser.add_argument("--ff-dim", type=int, default=1024)
+    parser.add_argument("--num-heads", type=int, default=8)
     parser.add_argument("--learning-rate", type=float, default=3e-4)
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--device", default="cpu")
@@ -91,6 +91,7 @@ def main():
         ff_dim=args.ff_dim,
         num_heads=args.num_heads,
         max_context=args.context_length,
+        num_layers=6,
         seed=args.seed,
     ).to(device)
 
