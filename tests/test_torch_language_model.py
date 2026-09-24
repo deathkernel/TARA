@@ -135,9 +135,9 @@ def test_rope_and_swiglu_are_used():
         num_layers=2,
         seed=9,
     )
-    assert isinstance(model.position, torch.nn.Identity)
+    assert not hasattr(model, "position")
     assert all(hasattr(block.attention, "rope") for block in model.transformer)
-    assert all(hasattr(block, "ff_gate") and hasattr(block, "ff_up") for block in model.transformer)
+    assert all(hasattr(block.ff, "gate") and hasattr(block.ff, "up") for block in model.transformer)
     inputs = torch.tensor([[0, 1, 2, 3, 4]])
     logits = model(inputs)
     assert logits.shape == (1, 5, 13)
