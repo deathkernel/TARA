@@ -7,6 +7,7 @@ untrusted candidates, run this layer inside a container or VM with OS limits.
 from __future__ import annotations
 
 import os
+import signal
 import subprocess
 import tempfile
 import time
@@ -143,40 +144,47 @@ class PolyglotExecutor:
         env = {"PATH": os.environ.get("PATH", "")}
         start = time.perf_counter()
         try:
-            process = subprocess.run(
+            creationflags = (
+                subprocess.CREATE_NEW_PROCESS_GROUP
+                if os.name == "nt"
+                else 0
+            )
+            process = subprocess.Popen(
                 command,
-                input=stdin,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
                 text=True,
-                capture_output=True,
-                timeout=timeout,
                 shell=False,
                 cwd=str(cwd) if cwd is not None else None,
                 env=env,
                 start_new_session=(os.name != "nt"),
+                creationflags=creationflags,
                 preexec_fn=self._resource_limits(timeout) if os.name != "nt" else None,
             )
+            try:
+                stdout, stderr = process.communicate(input=stdin, timeout=timeout)
+            except subprocess.TimeoutExpired:
+                if os.name != "nt":
+                    os.killpg(process.pid, signal.SIGKILL)
+                else:
+                    process.kill()
+                stdout, stderr = process.communicate()
+                duration_ms = (time.perf_counter() - start) * 1000.0
+                return (
+                    process.returncode,
+                    stdout[: self.output_limit],
+                    stderr[: self.output_limit],
+                    duration_ms,
+                    True,
+                )
             duration_ms = (time.perf_counter() - start) * 1000.0
             return (
                 process.returncode,
-                process.stdout[: self.output_limit],
-                process.stderr[: self.output_limit],
-                duration_ms,
-                False,
-            )
-        except subprocess.TimeoutExpired as exc:
-            duration_ms = (time.perf_counter() - start) * 1000.0
-            stdout = (exc.stdout or "")
-            stderr = (exc.stderr or "")
-            if isinstance(stdout, bytes):
-                stdout = stdout.decode("utf-8", errors="replace")
-            if isinstance(stderr, bytes):
-                stderr = stderr.decode("utf-8", errors="replace")
-            return (
-                None,
                 stdout[: self.output_limit],
                 stderr[: self.output_limit],
                 duration_ms,
-                True,
+                False,
             )
         except OSError as exc:
             duration_ms = (time.perf_counter() - start) * 1000.0
