@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import os
 import subprocess
-import sys
 import tempfile
 import time
 from pathlib import Path
@@ -59,6 +58,7 @@ class PolyglotExecutor:
                     [spec.executable, str(source), "-O", "-o", str(binary)],
                     "",
                     self.compile_timeout,
+                    cwd=root,
                 )
                 command = [str(binary)]
             elif spec.name == "cpp":
@@ -101,7 +101,7 @@ class PolyglotExecutor:
                 )
 
             exit_code, stdout, stderr, duration_ms, timed_out = self._run(
-                command, stdin, self.run_timeout
+                command, stdin, self.run_timeout, cwd=root
             )
             return ExecutionResult(
                 language=spec.name,
