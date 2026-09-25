@@ -77,7 +77,7 @@ def test_phase14_split_is_deterministic_and_non_overlapping():
 
 
 def tiny_config(steps=2):
-    return TrainingConfig(steps=steps, batch_size=2, context=16, embedding_dim=8, ff_dim=16, heads=2, lr=1e-3, validation_split=0.25, seed=11, log_every=2)
+    return TrainingConfig(steps=steps, batch_size=2, context=8, embedding_dim=8, ff_dim=16, heads=2, lr=1e-3, validation_split=0.25, seed=11, log_every=2)
 
 
 def test_phase14_writes_self_contained_checkpoint(tmp_path):
