@@ -11,6 +11,7 @@ obtain access to any gated model according to its publisher's terms.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import os
 from typing import Any, Iterator
 
 
@@ -65,6 +66,15 @@ class TransformersBackend:
             ) from exc
 
         kwargs: dict[str, Any] = {}
+        quantization = os.environ.get("TARA_QUANTIZATION", "none").lower()
+        if quantization in {"4bit", "8bit"}:
+            try:
+                from transformers import BitsAndBytesConfig
+            except ImportError as exc:
+                raise RuntimeError("Quantization requires a Transformers build with bitsandbytes support.") from exc
+            kwargs["quantization_config"] = BitsAndBytesConfig(
+                load_in_4bit=quantization == "4bit", load_in_8bit=quantization == "8bit"
+            )
         if self.device == "auto":
             kwargs["device_map"] = "auto"
         if self.dtype != "auto":
