@@ -88,7 +88,7 @@ def test_phase14_writes_self_contained_checkpoint(tmp_path):
     assert summary.start_step == 0
     assert summary.final_step == 2
     assert checkpoint.exists()
-    payload = torch.load(checkpoint, map_location="cpu", weights_only=False)
+    payload = torch.load(checkpoint, map_location="cpu", weights_only=True)
     assert payload["format_version"] == 3
     assert payload["step"] == 2
     assert "model_state" in payload
@@ -131,7 +131,7 @@ def test_phase37_gradient_accumulation_scheduler_and_tracker(tmp_path):
     assert summary.final_step == 3
     rows = metrics.read_text(encoding="utf-8").splitlines()
     assert rows
-    payload = torch.load(checkpoint, map_location="cpu", weights_only=False)
+    payload = torch.load(checkpoint, map_location="cpu", weights_only=True)
     assert payload["hardening_config"]["gradient_accumulation_steps"] == 2
     assert payload["scheduler"]["optimizer_steps"] == 3
     assert payload["metrics_fingerprint"]
