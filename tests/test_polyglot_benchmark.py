@@ -26,7 +26,9 @@ def test_benchmark_accepts_injected_execution_backend():
     class FakeExecutor:
         def execute(self, candidate, stdin):
             from src.polyglot.result import ExecutionResult
-            expected = " ".join(get_problem(candidate.problem).tests[0].expected_stdout.split())
+            spec = get_problem(candidate.problem)
+            case = next(case for case in spec.tests if case.stdin == stdin)
+            expected = " ".join(case.expected_stdout.split())
             return ExecutionResult(candidate.language, True, "run", 0, expected, "", 1.0, False, None)
 
     candidate = PolyglotCandidate(
