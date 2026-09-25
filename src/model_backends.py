@@ -11,7 +11,7 @@ obtain access to any gated model according to its publisher's terms.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Iterator
 
 
 @dataclass(frozen=True)
@@ -76,6 +76,35 @@ class TransformersBackend:
         if self.device != "auto":
             self.model.to(self.device)
         self.model.eval()
+
+    def stream_generate(
+        self,
+        messages: list[dict[str, str]],
+        *,
+        max_new_tokens: int = 256,
+        temperature: float = 0.7,
+        top_p: float = 0.9,
+    ) -> Iterator[str]:
+        """Yield generated text chunks when the optional streamer is available."""
+        self._load()
+        assert self.tokenizer is not None and self.model is not None
+        try:
+            from transformers import TextIteratorStreamer
+        except ImportError as exc:
+            raise RuntimeError("Streaming requires the installed Transformers package.") from exc
+        import threading
+        prompt = self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+        inputs = self.tokenizer(prompt, return_tensors="pt")
+        device = next(self.model.parameters()).device
+        inputs = {key: value.to(device) for key, value in inputs.items()}
+        streamer = TextIteratorStreamer(self.tokenizer, skip_prompt=True, skip_special_tokens=True)
+        kwargs = dict(**inputs, streamer=streamer, max_new_tokens=max_new_tokens,
+                      do_sample=temperature > 0, temperature=max(temperature, 1e-5),
+                      top_p=top_p, pad_token_id=self.tokenizer.eos_token_id)
+        thread = threading.Thread(target=self.model.generate, kwargs=kwargs)
+        thread.start()
+        yield from streamer
+        thread.join()
 
     def generate(
         self,
