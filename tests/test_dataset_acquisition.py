@@ -103,7 +103,7 @@ def test_streamer_validates_bounds():
 
 
 def test_streamer_does_not_need_datasets_import(monkeypatch):
-    streamer = HuggingFaceStreamer()
+    streamer = HuggingFaceStreamer(min_chars=10)
     calls = []
 
     def fake_get_json(endpoint, params):
