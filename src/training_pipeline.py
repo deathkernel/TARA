@@ -41,6 +41,7 @@ class TrainingConfig:
     min_lr_ratio: float = 0.1
     early_stopping_patience: int = 5
     early_stopping_min_delta: float = 0.0
+    target_validation_accuracy: float | None = None
 
     def __post_init__(self) -> None:
         if self.steps <= 0 or self.batch_size <= 0 or self.context <= 0:
@@ -63,6 +64,8 @@ class TrainingConfig:
             raise ValueError("log_every must be positive")
         if self.checkpoint_every < 0 or self.grad_clip <= 0:
             raise ValueError("checkpoint_every must be non-negative and grad_clip positive")
+        if self.target_validation_accuracy is not None and not 0.0 < self.target_validation_accuracy <= 1.0:
+            raise ValueError("target_validation_accuracy must be in (0, 1]")
         TrainingControls(
             gradient_accumulation_steps=self.gradient_accumulation_steps,
             warmup_steps=self.warmup_steps,
@@ -84,7 +87,8 @@ class TrainingSummary:
     final_step: int
     train_loss: float
     validation_loss: float | None
-    device: str
+    validation_accuracy: float | None = None
+    device: str = "cpu"
     dataset_fingerprint: str
     stopped_early: bool = False
     metrics_path: str | None = None
@@ -160,7 +164,8 @@ def _sample_batch(tokens: torch.Tensor, batch_size: int, context: int, device: t
     return x.to(device), y.to(device)
 
 @torch.no_grad()
-def evaluate(model, tokens: torch.Tensor | None, batch_size: int, context: int, device: torch.device) -> float | None:
+def evaluate_metrics(model, tokens: torch.Tensor | None, batch_size: int, context: int, device: torch.device) -> tuple[float, float] | None:
+    """Measure held-out next-token loss and exact token accuracy."""
     if tokens is None or len(tokens) <= context + 1:
         return None
     model.eval()
@@ -169,12 +174,22 @@ def evaluate(model, tokens: torch.Tensor | None, batch_size: int, context: int, 
         stride = max(1, len(starts) // 256)
         starts = starts[::stride][:256]
     losses = []
+    correct = 0
+    total = 0
     for offset in range(0, len(starts), batch_size):
         batch_starts = starts[offset:offset + batch_size]
         x = torch.stack([tokens[i:i + context] for i in batch_starts]).to(device)
         y = torch.stack([tokens[i + 1:i + context + 1] for i in batch_starts]).to(device)
-        losses.append(float(model.loss(x, y).item()))
-    return sum(losses) / len(losses) if losses else None
+        logits = model(x)
+        losses.append(float(torch.nn.functional.cross_entropy(logits.reshape(-1, model.vocab_size), y.reshape(-1)).item()))
+        correct += int((logits.argmax(dim=-1) == y).sum().item())
+        total += int(y.numel())
+    return (sum(losses) / len(losses), correct / total) if losses and total else None
+
+@torch.no_grad()
+def evaluate(model, tokens: torch.Tensor | None, batch_size: int, context: int, device: torch.device) -> float | None:
+    metrics = evaluate_metrics(model, tokens, batch_size, context, device)
+    return None if metrics is None else metrics[0]
 
 class TrainingPipeline:
     """Train, validate, checkpoint, resume, and track a TARA language model."""
@@ -238,7 +253,7 @@ class TrainingPipeline:
             raise ValueError("checkpoint step is invalid")
         return model, tokenizer, optimizer, train_tokens, validation_tokens, step, payload
 
-    def _save(self, path: Path, model, tokenizer, optimizer, step, train_loss, validation_loss, fingerprint, scheduler, early_stopping, tracker):
+    def _save(self, path: Path, model, tokenizer, optimizer, step, train_loss, validation_loss, fingerprint, scheduler, early_stopping, tracker, validation_accuracy=None):
         path.parent.mkdir(parents=True, exist_ok=True)
         torch.save({
             "format_version": CHECKPOINT_FORMAT_VERSION,
@@ -252,7 +267,7 @@ class TrainingPipeline:
                 "merges": tokenizer.merges if isinstance(tokenizer, BPETokenizer) else [],
             },
             "optimizer_state": optimizer.state_dict(),
-            "metrics": {"train_loss": float(train_loss), "validation_loss": None if validation_loss is None else float(validation_loss)},
+            "metrics": {"train_loss": float(train_loss), "validation_loss": None if validation_loss is None else float(validation_loss), "validation_accuracy": None if validation_accuracy is None else float(validation_accuracy)},
             "dataset_fingerprint": fingerprint,
             "config": asdict(self.config),
             "hardening_config": self.config.hardening_config(),
@@ -285,6 +300,7 @@ class TrainingPipeline:
             torch.cuda.manual_seed_all(self.config.seed + start_step)
         last_train_loss = float("nan")
         last_validation_loss = None
+        last_validation_accuracy = None
         stopped_early = False
         model.train()
         optimizer.zero_grad(set_to_none=True)
@@ -307,12 +323,14 @@ class TrainingPipeline:
             should_log = update_step == start_step + 1 or update_step % self.config.log_every == 0 or update_step == total_steps
             if should_log:
                 model.eval()
-                last_validation_loss = evaluate(model, validation_tokens, self.config.batch_size, self.config.context, self.device)
-                tracker.log(TrainingMetric(update_step, last_train_loss, last_validation_loss, current_lr))
+                validation_metrics = evaluate_metrics(model, validation_tokens, self.config.batch_size, self.config.context, self.device)
+                last_validation_loss = None if validation_metrics is None else validation_metrics[0]
+                last_validation_accuracy = None if validation_metrics is None else validation_metrics[1]
+                tracker.log(TrainingMetric(update_step, last_train_loss, last_validation_loss, current_lr, last_validation_accuracy)
                 decision = early_stopping.update(last_validation_loss) if last_validation_loss is not None else None
-                print(f"step={update_step:5d} train_loss={last_train_loss:.4f} " + (f"val_loss={last_validation_loss:.4f} " if last_validation_loss is not None else "") + f"lr={current_lr:.6g} device={self.device}")
+                print(f"step={update_step:5d} train_loss={last_train_loss:.4f} " + (f"val_loss={last_validation_loss:.4f} val_accuracy={last_validation_accuracy:.2%} " if last_validation_loss is not None else "") + f"lr={current_lr:.6g} device={self.device}")
                 if decision is not None and decision.improved:
-                    self._save(output_path, model, tokenizer, optimizer, update_step, last_train_loss, last_validation_loss, fingerprint, scheduler, early_stopping, tracker)
+                    self._save(output_path, model, tokenizer, optimizer, update_step, last_train_loss, last_validation_loss, fingerprint, scheduler, early_stopping, tracker, last_validation_accuracy)
                 if decision is not None and decision.should_stop:
                     stopped_early = True
                     break
@@ -320,4 +338,4 @@ class TrainingPipeline:
             if self.config.checkpoint_every and update_step % self.config.checkpoint_every == 0:
                 self._save(output_path, model, tokenizer, optimizer, update_step, last_train_loss, last_validation_loss, fingerprint, scheduler, early_stopping, tracker)
         self._save(output_path, model, tokenizer, optimizer, update_step, last_train_loss, last_validation_loss, fingerprint, scheduler, early_stopping, tracker)
-        return TrainingSummary(str(output_path), start_step, update_step, last_train_loss, last_validation_loss, str(self.device), fingerprint, stopped_early, str(tracker_path))
+        return TrainingSummary(str(output_path), start_step, update_step, last_train_loss, last_validation_loss, last_validation_accuracy, str(self.device), fingerprint, stopped_early, str(tracker_path))
