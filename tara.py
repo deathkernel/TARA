@@ -29,10 +29,10 @@ ROLE_MARKERS = ("<|user|>", "<|assistant|>")
 
 
 def _training_config() -> TrainingConfig:
-    """Return the single supported training policy for the TARA CLI."""
+    """Use a compact communication model so local CPU training stays practical."""
     if torch.cuda.is_available():
         return TrainingConfig(
-            steps=1500,
+            steps=1200,
             batch_size=16,
             context=128,
             embedding_dim=128,
@@ -48,20 +48,20 @@ def _training_config() -> TrainingConfig:
             early_stopping_patience=8,
         )
     return TrainingConfig(
-        steps=5000,
-        batch_size=6,
-        context=192,
-        embedding_dim=192,
-        ff_dim=768,
-        heads=6,
-        num_layers=8,
+        steps=1800,
+        batch_size=8,
+        context=128,
+        embedding_dim=128,
+        ff_dim=256,
+        heads=4,
+        num_layers=4,
         tokenizer="bpe",
         vocab_size=2048,
-        lr=2e-4,
+        lr=3e-4,
         validation_split=0.1,
         log_every=25,
-        checkpoint_every=250,
-        early_stopping_patience=15,
+        checkpoint_every=300,
+        early_stopping_patience=10,
         target_validation_accuracy=None,
     )
 
