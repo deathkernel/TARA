@@ -82,7 +82,12 @@ class TARABrain:
     def perceive_screen(self, elements, *, confidence=0.9) -> MultimodalObservation: return self.multimodal.screen(elements, confidence=confidence)
     def conduct_research(self, question: str, searcher, *, max_queries=None) -> ResearchReport: return self.researcher.research(question, searcher, max_queries=max_queries)
     def run_experiment(self, design: ExperimentDesign, executor) -> ExperimentReport: return self.experimenter.run(design, executor)
-    def discover_algorithm(self, problem, *, generator, verifier, rounds=4, candidates_per_round=8, archive=None) -> DiscoveryCycle:\n        """Invent, verify, refine, and retain algorithm hypotheses without executing generated code."""\n        engine = AlgorithmDiscoveryEngine(generator, verifier, archive=archive)\n        return engine.discover(problem, rounds=rounds, candidates_per_round=candidates_per_round)\n\n    def optimize_architecture(self, baseline: ArchitectureVariant, *, rounds=3, candidates_per_round=4, optimizer: ArchitectureOptimizer | None = None) -> OptimizationResult:
+    def discover_algorithm(self, problem, *, generator, verifier, rounds=4, candidates_per_round=8, archive=None) -> DiscoveryCycle:
+        """Invent, verify, refine, and retain algorithm hypotheses without executing generated code."""
+        engine = AlgorithmDiscoveryEngine(generator, verifier, archive=archive)
+        return engine.discover(problem, rounds=rounds, candidates_per_round=candidates_per_round)
+
+    def optimize_architecture(self, baseline: ArchitectureVariant, *, rounds=3, candidates_per_round=4, optimizer: ArchitectureOptimizer | None = None) -> OptimizationResult:
         engine = optimizer or self.architecture_optimizer
         if engine is None: raise ValueError("an ArchitectureOptimizer with an injected evaluator is required")
         return engine.optimize(baseline, rounds=rounds, candidates_per_round=candidates_per_round)
@@ -160,7 +165,15 @@ class TARABrain:
             if threshold < cumulative: return index
         return selected[-1]
     def build_reasoning_context(self, prompt, *, memory_limit=8, event_limit=8, temporal_limit=16, min_confidence=0.0):
-        recalled = tuple(self.memory.retrieve(prompt, limit=memory_limit)); world=self.world_context(event_limit=event_limit); temporal=self.temporal_context(limit=temporal_limit, min_confidence=min_confidence); memory_text="\n".join(str(item) for item in recalled) or "none"; return f"User/task: {prompt}\n\nMemory:\n{memory_text}\n\n{world.as_prompt_context()}\n\n{temporal.as_prompt_context()}"
+        recalled = tuple(self.memory.retrieve(prompt, limit=memory_limit)); world=self.world_context(event_limit=event_limit); temporal=self.temporal_context(limit=temporal_limit, min_confidence=min_confidence); memory_text="
+".join(str(item) for item in recalled) or "none"; return f"User/task: {prompt}
+
+Memory:
+{memory_text}
+
+{world.as_prompt_context()}
+
+{temporal.as_prompt_context()}"
     def respond(self, prompt, *, remember_key=None, importance=1.0, max_new_tokens=32, temperature=1.0, top_k=None, top_p=None):
         self.observe(prompt, remember_key=remember_key, importance=importance, source="user", kind="prompt"); recalled=tuple(self.memory.retrieve(prompt)); context=self.build_reasoning_context(prompt)
         text = self.generate(context, max_new_tokens=max_new_tokens, temperature=temperature, top_k=top_k, top_p=top_p)
