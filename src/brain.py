@@ -165,15 +165,16 @@ class TARABrain:
             if threshold < cumulative: return index
         return selected[-1]
     def build_reasoning_context(self, prompt, *, memory_limit=8, event_limit=8, temporal_limit=16, min_confidence=0.0):
-        recalled = tuple(self.memory.retrieve(prompt, limit=memory_limit)); world=self.world_context(event_limit=event_limit); temporal=self.temporal_context(limit=temporal_limit, min_confidence=min_confidence); memory_text="
-".join(str(item) for item in recalled) or "none"; return f"User/task: {prompt}
-
-Memory:
-{memory_text}
-
-{world.as_prompt_context()}
-
-{temporal.as_prompt_context()}"
+        recalled = tuple(self.memory.retrieve(prompt, limit=memory_limit))
+        world = self.world_context(event_limit=event_limit)
+        temporal = self.temporal_context(limit=temporal_limit, min_confidence=min_confidence)
+        memory_text = "\n".join(str(item) for item in recalled) or "none"
+        return (
+            f"User/task: {prompt}\n\n"
+            f"Memory:\n{memory_text}\n\n"
+            f"{world.as_prompt_context()}\n\n"
+            f"{temporal.as_prompt_context()}"
+        )
     def respond(self, prompt, *, remember_key=None, importance=1.0, max_new_tokens=32, temperature=1.0, top_k=None, top_p=None):
         self.observe(prompt, remember_key=remember_key, importance=importance, source="user", kind="prompt"); recalled=tuple(self.memory.retrieve(prompt)); context=self.build_reasoning_context(prompt)
         text = self.generate(context, max_new_tokens=max_new_tokens, temperature=temperature, top_k=top_k, top_p=top_p)
