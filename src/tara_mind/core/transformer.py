@@ -128,7 +128,16 @@ class FastTinyLanguageModel(nn.Module):
                 if module.bias is not None:
                     nn.init.zeros_(module.bias)
 
+    def _normalize_token_ids(self, token_ids):
+        """Accept legacy Python token-id lists as well as batched tensors."""
+        if not torch.is_tensor(token_ids):
+            token_ids = torch.tensor([token_ids], dtype=torch.long, device=self.embedding.weight.device)
+        elif token_ids.ndim == 1:
+            token_ids = token_ids.unsqueeze(0)
+        return token_ids
+
     def forward(self, token_ids):
+        token_ids = self._normalize_token_ids(token_ids)
         if token_ids.ndim != 2:
             raise ValueError("token_ids must have shape [batch, sequence]")
         if token_ids.shape[1] == 0:
