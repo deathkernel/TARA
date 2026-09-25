@@ -15,7 +15,7 @@ from src.tokenizer import BPETokenizer, CharTokenizer
 from src.torch_language_model import FastTinyLanguageModel
 from src.training_hardening import EarlyStopping, ExperimentTracker, TrainingControls, TrainingMetric, WarmupCosineScheduler
 
-CHECKPOINT_FORMAT_VERSION = 4
+CHECKPOINT_FORMAT_VERSION = 5
 
 @dataclass(frozen=True)
 class TrainingConfig:
