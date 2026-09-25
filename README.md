@@ -667,6 +667,19 @@ validation controls internal so the normal workflow stays:
 
 ---
 
+## Foundation curriculum
+
+For the current scratch-first learning path, train the foundation curriculum directly:
+
+```bash
+python tara.py train data/curriculum_v2.jsonl
+python tara.py chat
+```
+
+`data/curriculum_v2.jsonl` contains 24 shorter lesson records across 12 levels. Each lesson keeps a small group of related question/answer examples together so the local model can learn the curriculum without crossing unrelated lesson boundaries.
+
+The older `conversation_v1.jsonl` workflow remains available for conversation-focused experiments.
+
 # Running methods
 
 For the local conversational neural core, use this workflow from the repository root.
@@ -766,10 +779,10 @@ This distinction is intentional: **source-code capability, executed capability, 
 
 ### 🧠 Train TARA
 
-Trains the local TARA neural model using the prepared conversation dataset:
+Trains the local TARA neural model using the current foundation curriculum:
 
 ```bash
-python tara.py train data/conversation_v1.jsonl
+python tara.py train data/curriculum_v2.jsonl
 ```
 
 ### 💬 Chat with TARA
@@ -780,4 +793,4 @@ Loads the trained checkpoint and starts the interactive TARA conversation:
 python tara.py chat
 ```
 
-**Workflow:** `conversation_v1.jsonl` → **Train** → `checkpoints/tara.pt` → **Chat**
+**Workflow:** `curriculum_v2.jsonl` → **Train** → `checkpoints/tara.pt` → **Chat**
