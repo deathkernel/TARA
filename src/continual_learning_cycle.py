@@ -205,7 +205,7 @@ class ContinualLearningCycle:
             return None, "previous checkpoint does not exist"
         import torch
 
-        payload = torch.load(path, map_location="cpu", weights_only=False)
+        payload = torch.load(path, map_location="cpu", weights_only=True)
         if payload.get("dataset_fingerprint") != training.dataset_fingerprint:
             return None, "previous checkpoint dataset fingerprint differs"
         previous_loss = payload.get("metrics", {}).get("validation_loss")
