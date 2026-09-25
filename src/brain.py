@@ -3,6 +3,7 @@ from dataclasses import dataclass
 import random
 from pathlib import Path
 from .advanced_planning import AdaptivePlan, AdvancedPlanner, PlanAlternative, PlanStep
+from .algorithm_synthesis import AlgorithmArchive, AlgorithmDiscoveryEngine, AlgorithmProposal, DiscoveryCycle, ModelAlgorithmGenerator, VerificationReport
 from .agent import AgentLoop
 from .autonomous_orchestrator import AutonomousOrchestrator, TaskNode
 from .continual_learning_engine import ContinualLearningEngine, PromotionResult, ReplayBatch
@@ -81,7 +82,7 @@ class TARABrain:
     def perceive_screen(self, elements, *, confidence=0.9) -> MultimodalObservation: return self.multimodal.screen(elements, confidence=confidence)
     def conduct_research(self, question: str, searcher, *, max_queries=None) -> ResearchReport: return self.researcher.research(question, searcher, max_queries=max_queries)
     def run_experiment(self, design: ExperimentDesign, executor) -> ExperimentReport: return self.experimenter.run(design, executor)
-    def optimize_architecture(self, baseline: ArchitectureVariant, *, rounds=3, candidates_per_round=4, optimizer: ArchitectureOptimizer | None = None) -> OptimizationResult:
+    def discover_algorithm(self, problem, *, generator, verifier, rounds=4, candidates_per_round=8, archive=None) -> DiscoveryCycle:\n        """Invent, verify, refine, and retain algorithm hypotheses without executing generated code."""\n        engine = AlgorithmDiscoveryEngine(generator, verifier, archive=archive)\n        return engine.discover(problem, rounds=rounds, candidates_per_round=candidates_per_round)\n\n    def optimize_architecture(self, baseline: ArchitectureVariant, *, rounds=3, candidates_per_round=4, optimizer: ArchitectureOptimizer | None = None) -> OptimizationResult:
         engine = optimizer or self.architecture_optimizer
         if engine is None: raise ValueError("an ArchitectureOptimizer with an injected evaluator is required")
         return engine.optimize(baseline, rounds=rounds, candidates_per_round=candidates_per_round)
