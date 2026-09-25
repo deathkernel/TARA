@@ -14,7 +14,7 @@ def test_text_screen_and_fusion_are_deterministic():
 
 def test_image_png_metadata():
     import struct
-    data = b"\\x89PNG\\r\\n\\x1a\\n" + b"0" * 8 + struct.pack(">II", 64, 32)
+    data = b"\x89PNG\r\n\x1a\n" + b"0" * 8 + struct.pack(">II", 64, 32)
     observation = MultimodalPerception().image(data)
     assert observation.modality == "image"
     assert dict(observation.metadata)["width"] == "64"
