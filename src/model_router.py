@@ -38,3 +38,6 @@ class ModelRouter:
         if backend not in self._backends:
             self._backends[backend] = create_backend(backend)
         return self._backends[backend]
+
+    def clear(self) -> None:
+        self._backends.clear()
