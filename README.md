@@ -561,7 +561,7 @@ Moved capability evaluation from synthetic solvers to actual checkpoints:
 - inference-only evaluation with no promotion side effects.
 
 ### Phase 37.9 — Evaluation/training continuity
-The current Phase 37 stack preserves a continuous evidence chain between dataset preparation, training, checkpoint generation and capability measurement. The key design rule is that a score is only reported after the corresponding real execution has occurred.
+The current Phase 37 stack preserves a continuous evidence chain between dataset preparation, training, checkpoint generation and capability measurement. Generated-code execution is deliberately fail-closed in the repository: capability scores that require code execution must use an injected isolated execution backend. The default host runtime never executes generated programs.
 
 ### Phase 37.10 — Learning experiment pipeline
 Added `src/learning_experiment.py` for baseline/candidate evaluation, capability deltas, checkpoint checks, regression protection and experiment fingerprints.
