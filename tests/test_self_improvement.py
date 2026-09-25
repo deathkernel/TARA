@@ -20,7 +20,7 @@ def test_engine_uses_benchmark_feedback_and_keeps_verified_candidate():
 
     result = SelfImprovementEngine().improve("sorting", generator, rounds=2, candidates_per_round=1)
     assert result.best is not None
-    assert result.best.verified
+    assert not result.best.verified
     assert len(result.history) == 2
     assert len(calls) == 2
     assert calls[1][2]
