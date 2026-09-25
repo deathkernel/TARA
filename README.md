@@ -641,10 +641,10 @@ At a high level, the current TARA design is:
 
 TARA's local neural core is intentionally exposed through two commands:
 
-## Train from a dataset
+## Train from the foundation curriculum
 
 ```bash
-python tara.py train data/conversation_v1.jsonl
+python tara.py train data/curriculum_v2.jsonl
 ```
 
 This trains the local model from the supplied dataset, evaluates a held-out
