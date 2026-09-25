@@ -87,8 +87,8 @@ class TrainingSummary:
     final_step: int
     train_loss: float
     validation_loss: float | None
-    validation_accuracy: float | None = None
-    device: str = "cpu"
+    validation_accuracy: float | None
+    device: str
     dataset_fingerprint: str
     stopped_early: bool = False
     metrics_path: str | None = None
