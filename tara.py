@@ -49,8 +49,8 @@ def _training_config() -> TrainingConfig:
         )
     return TrainingConfig(
         steps=5000,
-        batch_size=4,
-        context=256,
+        batch_size=6,
+        context=192,
         embedding_dim=192,
         ff_dim=768,
         heads=6,
