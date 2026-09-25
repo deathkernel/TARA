@@ -142,50 +142,57 @@ def split_texts(texts: list[str], validation_split: float, seed: int) -> tuple[l
     validation_indices = set(indices[:validation_count])
     return ([text for i, text in enumerate(texts) if i not in validation_indices], [text for i, text in enumerate(texts) if i in validation_indices])
 
-def _tokenize_corpus(texts: list[str], tokenizer: CharTokenizer | BPETokenizer, context: int) -> torch.Tensor:
-    ids: list[int] = []
-    separator = tokenizer.stoi.get("\n", 0)
+def _tokenize_corpus(texts: list[str], tokenizer: CharTokenizer | BPETokenizer, context: int) -> list[torch.Tensor]:
+    """Encode each record separately so training never crosses a record boundary."""
+    sequences: list[torch.Tensor] = []
     for text in texts:
         encoded = tokenizer.encode(text)
-        if len(encoded) >= 2:
-            ids.extend(encoded)
-            ids.append(separator)
-    if len(ids) <= context:
-        raise ValueError("dataset is shorter than the requested context")
-    return torch.tensor(ids, dtype=torch.long)
+        if len(encoded) >= context + 1:
+            sequences.append(torch.tensor(encoded, dtype=torch.long))
+    if not sequences:
+        raise ValueError("dataset has no record long enough for the requested context")
+    return sequences
 
-def _sample_batch(tokens: torch.Tensor, batch_size: int, context: int, device: torch.device):
-    """Sample batches with vectorized indexing instead of Python per-sample loops."""
-    maximum = len(tokens) - context
-    if maximum <= 0:
-        raise ValueError("token corpus is shorter than context + 1")
-    starts = torch.randint(0, maximum, (batch_size,), device=tokens.device)
-    offsets = torch.arange(context, device=tokens.device)
-    positions = starts[:, None] + offsets[None, :]
-    x = tokens[positions]
-    y = tokens[positions + 1]
-    if x.device != device:
-        x = x.to(device, non_blocking=True)
-        y = y.to(device, non_blocking=True)
+def _sample_batch(sequences: list[torch.Tensor], batch_size: int, context: int, device: torch.device):
+    """Sample fixed-length windows entirely inside individual records."""
+    if not sequences:
+        raise ValueError("token sequence collection is empty")
+    valid = [index for index, sequence in enumerate(sequences) if len(sequence) > context]
+    if not valid:
+        raise ValueError("dataset has no record long enough for the requested context")
+    sequence_indices = torch.randint(0, len(valid), (batch_size,)).tolist()
+    rows = []
+    targets = []
+    for choice in sequence_indices:
+        sequence = sequences[valid[choice]]
+        start = random.randrange(0, len(sequence) - context)
+        rows.append(sequence[start:start + context])
+        targets.append(sequence[start + 1:start + context + 1])
+    x = torch.stack(rows).to(device, non_blocking=True)
+    y = torch.stack(targets).to(device, non_blocking=True)
     return x, y
 
 @torch.no_grad()
-def evaluate_metrics(model, tokens: torch.Tensor | None, batch_size: int, context: int, device: torch.device) -> tuple[float, float] | None:
-    """Measure held-out next-token loss and exact token accuracy."""
-    if tokens is None or len(tokens) <= context + 1:
+def evaluate_metrics(model, sequences: list[torch.Tensor] | None, batch_size: int, context: int, device: torch.device) -> tuple[float, float] | None:
+    """Measure held-out next-token loss and exact token accuracy without crossing records."""
+    if not sequences:
         return None
+    windows: list[tuple[int, int]] = []
+    for sequence_index, sequence in enumerate(sequences):
+        windows.extend((sequence_index, start) for start in range(max(0, len(sequence) - context)))
+    if not windows:
+        return None
+    if len(windows) > 256:
+        stride = max(1, len(windows) // 256)
+        windows = windows[::stride][:256]
     model.eval()
-    starts = list(range(len(tokens) - context - 1))
-    if len(starts) > 256:
-        stride = max(1, len(starts) // 256)
-        starts = starts[::stride][:256]
     losses = []
     correct = 0
     total = 0
-    for offset in range(0, len(starts), batch_size):
-        batch_starts = starts[offset:offset + batch_size]
-        x = torch.stack([tokens[i:i + context] for i in batch_starts]).to(device)
-        y = torch.stack([tokens[i + 1:i + context + 1] for i in batch_starts]).to(device)
+    for offset in range(0, len(windows), batch_size):
+        batch = windows[offset:offset + batch_size]
+        x = torch.stack([sequences[i][start:start + context] for i, start in batch]).to(device)
+        y = torch.stack([sequences[i][start + 1:start + context + 1] for i, start in batch]).to(device)
         logits = model(x)
         losses.append(float(torch.nn.functional.cross_entropy(logits.reshape(-1, model.vocab_size), y.reshape(-1)).item()))
         correct += int((logits.argmax(dim=-1) == y).sum().item())
@@ -240,6 +247,7 @@ class TrainingPipeline:
             tokenizer.itos = list(data["itos"])
             tokenizer.stoi = dict(data["stoi"])
             tokenizer.merges = [tuple(pair) for pair in data.get("merges", [])]
+            tokenizer._merge_ranks = {pair: index for index, pair in enumerate(tokenizer.merges)}
             return tokenizer
         raise ValueError("unsupported checkpoint tokenizer type")
 
@@ -309,9 +317,9 @@ class TrainingPipeline:
             early_stopping.best = state.get("best")
             early_stopping.bad_steps = int(state.get("bad_steps", 0))
         if self.device.type == "cuda":
-            train_tokens = train_tokens.to(self.device)
+            train_tokens = [tokens.to(self.device) for tokens in train_tokens]
             if validation_tokens is not None:
-                validation_tokens = validation_tokens.to(self.device)
+                validation_tokens = [tokens.to(self.device) for tokens in validation_tokens]
         total_steps = start_step + self.config.steps
         scheduler = WarmupCosineScheduler(total_steps=max(1, total_steps), warmup_steps=min(self.config.warmup_steps, max(1, total_steps)), min_lr_ratio=self.config.min_lr_ratio)
         random.seed(self.config.seed + start_step)
