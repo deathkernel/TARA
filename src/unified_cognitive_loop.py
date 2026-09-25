@@ -215,7 +215,7 @@ class UnifiedCognitiveLoop:
         status = "completed" if self.plan.completed() and len(self.plan.completed()) == len(self.plan.steps) else ("verified" if verified else "failed")
         trace = CycleTrace(
             cycle_id, self.goal, perception_text, remembered, reasoning, step.step_id,
-            selection.selected.tool if selection and selection.selected else None,
+            selection.selected if selection and selection.selected else None,
             outcome, verified, reflection_cycle, learning, progress,
             next_ready[0].step_id if next_ready else None, status,
         )
