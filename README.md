@@ -671,37 +671,33 @@ TARA_GROQ_MAX_COMPLETION_TOKENS=1024
 
 ---
 
-# Training and evaluation map
+# Simple TARA interface
 
-## Preflight
+TARA's local neural core is intentionally exposed through two commands:
 
-```bash
-python training_preflight.py --data data/algorithm_tasks.jsonl --context 128
-```
-
-## Fast TinyStories experiment
+## Train from a dataset
 
 ```bash
-python train_fast.py --dataset tinystories --steps 1000 --batch-size 16
+python tara.py train data/conversation_v1.jsonl
 ```
 
-## Algorithm language-model training
+This trains the local model from the supplied dataset, evaluates a held-out
+validation split, tracks validation token accuracy, checkpoints progress, and
+uses early stopping.
+
+## Chat
 
 ```bash
-python train_algorithm_lm.py --data data/algorithm_tasks.jsonl
+python tara.py chat
 ```
 
-## Capability evaluation
+The chat command loads `checkpoints/tara.pt` and starts an interactive
+user/assistant conversation.
 
-```bash
-python evaluate_tara_capabilities.py checkpoints/algorithm_lm.pt --output experiments/tara-capability-baseline.json
-```
+The CLI keeps model architecture, optimizer, tokenizer, checkpoint and
+validation controls internal so the normal workflow stays:
 
-## Evidence-gated learning experiment
-
-```bash
-python run_learning_experiment.py checkpoints/baseline.pt data/algorithm_tasks.jsonl checkpoints/candidate.pt --steps 100
-```
+**dataset → train → checkpoint → chat**
 
 ---
 
