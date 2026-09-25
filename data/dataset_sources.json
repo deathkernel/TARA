@@ -25,7 +25,8 @@
       "config": "default",
       "split": "train",
       "level": "legacy",
-      "role": "legacy warm-up corpus; no longer the vNext default"
+      "role": "legacy warm-up corpus; no longer the vNext default",
+      "license": "MIT"
     },
     {
       "key": "fineweb_edu",
