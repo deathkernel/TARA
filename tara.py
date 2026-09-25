@@ -32,9 +32,9 @@ def _training_config() -> TrainingConfig:
     """Use a low-heat communication model for gradual local training."""
     if torch.cuda.is_available():
         return TrainingConfig(
-            steps=900,
+            steps=2000,
             batch_size=4,
-            context=128,
+            context=64,
             embedding_dim=128,
             ff_dim=256,
             heads=4,
@@ -42,9 +42,9 @@ def _training_config() -> TrainingConfig:
             tokenizer="bpe",
             vocab_size=2048,
             lr=3e-4,
-            validation_split=0.1,
+            validation_split=0.15,
             log_every=25,
-            checkpoint_every=225,
+            checkpoint_every=400,
             early_stopping_patience=8,
         )
     return TrainingConfig(
