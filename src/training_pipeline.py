@@ -209,9 +209,14 @@ class TrainingPipeline:
 
     def _new_state(self, texts: list[str]):
         train_texts, validation_texts = split_texts(texts, self.config.validation_split, self.config.seed)
-        tokenizer = (BPETokenizer("\n".join(train_texts), vocab_size=self.config.vocab_size) if self.config.tokenizer == "bpe" else CharTokenizer("\n".join(train_texts)))
+        corpus = "\n".join(train_texts)
+        print(f"Preparing tokenizer ({self.config.tokenizer})...")
+        tokenizer = (BPETokenizer(corpus, vocab_size=self.config.vocab_size) if self.config.tokenizer == "bpe" else CharTokenizer(corpus))
+        print(f"Tokenizer ready: vocab={tokenizer.vocab_size}")
+        print("Encoding training corpus...")
         train_tokens = _tokenize_corpus(train_texts, tokenizer, self.config.context)
         validation_tokens = _tokenize_corpus(validation_texts, tokenizer, self.config.context) if validation_texts else None
+        print(f"Training tokens: {len(train_tokens):,}; validation tokens: {0 if validation_tokens is None else len(validation_tokens):,}")
         model = FastTinyLanguageModel(**self.config.model_config(tokenizer.vocab_size), seed=self.config.seed).to(self.device)
         try:
             optimizer = torch.optim.AdamW(model.parameters(), lr=self.config.lr, fused=self.device.type == "cuda")
@@ -286,7 +291,9 @@ class TrainingPipeline:
         }, path)
 
     def train(self, data: str | Path, output: str | Path, resume: str | Path | None = None, metrics_path: str | Path | None = None) -> TrainingSummary:
+        print(f"Loading dataset: {data}")
         texts = load_training_texts(data)
+        print(f"Loaded {len(texts):,} records")
         fingerprint = _fingerprint(texts)
         output_path = Path(output)
         tracker_path = Path(metrics_path) if metrics_path is not None else output_path.with_suffix(output_path.suffix + ".metrics.jsonl")
