@@ -701,6 +701,62 @@ validation controls internal so the normal workflow stays:
 
 ---
 
+# Running methods
+
+For the local conversational neural core, use this workflow from the repository root.
+
+## 1. Prepare the conversation dataset
+
+Download/acquire the configured public conversation source and prepare the TARA training file:
+
+```bash
+python prepare_tara_dataset.py --level conversation-v1 --output data/conversation_v1.jsonl --max-records-per-source 5000
+```
+
+This creates `data/conversation_v1.jsonl` in TARA's conversation format.
+
+## 2. Verify the prepared dataset
+
+```bash
+python -c "from src.training_pipeline import load_training_texts; x=load_training_texts('data/conversation_v1.jsonl'); print('records:', len(x))"
+```
+
+## 3. Train TARA
+
+```bash
+python tara.py train data/conversation_v1.jsonl
+```
+
+Training uses the local dataset, a held-out validation split, validation token accuracy, validation loss, checkpointing and early stopping.
+
+The trained checkpoint is written to:
+
+```text
+checkpoints/tara.pt
+```
+
+## 4. Start chat
+
+```bash
+python tara.py chat
+```
+
+TARA loads `checkpoints/tara.pt` and starts the interactive conversation.
+
+### Complete workflow
+
+```text
+prepare dataset
+    ↓
+verify records
+    ↓
+train
+    ↓
+checkpoints/tara.pt
+    ↓
+chat
+```
+
 # Engineering principles
 
 1. **Measurement before claims** — architecture size and training loss are not treated as intelligence scores.
