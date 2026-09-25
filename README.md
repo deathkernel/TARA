@@ -792,3 +792,26 @@ Still dependent on actual runtime experiments:
 - claims about general intelligence or human-level reasoning.
 
 This distinction is intentional: **source-code capability, executed capability, and measured capability are three different things in TARA.**
+
+
+---
+
+# Quick Commands — TARA Train & Chat
+
+### 🧠 Train TARA
+
+Trains the local TARA neural model using the prepared conversation dataset:
+
+```bash
+python tara.py train data/conversation_v1.jsonl
+```
+
+### 💬 Chat with TARA
+
+Loads the trained checkpoint and starts the interactive TARA conversation:
+
+```bash
+python tara.py chat
+```
+
+**Workflow:** `conversation_v1.jsonl` → **Train** → `checkpoints/tara.pt` → **Chat**
