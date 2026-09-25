@@ -174,8 +174,19 @@ class FastTinyLanguageModel(nn.Module):
                 raise ValueError("top_k must be positive")
             top_k = min(int(top_k), logits.numel())
             values, indices = torch.topk(logits, top_k)
-            probabilities = torch.softmax(values, dim=-1)
-            choice = torch.multinomial(probabilities, 1, generator=rng)
-            return int(indices[choice].item())
-        probabilities = torch.softmax(logits, dim=-1)
-        return int(torch.multinomial(probabilities, 1, generator=rng).item())
+        else:
+            values = logits
+            indices = torch.arange(logits.numel(), device=logits.device)
+
+        probabilities = torch.softmax(values, dim=-1)
+        if rng is not None and hasattr(rng, "random"):
+            threshold = rng.random()
+            cumulative = 0.0
+            for index, probability in enumerate(probabilities.tolist()):
+                cumulative += probability
+                if threshold < cumulative:
+                    return int(indices[index].item())
+            return int(indices[-1].item())
+
+        choice = torch.multinomial(probabilities, 1, generator=rng)
+        return int(indices[choice].item())
