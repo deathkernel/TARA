@@ -20,7 +20,8 @@ def test_terminal_allow_list(tmp_path: Path):
     tools = TerminalTools(["python"], working_root=tmp_path)
     assert tools.run(["echo", "x"]).success is False
     result = tools.run(["python", "-c", "print('ok')"])
-    assert result.success and result.stdout.strip() == "ok"
+    assert result.success is False
+    assert "disabled" in (result.error or "")
 
 
 def test_application_and_browser_are_injected():
@@ -57,3 +58,24 @@ def test_controller_rollback():
     result = controller.execute_with_rollback("add", rollback=lambda: state.pop())
     assert result.success and state == [1]
     assert controller.rollback_last() and state == []
+
+
+def test_controller_supports_argument_policy_and_confirmation():
+    controller = ToolController()
+    controller.register(
+        "delete",
+        lambda path: f"deleted:{path}",
+        validator=lambda args: (args["path"].startswith("/safe/"), "path outside safe root"),
+        requires_confirmation=True,
+    )
+    blocked = controller.execute("delete", path="/safe/a")
+    assert not blocked.success
+    assert "confirmation" in blocked.error
+
+    invalid = controller.execute("delete", path="/unsafe/a", confirmed=True)
+    assert not invalid.success
+    assert "safe root" in invalid.error
+
+    allowed = controller.execute("delete", path="/safe/a", confirmed=True)
+    assert allowed.success
+    assert allowed.output == "deleted:/safe/a"

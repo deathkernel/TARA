@@ -88,5 +88,5 @@ def run_candidate(
         raise ValueError("max_output_bytes must be positive")
     return SandboxResult(
         False,
-        error="generated-code execution is disabled for TARA host safety",
+        error="generated-code execution is disabled; configure an isolated execution backend",
     )

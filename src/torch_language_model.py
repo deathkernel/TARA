@@ -169,3 +169,33 @@ class FastTinyLanguageModel(nn.Module):
             raise ValueError("token_ids must contain at least one token")
         logits = self(token_ids)[:, -1, :]
         return logits.argmax(dim=-1)
+
+    @torch.no_grad()
+    def sample_next_token(self, token_ids, temperature=1.0, top_k=None, rng=None):
+        """Sample one next token for a single-token-sequence batch."""
+        if not token_ids:
+            raise ValueError("token_ids must not be empty")
+        if temperature <= 0:
+            raise ValueError("temperature must be positive")
+        if top_k is not None and top_k <= 0:
+            raise ValueError("top_k must be positive when provided")
+        context = torch.tensor([token_ids[-self.max_context:]], dtype=torch.long)
+        logits = self(context)[0, -1, :] / temperature
+        if top_k is not None:
+            top_k = min(top_k, logits.numel())
+            values, indices = torch.topk(logits, top_k)
+            probs = torch.softmax(values, dim=-1)
+            generator = None
+            if rng is not None:
+                seed = int(rng.random() * (2**63 - 1))
+                generator = torch.Generator(device=probs.device)
+                generator.manual_seed(seed)
+            selected = torch.multinomial(probs, 1, generator=generator)
+            return int(indices[selected].item())
+        probs = torch.softmax(logits, dim=-1)
+        generator = None
+        if rng is not None:
+            seed = int(rng.random() * (2**63 - 1))
+            generator = torch.Generator(device=probs.device)
+            generator.manual_seed(seed)
+        return int(torch.multinomial(probs, 1, generator=generator).item())

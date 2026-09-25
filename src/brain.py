@@ -175,7 +175,9 @@ class TARABrain:
             except (RuntimeError, TimeoutError):
                 text = self.generate(context, max_new_tokens=max_new_tokens, temperature=temperature, top_k=top_k, top_p=top_p)
         else:
-            text = self.generate(context, max_new_tokens=max_new_tokens, temperature=temperature, top_k=top_k, top_p=top_p)
+            # The local fallback should preserve the user's prompt; the richer
+            # context is available to an injected LLM provider instead.
+            text = self.generate(prompt, max_new_tokens=max_new_tokens, temperature=temperature, top_k=top_k, top_p=top_p)
         return BrainResponse(text=text, recalled=recalled, observations=tuple(self.engine.state.observations.recent()), temporal_context=self.temporal_context().as_prompt_context())
     def verify_result(self, observed, expected): return self.agent.submit_result(observed, expected)
     def recover(self, replacement_tasks): return self.agent.recover(replacement_tasks)
