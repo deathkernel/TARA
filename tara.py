@@ -1,7 +1,7 @@
 """Simple two-command interface for TARA.
 
 Usage:
-    python tara.py train data/conversation_v1.jsonl
+    python tara.py train data/curriculum_v2.jsonl
     python tara.py chat
 
 The CLI intentionally hides model/training knobs.  Training uses the supplied
@@ -48,9 +48,9 @@ def _training_config() -> TrainingConfig:
             early_stopping_patience=8,
         )
     return TrainingConfig(
-        steps=1000,
+        steps=2000,
         batch_size=2,
-        context=128,
+        context=64,
         embedding_dim=128,
         ff_dim=256,
         heads=4,
@@ -58,9 +58,9 @@ def _training_config() -> TrainingConfig:
         tokenizer="bpe",
         vocab_size=2048,
         lr=3e-4,
-        validation_split=0.1,
+        validation_split=0.15,
         log_every=25,
-        checkpoint_every=250,
+        checkpoint_every=400,
         early_stopping_patience=10,
         target_validation_accuracy=None,
     )
@@ -149,7 +149,7 @@ def _generate(model, tokenizer, prompt: str, max_new_tokens: int = DEFAULT_MAX_N
 def chat() -> int:
     if not CHECKPOINT.exists():
         print("No trained TARA checkpoint found.")
-        print("Run: python tara.py train data/conversation_v1.jsonl")
+        print("Run: python tara.py train data/curriculum_v2.jsonl")
         return 2
 
     model, tokenizer = load_checkpoint(CHECKPOINT)
