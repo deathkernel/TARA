@@ -57,3 +57,24 @@ def test_controller_rollback():
     result = controller.execute_with_rollback("add", rollback=lambda: state.pop())
     assert result.success and state == [1]
     assert controller.rollback_last() and state == []
+
+
+def test_controller_supports_argument_policy_and_confirmation():
+    controller = ToolController()
+    controller.register(
+        "delete",
+        lambda path: f"deleted:{path}",
+        validator=lambda args: (args["path"].startswith("/safe/"), "path outside safe root"),
+        requires_confirmation=True,
+    )
+    blocked = controller.execute("delete", path="/safe/a")
+    assert not blocked.success
+    assert "confirmation" in blocked.error
+
+    invalid = controller.execute("delete", path="/unsafe/a", confirmed=True)
+    assert not invalid.success
+    assert "safe root" in invalid.error
+
+    allowed = controller.execute("delete", path="/safe/a", confirmed=True)
+    assert allowed.success
+    assert allowed.output == "deleted:/safe/a"
