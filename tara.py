@@ -12,6 +12,7 @@ stopping.  Chat loads the resulting local checkpoint.
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -146,7 +147,41 @@ def _generate(model, tokenizer, prompt: str, max_new_tokens: int = DEFAULT_MAX_N
     return _clean_response(tokenizer.decode(generated))
 
 
+def _chat_transformers(model_name: str) -> int:
+    from src.model_backends import create_backend
+
+    model_id = os.environ.get("TARA_MODEL_ID") or None
+    device = os.environ.get("TARA_DEVICE", "auto")
+    backend = create_backend(model_name, model_id=model_id, device=device)
+    history: list[dict[str, str]] = []
+    print(f"TARA ready ({model_name}). Type 'exit' to stop.")
+    print("")
+    while True:
+        try:
+            user = input("You: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print("")
+            return 0
+        if not user:
+            continue
+        if user.lower() in {"exit", "quit"}:
+            return 0
+        history.append({"role": "user", "content": user})
+        try:
+            response = backend.generate(history)
+        except Exception as exc:
+            history.pop()
+            print(f"TARA model error: {exc}")
+            continue
+        print(f"TARA: {response}")
+        history.append({"role": "assistant", "content": response})
+
+
 def chat() -> int:
+    external_model = os.environ.get("TARA_MODEL", "").strip().lower()
+    if external_model:
+        return _chat_transformers(external_model)
+
     if not CHECKPOINT.exists():
         print("No trained TARA checkpoint found.")
         print("Run: python tara.py train data/curriculum_v2.jsonl")
