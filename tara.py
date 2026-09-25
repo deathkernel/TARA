@@ -29,11 +29,11 @@ ROLE_MARKERS = ("<|user|>", "<|assistant|>")
 
 
 def _training_config() -> TrainingConfig:
-    """Use a compact communication model so local CPU training stays practical."""
+    """Use a low-heat communication model for gradual local training."""
     if torch.cuda.is_available():
         return TrainingConfig(
-            steps=1200,
-            batch_size=16,
+            steps=900,
+            batch_size=4,
             context=128,
             embedding_dim=128,
             ff_dim=256,
@@ -44,12 +44,12 @@ def _training_config() -> TrainingConfig:
             lr=3e-4,
             validation_split=0.1,
             log_every=25,
-            checkpoint_every=250,
+            checkpoint_every=225,
             early_stopping_patience=8,
         )
     return TrainingConfig(
-        steps=1800,
-        batch_size=8,
+        steps=1000,
+        batch_size=2,
         context=128,
         embedding_dim=128,
         ff_dim=256,
@@ -60,7 +60,7 @@ def _training_config() -> TrainingConfig:
         lr=3e-4,
         validation_split=0.1,
         log_every=25,
-        checkpoint_every=300,
+        checkpoint_every=250,
         early_stopping_patience=10,
         target_validation_accuracy=None,
     )
@@ -75,7 +75,7 @@ def train(dataset: str) -> int:
     print(f"TARA training from: {dataset_path}")
     print(f"Checkpoint: {CHECKPOINT}")
     print("Training policy: validation loss + validation token accuracy + early stopping")
-    print("Tokenizer: character-level (fast and deterministic)")
+    print("Tokenizer: BPE")
     print("")
 
     summary = TrainingPipeline(_training_config()).train(
@@ -139,8 +139,6 @@ def _generate(model, tokenizer, prompt: str, max_new_tokens: int = DEFAULT_MAX_N
             generated.append(next_id)
             context.append(next_id)
 
-            # Decode only newly generated text so the prompt cannot trigger
-            # a stop condition.
             partial = tokenizer.decode(generated)
             if any(marker in partial for marker in ROLE_MARKERS):
                 break
@@ -172,15 +170,11 @@ def chat() -> int:
         if user.lower() in {"exit", "quit"}:
             return 0
 
-        history.append(f"<|user|>\n{user}\n<|assistant|>")
+        history.append(f"<|user|>\n{user}\n<|assistant|>\n")
 
-        # The model has a 128-token context by default. Keep the newest turns
-        # so chat never exceeds its context window.
         prompt = "".join(history)
         encoded = tokenizer.encode(prompt)
         if len(encoded) > model.max_context:
-            # Rebuild from newest complete turns rather than cutting through
-            # a UTF-8/role boundary.
             kept: list[str] = []
             total = 0
             for turn in reversed(history):
