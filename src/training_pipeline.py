@@ -326,16 +326,19 @@ class TrainingPipeline:
                 validation_metrics = evaluate_metrics(model, validation_tokens, self.config.batch_size, self.config.context, self.device)
                 last_validation_loss = None if validation_metrics is None else validation_metrics[0]
                 last_validation_accuracy = None if validation_metrics is None else validation_metrics[1]
-                tracker.log(TrainingMetric(update_step, last_train_loss, last_validation_loss, current_lr, last_validation_accuracy)
+                tracker.log(TrainingMetric(update_step, last_train_loss, last_validation_loss, current_lr, last_validation_accuracy))
                 decision = early_stopping.update(last_validation_loss) if last_validation_loss is not None else None
                 print(f"step={update_step:5d} train_loss={last_train_loss:.4f} " + (f"val_loss={last_validation_loss:.4f} val_accuracy={last_validation_accuracy:.2%} " if last_validation_loss is not None else "") + f"lr={current_lr:.6g} device={self.device}")
                 if decision is not None and decision.improved:
                     self._save(output_path, model, tokenizer, optimizer, update_step, last_train_loss, last_validation_loss, fingerprint, scheduler, early_stopping, tracker, last_validation_accuracy)
+                if self.config.target_validation_accuracy is not None and last_validation_accuracy is not None and last_validation_accuracy >= self.config.target_validation_accuracy:
+                    stopped_early = True
+                    break
                 if decision is not None and decision.should_stop:
                     stopped_early = True
                     break
                 model.train()
             if self.config.checkpoint_every and update_step % self.config.checkpoint_every == 0:
-                self._save(output_path, model, tokenizer, optimizer, update_step, last_train_loss, last_validation_loss, fingerprint, scheduler, early_stopping, tracker)
-        self._save(output_path, model, tokenizer, optimizer, update_step, last_train_loss, last_validation_loss, fingerprint, scheduler, early_stopping, tracker)
+                self._save(output_path, model, tokenizer, optimizer, update_step, last_train_loss, last_validation_loss, fingerprint, scheduler, early_stopping, tracker, last_validation_accuracy)
+        self._save(output_path, model, tokenizer, optimizer, update_step, last_train_loss, last_validation_loss, fingerprint, scheduler, early_stopping, tracker, last_validation_accuracy)
         return TrainingSummary(str(output_path), start_step, update_step, last_train_loss, last_validation_loss, last_validation_accuracy, str(self.device), fingerprint, stopped_early, str(tracker_path))
