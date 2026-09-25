@@ -680,6 +680,51 @@ python tara.py chat
 
 The older `conversation_v1.jsonl` workflow remains available for conversation-focused experiments.
 
+## Optional external model backends
+
+TARA keeps its native neural core as the default, but the chat runtime can also use compatible Hugging Face checkpoints through a single adapter. The supported aliases are:
+
+- `llama` → Meta Llama 3.2 3B Instruct
+- `codellama` → Meta Code Llama 7B Instruct
+- `gemma` → Google Gemma 3 4B IT
+- `mistral` → Mistral Small 3.2 24B Instruct
+
+The Llama inference repository and Llama Cookbook are treated as source/reference material rather than duplicated runtimes; the common Transformers adapter avoids maintaining four separate inference implementations.
+
+Install the optional dependencies:
+
+```bash
+pip install -r requirements-models.txt
+```
+
+Then select a backend without changing the two-command CLI:
+
+**Windows CMD**
+```cmd
+set TARA_MODEL=llama
+python tara.py chat
+```
+
+For Gemma:
+```cmd
+set TARA_MODEL=gemma
+python tara.py chat
+```
+
+For Mistral:
+```cmd
+set TARA_MODEL=mistral
+python tara.py chat
+```
+
+For Code Llama:
+```cmd
+set TARA_MODEL=codellama
+python tara.py chat
+```
+
+A custom compatible Transformers checkpoint can be selected with `TARA_MODEL_ID`. Model weights are downloaded by Hugging Face on first use and are not committed to this repository. Gated Meta checkpoints require the user's own approved Hugging Face/Meta access.
+
 # Running methods
 
 For the local conversational neural core, use this workflow from the repository root.
