@@ -16,6 +16,9 @@ def load_checkpoint(path):
     if tokenizer_type == "bpe":
         tokenizer = BPETokenizer("a", vocab_size=max(2, len(tokenizer_data["itos"])))
         tokenizer.merges = [tuple(pair) for pair in tokenizer_data.get("merges", [])]
+        tokenizer._merge_ranks = {
+            pair: index for index, pair in enumerate(tokenizer.merges)
+        }
     elif tokenizer_type == "char":
         tokenizer = CharTokenizer("a")
     else:
