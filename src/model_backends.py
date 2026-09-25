@@ -53,6 +53,7 @@ class TransformersBackend:
         self.dtype = dtype
         self.tokenizer = None
         self.model = None
+        self._generation_cache = None
 
     def _load(self) -> None:
         if self.model is not None:
@@ -86,6 +87,11 @@ class TransformersBackend:
         if self.device != "auto":
             self.model.to(self.device)
         self.model.eval()
+        self._generation_cache = None
+
+    def clear_cache(self) -> None:
+        """Release TARA-owned generation state; model-specific KV cache remains managed by Transformers."""
+        self._generation_cache = None
 
     def stream_generate(
         self,
