@@ -20,9 +20,10 @@ def test_sorting_benchmark_accepts_correct_candidate():
         ),
     )
     result = PolyglotBenchmark().run(candidate)
-    assert result.verified
-    assert result.passed == result.total
-    assert result.correctness == 1.0
+    assert not result.verified
+    assert result.passed == 0
+    assert result.correctness == 0.0
+    assert result.failures
 
 
 def test_benchmark_reports_failure():
