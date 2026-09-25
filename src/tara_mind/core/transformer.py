@@ -153,3 +153,20 @@ class FastTinyLanguageModel(nn.Module):
     @torch.no_grad()
     def next_token(self, token_ids):
         return self(token_ids)[:, -1, :].argmax(dim=-1)
+
+    @torch.no_grad()
+    def sample_next_token(self, token_ids, temperature=1.0, top_k=None, rng=None):
+        """Sample one next token while preserving the legacy TARA brain API."""
+        if temperature <= 0:
+            raise ValueError("temperature must be positive")
+        logits = self(token_ids)[:, -1, :][0] / temperature
+        if top_k is not None:
+            if top_k <= 0:
+                raise ValueError("top_k must be positive")
+            top_k = min(int(top_k), logits.numel())
+            values, indices = torch.topk(logits, top_k)
+            probabilities = torch.softmax(values, dim=-1)
+            choice = torch.multinomial(probabilities, 1, generator=rng)
+            return int(indices[choice].item())
+        probabilities = torch.softmax(logits, dim=-1)
+        return int(torch.multinomial(probabilities, 1, generator=rng).item())
