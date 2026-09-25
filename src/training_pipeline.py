@@ -155,13 +155,19 @@ def _tokenize_corpus(texts: list[str], tokenizer: CharTokenizer | BPETokenizer, 
     return torch.tensor(ids, dtype=torch.long)
 
 def _sample_batch(tokens: torch.Tensor, batch_size: int, context: int, device: torch.device):
+    """Sample batches with vectorized indexing instead of Python per-sample loops."""
     maximum = len(tokens) - context
     if maximum <= 0:
         raise ValueError("token corpus is shorter than context + 1")
-    starts = torch.randint(0, maximum, (batch_size,))
-    x = torch.stack([tokens[i:i + context] for i in starts])
-    y = torch.stack([tokens[i + 1:i + context + 1] for i in starts])
-    return x.to(device), y.to(device)
+    starts = torch.randint(0, maximum, (batch_size,), device=tokens.device)
+    offsets = torch.arange(context, device=tokens.device)
+    positions = starts[:, None] + offsets[None, :]
+    x = tokens[positions]
+    y = tokens[positions + 1]
+    if x.device != device:
+        x = x.to(device, non_blocking=True)
+        y = y.to(device, non_blocking=True)
+    return x, y
 
 @torch.no_grad()
 def evaluate_metrics(model, tokens: torch.Tensor | None, batch_size: int, context: int, device: torch.device) -> tuple[float, float] | None:
@@ -207,7 +213,10 @@ class TrainingPipeline:
         train_tokens = _tokenize_corpus(train_texts, tokenizer, self.config.context)
         validation_tokens = _tokenize_corpus(validation_texts, tokenizer, self.config.context) if validation_texts else None
         model = FastTinyLanguageModel(**self.config.model_config(tokenizer.vocab_size), seed=self.config.seed).to(self.device)
-        optimizer = torch.optim.AdamW(model.parameters(), lr=self.config.lr)
+        try:
+            optimizer = torch.optim.AdamW(model.parameters(), lr=self.config.lr, fused=self.device.type == "cuda")
+        except (TypeError, RuntimeError):
+            optimizer = torch.optim.AdamW(model.parameters(), lr=self.config.lr)
         return model, tokenizer, optimizer, train_tokens, validation_tokens
 
     @staticmethod
@@ -292,6 +301,10 @@ class TrainingPipeline:
             early_stopping = EarlyStopping(self.config.early_stopping_patience, self.config.early_stopping_min_delta)
             early_stopping.best = state.get("best")
             early_stopping.bad_steps = int(state.get("bad_steps", 0))
+        if self.device.type == "cuda":
+            train_tokens = train_tokens.to(self.device)
+            if validation_tokens is not None:
+                validation_tokens = validation_tokens.to(self.device)
         total_steps = start_step + self.config.steps
         scheduler = WarmupCosineScheduler(total_steps=max(1, total_steps), warmup_steps=min(self.config.warmup_steps, max(1, total_steps)), min_lr_ratio=self.config.min_lr_ratio)
         random.seed(self.config.seed + start_step)
@@ -309,7 +322,8 @@ class TrainingPipeline:
             accumulated_loss = 0.0
             for _ in range(self.config.gradient_accumulation_steps):
                 x, y = _sample_batch(train_tokens, self.config.batch_size, self.config.context, self.device)
-                loss = model.loss(x, y)
+                with torch.autocast(device_type="cuda", dtype=torch.float16, enabled=self.device.type == "cuda"):
+                    loss = model.loss(x, y)
                 (loss / self.config.gradient_accumulation_steps).backward()
                 accumulated_loss += float(loss.item())
             torch.nn.utils.clip_grad_norm_(model.parameters(), self.config.grad_clip)
