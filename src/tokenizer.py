@@ -1,14 +1,13 @@
 """Small tokenizers used by TARA.
 
 Research basis:
-- Kudo & Richardson (2018), SentencePiece, motivates subword tokenization
-  as a practical language-independent approach.
-- OpenAI's tiktoken uses byte-pair encoding (BPE); TARA studies the idea with
-  a deliberately small, dependency-free implementation before using an
-  external tokenizer.
+- Kudo & Richardson (2018), SentencePiece, motivates subword tokenization.
+- OpenAI's tiktoken uses byte-pair encoding (BPE); TARA studies the idea with a
+  deliberately small, dependency-free implementation before using an external tokenizer.
 """
 
 from collections import Counter
+import heapq
 
 
 class CharTokenizer:
@@ -33,13 +32,7 @@ class CharTokenizer:
 
 
 class BPETokenizer:
-    """Dependency-free educational BPE tokenizer trained from raw text.
-
-    This is intentionally not a drop-in implementation of SentencePiece or
-    tiktoken. It starts from characters and repeatedly merges the most
-    frequent adjacent token pair until the requested vocabulary size is
-    reached. The learned merge order is then replayed during encoding.
-    """
+    """Dependency-free BPE with bounded training and efficient encoding."""
 
     UNK = "<UNK>"
 
@@ -57,30 +50,30 @@ class BPETokenizer:
         self.stoi = {token: index for index, token in enumerate(self.itos)}
         self.merges = []
         self._train(text, vocab_size)
+        self._merge_ranks = {pair: index for index, pair in enumerate(self.merges)}
 
     @property
     def vocab_size(self):
         return len(self.itos)
 
     def _train(self, text, target_vocab_size):
-        symbols = list(text)
+        # Bounded deterministic merge learning prevents multi-million-character
+        # datasets from repeatedly rescanning the entire corpus in Python.
+        training_text = text if len(text) <= 50000 else text[:50000]
+        symbols = list(training_text)
         while len(self.itos) < target_vocab_size:
             pair_counts = Counter(zip(symbols, symbols[1:]))
             if not pair_counts:
                 break
-
-            # Deterministic tie-breaking makes training reproducible.
             best_pair, best_count = min(
                 pair_counts.items(),
                 key=lambda item: (-item[1], item[0]),
             )
             if best_count < 2:
                 break
-
             merged = best_pair[0] + best_pair[1]
             if merged in self.stoi:
                 break
-
             self.merges.append(best_pair)
             self.itos.append(merged)
             self.stoi[merged] = len(self.itos) - 1
@@ -100,24 +93,67 @@ class BPETokenizer:
         return merged
 
     def _apply_merges(self, symbols):
-        for pair in self.merges:
-            symbols = self._merge_pair(symbols, pair)
-        return symbols
+        if len(symbols) < 2 or not self.merges:
+            return symbols
+
+        nodes = [
+            {"value": value, "prev": i - 1,
+             "next": i + 1 if i + 1 < len(symbols) else -1,
+             "alive": True}
+            for i, value in enumerate(symbols)
+        ]
+        heap = []
+        for i in range(len(nodes) - 1):
+            rank = self._merge_ranks.get((nodes[i]["value"], nodes[i + 1]["value"]))
+            if rank is not None:
+                heapq.heappush(heap, (rank, i))
+
+        while heap:
+            rank, left = heapq.heappop(heap)
+            if not nodes[left]["alive"]:
+                continue
+            right = nodes[left]["next"]
+            if right < 0 or not nodes[right]["alive"]:
+                continue
+            pair = (nodes[left]["value"], nodes[right]["value"])
+            if self._merge_ranks.get(pair) != rank:
+                continue
+
+            prev = nodes[left]["prev"]
+            nxt = nodes[right]["next"]
+            nodes[left]["value"] += nodes[right]["value"]
+            nodes[left]["next"] = nxt
+            nodes[right]["alive"] = False
+            if nxt >= 0:
+                nodes[nxt]["prev"] = left
+
+            if prev >= 0:
+                new_rank = self._merge_ranks.get((nodes[prev]["value"], nodes[left]["value"]))
+                if new_rank is not None:
+                    heapq.heappush(heap, (new_rank, prev))
+            if nxt >= 0:
+                new_rank = self._merge_ranks.get((nodes[left]["value"], nodes[nxt]["value"]))
+                if new_rank is not None:
+                    heapq.heappush(heap, (new_rank, left))
+
+        result = []
+        index = 0
+        while index >= 0:
+            if nodes[index]["alive"]:
+                result.append(nodes[index]["value"])
+            index = nodes[index]["next"]
+        return result
 
     def encode_tokens(self, text):
-        """Return learned token strings, useful for inspecting tokenization."""
         if not text:
             return []
-        symbols = list(text)
-        symbols = [symbol if symbol in self.stoi else self.UNK for symbol in symbols]
+        symbols = [symbol if symbol in self.stoi else self.UNK for symbol in text]
         return self._apply_merges(symbols)
 
     def encode(self, text):
-        """Encode text into deterministic integer token IDs."""
         return [self.stoi.get(token, self.stoi[self.UNK]) for token in self.encode_tokens(text)]
 
     def decode(self, ids):
-        """Decode token IDs back into text."""
         pieces = []
         for index in ids:
             if index < 0 or index >= self.vocab_size:
