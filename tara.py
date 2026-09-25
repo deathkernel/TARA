@@ -12,7 +12,6 @@ stopping.  Chat loads the resulting local checkpoint.
 from __future__ import annotations
 
 import argparse
-import re
 import sys
 from pathlib import Path
 
@@ -23,6 +22,10 @@ from src.training_pipeline import TrainingConfig, TrainingPipeline
 
 CHECKPOINT = Path("checkpoints/tara.pt")
 DEFAULT_MAX_NEW_TOKENS = 180
+GENERATION_TEMPERATURE = 0.65
+GENERATION_TOP_K = 40
+GENERATION_REPETITION_PENALTY = 1.08
+ROLE_MARKERS = ("<|user|>", "<|assistant|>")
 
 
 def _training_config() -> TrainingConfig:
@@ -93,45 +96,53 @@ def train(dataset: str) -> int:
 
 
 def _clean_response(text: str) -> str:
-    """Keep only the assistant's generated turn."""
+    """Keep only the assistant's generated turn and remove role leakage."""
     if "<|assistant|>" in text:
         text = text.rsplit("<|assistant|>", 1)[-1]
-    for marker in ("<|user|>", "<|assistant|>"):
+    for marker in ROLE_MARKERS:
         if marker in text:
             text = text.split(marker, 1)[0]
     return text.strip()
 
 
 def _generate(model, tokenizer, prompt: str, max_new_tokens: int = DEFAULT_MAX_NEW_TOKENS) -> str:
-    ids = tokenizer.encode(prompt)
-    if not ids:
+    """Generate only new assistant tokens, stopping at the next role marker."""
+    prompt_ids = tokenizer.encode(prompt)
+    if not prompt_ids:
         return ""
 
-    # Keep the model input inside its context window.
-    ids = ids[-model.max_context:]
-    generated = list(ids)
+    prompt_ids = prompt_ids[-model.max_context:]
+    generated: list[int] = []
+    context = list(prompt_ids)
+    vocab_size = tokenizer.vocab_size
 
     with torch.no_grad():
         for _ in range(max_new_tokens):
-            context = generated[-model.max_context:]
-            x = torch.tensor([context], dtype=torch.long)
-            logits = model(x)[0, -1]
-            # Conservative sampling gives a small local model a better chance
-            # of staying on-topic than unrestricted sampling.
-            temperature = 0.75
-            logits = logits / temperature
-            top_k = min(40, logits.numel())
+            x = torch.tensor([context[-model.max_context:]], dtype=torch.long)
+            logits = model(x)[0, -1].clone()
+
+            if generated:
+                for token_id in set(generated[-64:]):
+                    if 0 <= token_id < logits.numel():
+                        if logits[token_id] > 0:
+                            logits[token_id] /= GENERATION_REPETITION_PENALTY
+                        else:
+                            logits[token_id] *= GENERATION_REPETITION_PENALTY
+
+            logits = logits / GENERATION_TEMPERATURE
+            top_k = min(GENERATION_TOP_K, vocab_size, logits.numel())
             values, indices = torch.topk(logits, top_k)
             probabilities = torch.softmax(values, dim=-1)
-            next_id = indices[torch.multinomial(probabilities, 1)].item()
-            generated.append(int(next_id))
+            next_id = int(indices[torch.multinomial(probabilities, 1)].item())
 
-            decoded = tokenizer.decode(generated)
-            if "<|user|>" in decoded or decoded.endswith("\n"):
-                # A newline is a natural stopping point for the small
-                # conversation model; the marker check prevents turn leakage.
-                if "<|user|>" in decoded:
-                    break
+            generated.append(next_id)
+            context.append(next_id)
+
+            # Decode only newly generated text so the prompt cannot trigger
+            # a stop condition.
+            partial = tokenizer.decode(generated)
+            if any(marker in partial for marker in ROLE_MARKERS):
+                break
 
     return _clean_response(tokenizer.decode(generated))
 
@@ -160,7 +171,7 @@ def chat() -> int:
         if user.lower() in {"exit", "quit"}:
             return 0
 
-        history.append(f"<|user|>\n{user}\n<|assistant|>\n")
+        history.append(f"<|user|>\n{user}\n<|assistant|>")
 
         # The model has a 128-token context by default. Keep the newest turns
         # so chat never exceeds its context window.
