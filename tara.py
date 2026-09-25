@@ -48,20 +48,21 @@ def _training_config() -> TrainingConfig:
             early_stopping_patience=8,
         )
     return TrainingConfig(
-        steps=1000,
+        steps=3000,
         batch_size=8,
         context=128,
-        embedding_dim=96,
-        ff_dim=192,
+        embedding_dim=128,
+        ff_dim=256,
         heads=4,
-        num_layers=2,
+        num_layers=4,
         tokenizer="char",
         vocab_size=512,
         lr=3e-4,
         validation_split=0.1,
-        log_every=10,
-        checkpoint_every=100,
-        early_stopping_patience=8,
+        log_every=25,
+        checkpoint_every=250,
+        early_stopping_patience=12,
+        target_validation_accuracy=None,
     )
 
 
