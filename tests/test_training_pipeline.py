@@ -183,3 +183,10 @@ def test_curriculum_v2_has_shorter_lesson_records():
     assert all(row["level"] in range(1, 13) for row in rows)
     assert all(row["text"].count("<|user|>") == row["text"].count("<|assistant|>") for row in rows)
     assert all(row["text"].count("<|user|>") >= 4 for row in rows)
+
+
+def test_external_model_registry_has_supported_families():
+    from src.model_backends import MODEL_REGISTRY
+
+    assert {"llama", "codellama", "gemma", "mistral"} <= set(MODEL_REGISTRY)
+    assert all(spec.model_id for spec in MODEL_REGISTRY.values())
