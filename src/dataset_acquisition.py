@@ -178,7 +178,7 @@ class HuggingFaceStreamer:
         seed: int = 42,
         shuffle_buffer: int = 1000,
         api_base: str = "https://datasets-server.huggingface.co",
-        allow_datasets_fallback: bool = False,
+        allow_datasets_fallback: bool = True,
     ) -> None:
         if min_chars < 0 or max_chars < min_chars:
             raise ValueError("invalid text length bounds")
