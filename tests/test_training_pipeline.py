@@ -89,7 +89,7 @@ def test_phase14_writes_self_contained_checkpoint(tmp_path):
     assert summary.final_step == 2
     assert checkpoint.exists()
     payload = torch.load(checkpoint, map_location="cpu", weights_only=False)
-    assert payload["format_version"] == 4
+    assert payload["format_version"] == 5
     assert payload["step"] == 2
     assert "model_state" in payload
     assert "optimizer_state" in payload
@@ -148,3 +148,27 @@ def test_bpe_tokenizer_is_default_and_persisted(tmp_path):
     assert payload["format_version"] == 4
     assert payload["tokenizer"]["type"] == "bpe"
     assert payload["tokenizer"]["merges"]
+
+    
+def test_tokenize_corpus_keeps_records_separate():
+    from src.tokenizer import CharTokenizer
+    from src.training_pipeline import _tokenize_corpus
+
+    tokenizer = CharTokenizer("a" * 80 + "b" * 80)
+    sequences = _tokenize_corpus(["a" * 80, "b" * 80], tokenizer, context=16)
+    assert len(sequences) == 2
+    assert sequences[0].shape[0] == 80
+    assert sequences[1].shape[0] == 80
+
+
+def test_sample_batch_never_crosses_record_boundary():
+    from src.tokenizer import CharTokenizer
+    from src.training_pipeline import _sample_batch, _tokenize_corpus
+
+    tokenizer = CharTokenizer("a" * 80 + "b" * 80)
+    sequences = _tokenize_corpus(["a" * 80, "b" * 80], tokenizer, context=16)
+    x, y = _sample_batch(sequences, batch_size=32, context=16, device=torch.device("cpu"))
+    assert x.shape == (32, 16)
+    assert y.shape == (32, 16)
+    for row in x:
+        assert len(set(row.tolist())) == 1
