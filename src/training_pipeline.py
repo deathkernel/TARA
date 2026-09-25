@@ -11,11 +11,11 @@ from typing import Iterable
 
 import torch
 
-from src.tokenizer import CharTokenizer
+from src.tokenizer import BPETokenizer, CharTokenizer
 from src.torch_language_model import FastTinyLanguageModel
 from src.training_hardening import EarlyStopping, ExperimentTracker, TrainingControls, TrainingMetric, WarmupCosineScheduler
 
-CHECKPOINT_FORMAT_VERSION = 3
+CHECKPOINT_FORMAT_VERSION = 5
 
 @dataclass(frozen=True)
 class TrainingConfig:
@@ -28,6 +28,8 @@ class TrainingConfig:
     num_layers: int = 2
     dropout: float = 0.1
     tie_embeddings: bool = True
+    tokenizer: str = "bpe"
+    vocab_size: int = 2048
     lr: float = 3e-4
     validation_split: float = 0.1
     seed: int = 42
@@ -39,6 +41,7 @@ class TrainingConfig:
     min_lr_ratio: float = 0.1
     early_stopping_patience: int = 5
     early_stopping_min_delta: float = 0.0
+    target_validation_accuracy: float | None = None
 
     def __post_init__(self) -> None:
         if self.steps <= 0 or self.batch_size <= 0 or self.context <= 0:
@@ -49,6 +52,10 @@ class TrainingConfig:
             raise ValueError("embedding_dim must be divisible by heads")
         if not 0.0 <= self.dropout < 1.0:
             raise ValueError("dropout must be in [0, 1)")
+        if self.tokenizer not in {"char", "bpe"}:
+            raise ValueError("tokenizer must be char or bpe")
+        if self.vocab_size <= 0:
+            raise ValueError("vocab_size must be positive")
         if self.lr <= 0:
             raise ValueError("lr must be positive")
         if not 0.0 <= self.validation_split < 1.0:
@@ -57,6 +64,8 @@ class TrainingConfig:
             raise ValueError("log_every must be positive")
         if self.checkpoint_every < 0 or self.grad_clip <= 0:
             raise ValueError("checkpoint_every must be non-negative and grad_clip positive")
+        if self.target_validation_accuracy is not None and not 0.0 < self.target_validation_accuracy <= 1.0:
+            raise ValueError("target_validation_accuracy must be in (0, 1]")
         TrainingControls(
             gradient_accumulation_steps=self.gradient_accumulation_steps,
             warmup_steps=self.warmup_steps,
@@ -78,6 +87,7 @@ class TrainingSummary:
     final_step: int
     train_loss: float
     validation_loss: float | None
+    validation_accuracy: float | None
     device: str
     dataset_fingerprint: str
     stopped_early: bool = False
@@ -132,43 +142,67 @@ def split_texts(texts: list[str], validation_split: float, seed: int) -> tuple[l
     validation_indices = set(indices[:validation_count])
     return ([text for i, text in enumerate(texts) if i not in validation_indices], [text for i, text in enumerate(texts) if i in validation_indices])
 
-def _tokenize_corpus(texts: list[str], tokenizer: CharTokenizer, context: int) -> torch.Tensor:
-    ids: list[int] = []
-    separator = tokenizer.stoi.get("\n", 0)
+def _tokenize_corpus(texts: list[str], tokenizer: CharTokenizer | BPETokenizer, context: int) -> list[torch.Tensor]:
+    """Encode each record separately so training never crosses a record boundary."""
+    sequences: list[torch.Tensor] = []
     for text in texts:
         encoded = tokenizer.encode(text)
-        if len(encoded) >= 2:
-            ids.extend(encoded)
-            ids.append(separator)
-    if len(ids) <= context:
-        raise ValueError("dataset is shorter than the requested context")
-    return torch.tensor(ids, dtype=torch.long)
+        if len(encoded) >= context + 1:
+            sequences.append(torch.tensor(encoded, dtype=torch.long))
+    if not sequences:
+        raise ValueError("dataset has no record long enough for the requested context")
+    return sequences
 
-def _sample_batch(tokens: torch.Tensor, batch_size: int, context: int, device: torch.device):
-    maximum = len(tokens) - context
-    if maximum <= 0:
-        raise ValueError("token corpus is shorter than context + 1")
-    starts = torch.randint(0, maximum, (batch_size,))
-    x = torch.stack([tokens[i:i + context] for i in starts])
-    y = torch.stack([tokens[i + 1:i + context + 1] for i in starts])
-    return x.to(device), y.to(device)
+def _sample_batch(sequences: list[torch.Tensor], batch_size: int, context: int, device: torch.device):
+    """Sample fixed-length windows entirely inside individual records."""
+    if not sequences:
+        raise ValueError("token sequence collection is empty")
+    valid = [index for index, sequence in enumerate(sequences) if len(sequence) > context]
+    if not valid:
+        raise ValueError("dataset has no record long enough for the requested context")
+    sequence_indices = torch.randint(0, len(valid), (batch_size,)).tolist()
+    rows = []
+    targets = []
+    for choice in sequence_indices:
+        sequence = sequences[valid[choice]]
+        start = random.randrange(0, len(sequence) - context)
+        rows.append(sequence[start:start + context])
+        targets.append(sequence[start + 1:start + context + 1])
+    x = torch.stack(rows).to(device, non_blocking=True)
+    y = torch.stack(targets).to(device, non_blocking=True)
+    return x, y
+
+@torch.no_grad()
+def evaluate_metrics(model, sequences: list[torch.Tensor] | None, batch_size: int, context: int, device: torch.device) -> tuple[float, float] | None:
+    """Measure held-out next-token loss and exact token accuracy without crossing records."""
+    if not sequences:
+        return None
+    windows: list[tuple[int, int]] = []
+    for sequence_index, sequence in enumerate(sequences):
+        windows.extend((sequence_index, start) for start in range(max(0, len(sequence) - context)))
+    if not windows:
+        return None
+    if len(windows) > 256:
+        stride = max(1, len(windows) // 256)
+        windows = windows[::stride][:256]
+    model.eval()
+    losses = []
+    correct = 0
+    total = 0
+    for offset in range(0, len(windows), batch_size):
+        batch = windows[offset:offset + batch_size]
+        x = torch.stack([sequences[i][start:start + context] for i, start in batch]).to(device)
+        y = torch.stack([sequences[i][start + 1:start + context + 1] for i, start in batch]).to(device)
+        logits = model(x)
+        losses.append(float(torch.nn.functional.cross_entropy(logits.reshape(-1, model.vocab_size), y.reshape(-1)).item()))
+        correct += int((logits.argmax(dim=-1) == y).sum().item())
+        total += int(y.numel())
+    return (sum(losses) / len(losses), correct / total) if losses and total else None
 
 @torch.no_grad()
 def evaluate(model, tokens: torch.Tensor | None, batch_size: int, context: int, device: torch.device) -> float | None:
-    if tokens is None or len(tokens) <= context + 1:
-        return None
-    model.eval()
-    starts = list(range(len(tokens) - context - 1))
-    if len(starts) > 256:
-        stride = max(1, len(starts) // 256)
-        starts = starts[::stride][:256]
-    losses = []
-    for offset in range(0, len(starts), batch_size):
-        batch_starts = starts[offset:offset + batch_size]
-        x = torch.stack([tokens[i:i + context] for i in batch_starts]).to(device)
-        y = torch.stack([tokens[i + 1:i + context + 1] for i in batch_starts]).to(device)
-        losses.append(float(model.loss(x, y).item()))
-    return sum(losses) / len(losses) if losses else None
+    metrics = evaluate_metrics(model, tokens, batch_size, context, device)
+    return None if metrics is None else metrics[0]
 
 class TrainingPipeline:
     """Train, validate, checkpoint, resume, and track a TARA language model."""
@@ -182,22 +216,40 @@ class TrainingPipeline:
 
     def _new_state(self, texts: list[str]):
         train_texts, validation_texts = split_texts(texts, self.config.validation_split, self.config.seed)
-        tokenizer = CharTokenizer("\n".join(train_texts))
+        corpus = "\n".join(train_texts)
+        print(f"Preparing tokenizer ({self.config.tokenizer})...")
+        tokenizer = (BPETokenizer(corpus, vocab_size=self.config.vocab_size) if self.config.tokenizer == "bpe" else CharTokenizer(corpus))
+        print(f"Tokenizer ready: vocab={tokenizer.vocab_size}")
+        print("Encoding training corpus...")
         train_tokens = _tokenize_corpus(train_texts, tokenizer, self.config.context)
         validation_tokens = _tokenize_corpus(validation_texts, tokenizer, self.config.context) if validation_texts else None
+        print(f"Training tokens: {len(train_tokens):,}; validation tokens: {0 if validation_tokens is None else len(validation_tokens):,}")
         model = FastTinyLanguageModel(**self.config.model_config(tokenizer.vocab_size), seed=self.config.seed).to(self.device)
-        optimizer = torch.optim.AdamW(model.parameters(), lr=self.config.lr)
+        try:
+            optimizer = torch.optim.AdamW(model.parameters(), lr=self.config.lr, fused=self.device.type == "cuda")
+        except (TypeError, RuntimeError):
+            optimizer = torch.optim.AdamW(model.parameters(), lr=self.config.lr)
         return model, tokenizer, optimizer, train_tokens, validation_tokens
 
     @staticmethod
-    def _load_tokenizer(payload: dict) -> CharTokenizer:
+    def _load_tokenizer(payload: dict) -> CharTokenizer | BPETokenizer:
         data = payload.get("tokenizer")
         if not isinstance(data, dict) or not isinstance(data.get("itos"), list):
             raise ValueError("checkpoint tokenizer is missing or invalid")
-        tokenizer = CharTokenizer("a")
-        tokenizer.itos = list(data["itos"])
-        tokenizer.stoi = dict(data["stoi"])
-        return tokenizer
+        kind = data.get("type", "char")
+        if kind == "char":
+            tokenizer = CharTokenizer("a")
+            tokenizer.itos = list(data["itos"])
+            tokenizer.stoi = dict(data["stoi"])
+            return tokenizer
+        if kind == "bpe":
+            tokenizer = BPETokenizer("a", vocab_size=max(2, len(data["itos"])))
+            tokenizer.itos = list(data["itos"])
+            tokenizer.stoi = dict(data["stoi"])
+            tokenizer.merges = [tuple(pair) for pair in data.get("merges", [])]
+            tokenizer._merge_ranks = {pair: index for index, pair in enumerate(tokenizer.merges)}
+            return tokenizer
+        raise ValueError("unsupported checkpoint tokenizer type")
 
     def _resume_state(self, checkpoint_path: Path, texts: list[str]):
         payload = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
@@ -223,16 +275,21 @@ class TrainingPipeline:
             raise ValueError("checkpoint step is invalid")
         return model, tokenizer, optimizer, train_tokens, validation_tokens, step, payload
 
-    def _save(self, path: Path, model, tokenizer, optimizer, step, train_loss, validation_loss, fingerprint, scheduler, early_stopping, tracker):
+    def _save(self, path: Path, model, tokenizer, optimizer, step, train_loss, validation_loss, fingerprint, scheduler, early_stopping, tracker, validation_accuracy=None):
         path.parent.mkdir(parents=True, exist_ok=True)
         torch.save({
             "format_version": CHECKPOINT_FORMAT_VERSION,
             "step": step,
             "model_state": model.state_dict(),
             "model_config": self.config.model_config(tokenizer.vocab_size),
-            "tokenizer": {"itos": tokenizer.itos, "stoi": tokenizer.stoi},
+            "tokenizer": {
+                "type": "bpe" if isinstance(tokenizer, BPETokenizer) else "char",
+                "itos": tokenizer.itos,
+                "stoi": tokenizer.stoi,
+                "merges": tokenizer.merges if isinstance(tokenizer, BPETokenizer) else [],
+            },
             "optimizer_state": optimizer.state_dict(),
-            "metrics": {"train_loss": float(train_loss), "validation_loss": None if validation_loss is None else float(validation_loss)},
+            "metrics": {"train_loss": float(train_loss), "validation_loss": None if validation_loss is None else float(validation_loss), "validation_accuracy": None if validation_accuracy is None else float(validation_accuracy)},
             "dataset_fingerprint": fingerprint,
             "config": asdict(self.config),
             "hardening_config": self.config.hardening_config(),
@@ -242,7 +299,9 @@ class TrainingPipeline:
         }, path)
 
     def train(self, data: str | Path, output: str | Path, resume: str | Path | None = None, metrics_path: str | Path | None = None) -> TrainingSummary:
+        print(f"Loading dataset: {data}")
         texts = load_training_texts(data)
+        print(f"Loaded {len(texts):,} records")
         fingerprint = _fingerprint(texts)
         output_path = Path(output)
         tracker_path = Path(metrics_path) if metrics_path is not None else output_path.with_suffix(output_path.suffix + ".metrics.jsonl")
@@ -257,6 +316,10 @@ class TrainingPipeline:
             early_stopping = EarlyStopping(self.config.early_stopping_patience, self.config.early_stopping_min_delta)
             early_stopping.best = state.get("best")
             early_stopping.bad_steps = int(state.get("bad_steps", 0))
+        if self.device.type == "cuda":
+            train_tokens = [tokens.to(self.device) for tokens in train_tokens]
+            if validation_tokens is not None:
+                validation_tokens = [tokens.to(self.device) for tokens in validation_tokens]
         total_steps = start_step + self.config.steps
         scheduler = WarmupCosineScheduler(total_steps=max(1, total_steps), warmup_steps=min(self.config.warmup_steps, max(1, total_steps)), min_lr_ratio=self.config.min_lr_ratio)
         random.seed(self.config.seed + start_step)
@@ -265,6 +328,7 @@ class TrainingPipeline:
             torch.cuda.manual_seed_all(self.config.seed + start_step)
         last_train_loss = float("nan")
         last_validation_loss = None
+        last_validation_accuracy = None
         stopped_early = False
         model.train()
         optimizer.zero_grad(set_to_none=True)
@@ -273,7 +337,8 @@ class TrainingPipeline:
             accumulated_loss = 0.0
             for _ in range(self.config.gradient_accumulation_steps):
                 x, y = _sample_batch(train_tokens, self.config.batch_size, self.config.context, self.device)
-                loss = model.loss(x, y)
+                with torch.autocast(device_type="cuda", dtype=torch.float16, enabled=self.device.type == "cuda"):
+                    loss = model.loss(x, y)
                 (loss / self.config.gradient_accumulation_steps).backward()
                 accumulated_loss += float(loss.item())
             torch.nn.utils.clip_grad_norm_(model.parameters(), self.config.grad_clip)
@@ -287,17 +352,22 @@ class TrainingPipeline:
             should_log = update_step == start_step + 1 or update_step % self.config.log_every == 0 or update_step == total_steps
             if should_log:
                 model.eval()
-                last_validation_loss = evaluate(model, validation_tokens, self.config.batch_size, self.config.context, self.device)
-                tracker.log(TrainingMetric(update_step, last_train_loss, last_validation_loss, current_lr))
+                validation_metrics = evaluate_metrics(model, validation_tokens, self.config.batch_size, self.config.context, self.device)
+                last_validation_loss = None if validation_metrics is None else validation_metrics[0]
+                last_validation_accuracy = None if validation_metrics is None else validation_metrics[1]
+                tracker.log(TrainingMetric(update_step, last_train_loss, last_validation_loss, current_lr, last_validation_accuracy))
                 decision = early_stopping.update(last_validation_loss) if last_validation_loss is not None else None
-                print(f"step={update_step:5d} train_loss={last_train_loss:.4f} " + (f"val_loss={last_validation_loss:.4f} " if last_validation_loss is not None else "") + f"lr={current_lr:.6g} device={self.device}")
+                print(f"step={update_step:5d} train_loss={last_train_loss:.4f} " + (f"val_loss={last_validation_loss:.4f} val_accuracy={last_validation_accuracy:.2%} " if last_validation_loss is not None else "") + f"lr={current_lr:.6g} device={self.device}")
                 if decision is not None and decision.improved:
-                    self._save(output_path, model, tokenizer, optimizer, update_step, last_train_loss, last_validation_loss, fingerprint, scheduler, early_stopping, tracker)
+                    self._save(output_path, model, tokenizer, optimizer, update_step, last_train_loss, last_validation_loss, fingerprint, scheduler, early_stopping, tracker, last_validation_accuracy)
+                if self.config.target_validation_accuracy is not None and last_validation_accuracy is not None and last_validation_accuracy >= self.config.target_validation_accuracy:
+                    stopped_early = True
+                    break
                 if decision is not None and decision.should_stop:
                     stopped_early = True
                     break
                 model.train()
             if self.config.checkpoint_every and update_step % self.config.checkpoint_every == 0:
-                self._save(output_path, model, tokenizer, optimizer, update_step, last_train_loss, last_validation_loss, fingerprint, scheduler, early_stopping, tracker)
-        self._save(output_path, model, tokenizer, optimizer, update_step, last_train_loss, last_validation_loss, fingerprint, scheduler, early_stopping, tracker)
-        return TrainingSummary(str(output_path), start_step, update_step, last_train_loss, last_validation_loss, str(self.device), fingerprint, stopped_early, str(tracker_path))
+                self._save(output_path, model, tokenizer, optimizer, update_step, last_train_loss, last_validation_loss, fingerprint, scheduler, early_stopping, tracker, last_validation_accuracy)
+        self._save(output_path, model, tokenizer, optimizer, update_step, last_train_loss, last_validation_loss, fingerprint, scheduler, early_stopping, tracker, last_validation_accuracy)
+        return TrainingSummary(str(output_path), start_step, update_step, last_train_loss, last_validation_loss, last_validation_accuracy, str(self.device), fingerprint, stopped_early, str(tracker_path))

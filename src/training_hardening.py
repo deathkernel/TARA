@@ -81,6 +81,7 @@ class TrainingMetric:
     train_loss: float
     validation_loss: float | None
     learning_rate: float
+    validation_accuracy: float | None = None
 
 
 class ExperimentTracker:

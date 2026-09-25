@@ -1,6 +1,33 @@
 {
-  "version": "1",
+  "version": "2",
   "datasets": [
+    {
+      "key": "soda",
+      "name": "SODA",
+      "organization": "Allen Institute for AI",
+      "dataset_id": "allenai/soda",
+      "config": "default",
+      "split": "train",
+      "validation_split": "valid",
+      "text_field": null,
+      "dialogue_field": "dialogue",
+      "speaker_field": "speakers",
+      "level": "conversation-v1",
+      "license": "CC BY 4.0",
+      "role": "million-scale social dialogue with broad interaction coverage and emotion-grounded conversations",
+      "notes": "Dialogue is machine-generated and must be treated as synthetic data. TARA will use the conversation turns as language-model training text."
+    },
+    {
+      "key": "tinystories",
+      "name": "TinyStories",
+      "organization": "Community / research dataset",
+      "dataset_id": "roneneldan/TinyStories",
+      "config": "default",
+      "split": "train",
+      "level": "legacy",
+      "role": "legacy warm-up corpus; no longer the vNext default",
+      "license": "MIT"
+    },
     {
       "key": "fineweb_edu",
       "name": "FineWeb-Edu",
@@ -11,8 +38,7 @@
       "text_field": "text",
       "level": "basic",
       "license": "ODC-By 1.0",
-      "role": "high-quality educational web text for general language and knowledge learning",
-      "notes": "Upstream dataset card should be reviewed for downstream use; document-level rights remain relevant."
+      "role": "high-quality educational web text for general language and knowledge learning"
     },
     {
       "key": "gsm8k",
@@ -28,18 +54,6 @@
       "role": "grade-school mathematical reasoning and worked answers"
     },
     {
-      "key": "tinystories",
-      "name": "TinyStories",
-      "organization": "Community / research dataset",
-      "dataset_id": "roneneldan/TinyStories",
-      "config": "default",
-      "split": "train",
-      "text_field": "text",
-      "level": "basic",
-      "license": "See upstream dataset card",
-      "role": "small, simple-language corpus for early language-model training"
-    },
-    {
       "key": "fineweb",
       "name": "FineWeb",
       "organization": "Hugging Face",
@@ -50,19 +64,6 @@
       "level": "advanced",
       "license": "ODC-By 1.0",
       "role": "broad large-scale English web pretraining data"
-    },
-    {
-      "key": "the_stack_v2_smol",
-      "name": "The Stack v2 Smol",
-      "organization": "BigCode (Hugging Face + ServiceNow)",
-      "dataset_id": "bigcode/the-stack-v2-train-smol",
-      "config": "default",
-      "split": "train",
-      "text_field": "content",
-      "level": "advanced",
-      "license": "Mixed source licenses; metadata-only ID dataset; not directly usable as code text",
-      "role": "advanced code-data provenance/index; requires a separate code-content retrieval pipeline",
-      "notes": "The Stack v2 train-smol-ids contains Software Heritage IDs rather than directly embedded source code; keep out of text training until a licensed content retrieval path is implemented."
     }
   ]
 }

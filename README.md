@@ -2,6 +2,26 @@
 
 **TARA — Tiny Artificial Reasoning Architecture**
 
+> **Current vNext direction: TARA Baby**
+>
+> TARA Baby is being developed as a friend-like conversational assistant with emotionally appropriate responses, scientific reasoning, memory, planning and safe PC automation.
+>
+> The project is **not** being developed as a coding assistant. The learning curriculum is organized around language/social interaction, mathematics, physics, natural sciences, scientific method, tool use and memory.
+>
+> ## Canonical organization
+>
+> - `src/tara_mind/` — new cognitive architecture and neural systems
+> - `scripts/` — runnable training/utility entry points
+> - `data/curriculum/` — dataset and curriculum manifests
+> - `docs/tara_baby/` — architecture, curriculum and research decisions
+> - existing `src/` modules — legacy/compatibility surface, migrated only when deliberately tested
+>
+> Core design: **neural model = learned substrate; cognitive systems = mind functions; tools = actions; memory = durable state.**
+>
+> See [TARA Baby architecture](docs/tara_baby/ARCHITECTURE.md) and [TARA Baby curriculum](docs/tara_baby/CURRICULUM.md).
+>
+> ---
+>
 TARA is a research-first neural-network project built from mathematical and implementation fundamentals. The goal is a highly capable, inspectable artificial reasoning system that connects a neural language core with perception, memory, structured reasoning, advanced planning, intelligent tools, algorithm discovery, self-improvement, continual learning, reflection, autonomous tasks, scheduling, temporal context and an explicit world model.
 
 ## Pre-training readiness — complete
@@ -617,73 +637,149 @@ At a high level, the current TARA design is:
                          measured evidence
 ```
 
-## Optional Groq language backend
+# Simple TARA interface
 
-TARA now includes an optional Groq provider. Groq is an **inference backend**, not the owner of TARA's cognitive architecture.
+TARA's local neural core is intentionally exposed through two commands:
 
-The intended boundary is:
+## Train from the foundation curriculum
+
+```bash
+python tara.py train data/curriculum_v2.jsonl
+```
+
+This trains the local model from the supplied dataset, evaluates a held-out
+validation split, tracks validation token accuracy, checkpoints progress, and
+uses early stopping.
+
+## Chat
+
+```bash
+python tara.py chat
+```
+
+The chat command loads `checkpoints/tara.pt` and starts an interactive
+user/assistant conversation.
+
+The CLI keeps model architecture, optimizer, tokenizer, checkpoint and
+validation controls internal so the normal workflow stays:
+
+**dataset → train → checkpoint → chat**
+
+---
+
+## Foundation curriculum
+
+For the current scratch-first learning path, train the foundation curriculum directly:
+
+```bash
+python tara.py train data/curriculum_v2.jsonl
+python tara.py chat
+```
+
+`data/curriculum_v2.jsonl` contains 24 shorter lesson records across 12 levels. Each lesson keeps a small group of related question/answer examples together so the local model can learn the curriculum without crossing unrelated lesson boundaries.
+
+The older `conversation_v1.jsonl` workflow remains available for conversation-focused experiments.
+
+## Optional external model backends
+
+TARA keeps its native neural core as the default, but the chat runtime can also use compatible Hugging Face checkpoints through a single adapter. The supported aliases are:
+
+- `llama` → Meta Llama 3.2 3B Instruct
+- `codellama` → Meta Code Llama 7B Instruct
+- `gemma` → Google Gemma 3 4B IT
+- `mistral` → Mistral Small 3.2 24B Instruct
+
+The Llama inference repository and Llama Cookbook are treated as source/reference material rather than duplicated runtimes; the common Transformers adapter avoids maintaining four separate inference implementations.
+
+Install the optional dependencies:
+
+```bash
+pip install -r requirements-models.txt
+```
+
+Then select a backend without changing the two-command CLI:
+
+**Windows CMD**
+```cmd
+set TARA_MODEL=llama
+python tara.py chat
+```
+
+For Gemma:
+```cmd
+set TARA_MODEL=gemma
+python tara.py chat
+```
+
+For Mistral:
+```cmd
+set TARA_MODEL=mistral
+python tara.py chat
+```
+
+For Code Llama:
+```cmd
+set TARA_MODEL=codellama
+python tara.py chat
+```
+
+A custom compatible Transformers checkpoint can be selected with `TARA_MODEL_ID`. Model weights are downloaded by Hugging Face on first use and are not committed to this repository. Gated Meta checkpoints require the user's own approved Hugging Face/Meta access.
+
+# Running methods
+
+For the local conversational neural core, use this workflow from the repository root.
+
+## 1. Prepare the conversation dataset
+
+Download/acquire the configured public conversation source and prepare the TARA training file:
+
+```bash
+python prepare_tara_dataset.py --level conversation-v1 --output data/conversation_v1.jsonl --max-records-per-source 5000
+```
+
+This creates `data/conversation_v1.jsonl` in TARA's conversation format.
+
+## 2. Verify the prepared dataset
+
+```bash
+python -c "from src.training_pipeline import load_training_texts; x=load_training_texts('data/conversation_v1.jsonl'); print('records:', len(x))"
+```
+
+## 3. Train TARA
+
+```bash
+python tara.py train data/conversation_v1.jsonl
+```
+
+Training uses the local dataset, a held-out validation split, validation token accuracy, validation loss, checkpointing and early stopping.
+
+The trained checkpoint is written to:
 
 ```text
-User
-  ↓
-TARA perception / memory / planning / context
-  ↓
-Groq (optional language/reasoning backend)
-  ↓
-TARA verification / tool execution
-  ↓
-memory / reflection / learning evidence
+checkpoints/tara.pt
 ```
 
-The provider supports TARA-side daily request/token budgets and reads the API key from `GROQ_API_KEY`. The real API key must remain local and must never be committed to Git.
-
-Example local configuration:
-
-```env
-GROQ_API_KEY=gsk_...
-TARA_GROQ_MODEL=openai/gpt-oss-20b
-TARA_GROQ_MAX_DAILY_REQUESTS=20
-TARA_GROQ_MAX_DAILY_TOKENS=50000
-TARA_GROQ_MAX_COMPLETION_TOKENS=1024
-```
-
-**Important:** an API integration being present in source code does not mean an API call has been successfully authenticated or that a trained TARA checkpoint exists. Those are execution-time facts and should be reported only after testing.
-
----
-
-# Training and evaluation map
-
-## Preflight
+## 4. Start chat
 
 ```bash
-python training_preflight.py --data data/algorithm_tasks.jsonl --context 128
+python tara.py chat
 ```
 
-## Fast TinyStories experiment
+TARA loads `checkpoints/tara.pt` and starts the interactive conversation.
 
-```bash
-python train_fast.py --dataset tinystories --steps 1000 --batch-size 16
+### Complete workflow
+
+```text
+prepare dataset
+    ↓
+verify records
+    ↓
+train
+    ↓
+checkpoints/tara.pt
+    ↓
+chat
 ```
-
-## Algorithm language-model training
-
-```bash
-python train_algorithm_lm.py --data data/algorithm_tasks.jsonl
-```
-
-## Capability evaluation
-
-```bash
-python evaluate_tara_capabilities.py checkpoints/algorithm_lm.pt --output experiments/tara-capability-baseline.json
-```
-
-## Evidence-gated learning experiment
-
-```bash
-python run_learning_experiment.py checkpoints/baseline.pt data/algorithm_tasks.jsonl checkpoints/candidate.pt --steps 100
-```
-
----
 
 # Engineering principles
 
@@ -693,7 +789,7 @@ python run_learning_experiment.py checkpoints/baseline.pt data/algorithm_tasks.j
 4. **Deterministic provenance** — datasets, experiments and benchmark reports receive stable fingerprints where supported.
 5. **Bounded tools** — generated text does not automatically receive permissions.
 6. **Verification before learning** — unverified model output is not silently promoted into durable knowledge.
-7. **Separation of concerns** — TARA owns cognition/orchestration; optional providers such as Groq supply inference.
+7. **Separation of concerns** — TARA owns cognition/orchestration; the local TARA language model supplies inference.
 8. **Reproducibility** — seeds, configuration, dataset identity, checkpoints and metrics are treated as first-class experiment data.
 9. **No invented capability claims** — a capability is reported only when the relevant code path and measurement have actually executed.
 10. **Inspectable architecture** — major cognitive functions remain represented as explicit modules instead of being hidden behind one opaque call.
@@ -709,7 +805,7 @@ Implemented in the repository:
 - benchmark/evaluation infrastructure;
 - evidence-gated learning workflows;
 - repository audit/CI;
-- optional Groq provider.
+- local TARA language model.
 
 Still dependent on actual runtime experiments:
 - successful authentication to any external LLM provider;
@@ -720,3 +816,26 @@ Still dependent on actual runtime experiments:
 - claims about general intelligence or human-level reasoning.
 
 This distinction is intentional: **source-code capability, executed capability, and measured capability are three different things in TARA.**
+
+
+---
+
+# Quick Commands — TARA Train & Chat
+
+### 🧠 Train TARA
+
+Trains the local TARA neural model using the current foundation curriculum:
+
+```bash
+python tara.py train data/curriculum_v2.jsonl
+```
+
+### 💬 Chat with TARA
+
+Loads the trained checkpoint and starts the interactive TARA conversation:
+
+```bash
+python tara.py chat
+```
+
+**Workflow:** `curriculum_v2.jsonl` → **Train** → `checkpoints/tara.pt` → **Chat**

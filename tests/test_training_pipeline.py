@@ -77,7 +77,7 @@ def test_phase14_split_is_deterministic_and_non_overlapping():
 
 
 def tiny_config(steps=2):
-    return TrainingConfig(steps=steps, batch_size=2, context=16, embedding_dim=8, ff_dim=16, heads=2, lr=1e-3, validation_split=0.25, seed=11, log_every=2)
+    return TrainingConfig(steps=steps, batch_size=2, context=8, embedding_dim=8, ff_dim=16, heads=2, lr=1e-3, validation_split=0.25, seed=11, log_every=2)
 
 
 def test_phase14_writes_self_contained_checkpoint(tmp_path):
@@ -89,7 +89,7 @@ def test_phase14_writes_self_contained_checkpoint(tmp_path):
     assert summary.final_step == 2
     assert checkpoint.exists()
     payload = torch.load(checkpoint, map_location="cpu", weights_only=False)
-    assert payload["format_version"] == 3
+    assert payload["format_version"] == 5
     assert payload["step"] == 2
     assert "model_state" in payload
     assert "optimizer_state" in payload
@@ -135,3 +135,58 @@ def test_phase37_gradient_accumulation_scheduler_and_tracker(tmp_path):
     assert payload["hardening_config"]["gradient_accumulation_steps"] == 2
     assert payload["scheduler"]["optimizer_steps"] == 3
     assert payload["metrics_fingerprint"]
+
+
+def test_bpe_tokenizer_is_default_and_persisted(tmp_path):
+    data = tmp_path / "data.jsonl"
+    checkpoint = tmp_path / "model.pt"
+    write_algorithm_dataset(data, count=12)
+    config = TrainingConfig(steps=1, batch_size=2, context=8, embedding_dim=8, ff_dim=16, heads=2, lr=1e-3, validation_split=0.25, seed=11, log_every=1, vocab_size=64)
+    summary = TrainingPipeline(config).train(data, checkpoint)
+    assert summary.final_step == 1
+    payload = torch.load(checkpoint, map_location="cpu", weights_only=False)
+    assert payload["format_version"] == 5
+    assert payload["tokenizer"]["type"] == "bpe"
+    assert payload["tokenizer"]["merges"]
+
+    
+def test_tokenize_corpus_keeps_records_separate():
+    from src.tokenizer import CharTokenizer
+    from src.training_pipeline import _tokenize_corpus
+
+    tokenizer = CharTokenizer("a" * 80 + "b" * 80)
+    sequences = _tokenize_corpus(["a" * 80, "b" * 80], tokenizer, context=16)
+    assert len(sequences) == 2
+    assert sequences[0].shape[0] == 80
+    assert sequences[1].shape[0] == 80
+
+
+def test_sample_batch_never_crosses_record_boundary():
+    from src.tokenizer import CharTokenizer
+    from src.training_pipeline import _sample_batch, _tokenize_corpus
+
+    tokenizer = CharTokenizer("a" * 80 + "b" * 80)
+    sequences = _tokenize_corpus(["a" * 80, "b" * 80], tokenizer, context=16)
+    x, y = _sample_batch(sequences, batch_size=32, context=16, device=torch.device("cpu"))
+    assert x.shape == (32, 16)
+    assert y.shape == (32, 16)
+    for row in x:
+        assert len(set(row.tolist())) == 1
+
+
+def test_curriculum_v2_has_shorter_lesson_records():
+    from pathlib import Path
+
+    path = Path("data/curriculum_v2.jsonl")
+    rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    assert len(rows) == 24
+    assert all(row["level"] in range(1, 13) for row in rows)
+    assert all(row["text"].count("<|user|>") == row["text"].count("<|assistant|>") for row in rows)
+    assert all(row["text"].count("<|user|>") >= 4 for row in rows)
+
+
+def test_external_model_registry_has_supported_families():
+    from src.model_backends import MODEL_REGISTRY
+
+    assert {"llama", "codellama", "gemma", "mistral"} <= set(MODEL_REGISTRY)
+    assert all(spec.model_id for spec in MODEL_REGISTRY.values())

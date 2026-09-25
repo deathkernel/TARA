@@ -3,6 +3,7 @@ from dataclasses import dataclass
 import random
 from pathlib import Path
 from .advanced_planning import AdaptivePlan, AdvancedPlanner, PlanAlternative, PlanStep
+from .algorithm_synthesis import AlgorithmArchive, AlgorithmDiscoveryEngine, AlgorithmProposal, DiscoveryCycle, ModelAlgorithmGenerator, VerificationReport
 from .agent import AgentLoop
 from .autonomous_orchestrator import AutonomousOrchestrator, TaskNode
 from .continual_learning_engine import ContinualLearningEngine, PromotionResult, ReplayBatch
@@ -24,7 +25,6 @@ from .structured_reasoning import ReasoningState, StructuredReasoner
 from .temporal_perception import TemporalContext, TemporalPerception
 from .tool_intelligence import ToolAttempt, ToolCapability, ToolIntelligence
 from .world_state import WorldContext, WorldModel
-from .groq_provider import GroqProvider
 
 @dataclass(frozen=True)
 class BrainResponse:
@@ -38,7 +38,7 @@ class TARABrain:
                  progress=None, orchestrator=None, world=None, events=None, temporal=None,
                  temporal_history=256, reasoner=None, planner=None, tools=None, improver=None,
                  continual=None, multimodal=None, researcher=None, experimenter=None, architecture_optimizer=None, cognitive_loop=None, experience_learning=None,
-                 intelligence_improver=None, llm_provider=None):
+                 intelligence_improver=None):
         self.model = model
         self.tokenizer = tokenizer
         self.engine = TARAEngine() if engine is None else engine
@@ -61,7 +61,6 @@ class TARABrain:
         self.architecture_optimizer = architecture_optimizer
         self.experience_learning = experience_learning or ExperienceLearningEngine()
         self.intelligence_improver = intelligence_improver or IntelligenceImprovementEngine()
-        self.llm_provider = llm_provider
         self.cognitive_loop = cognitive_loop or UnifiedCognitiveLoop(
             reasoner=self.reasoner, planner=self.planner, tools=self.tools, memory=self.memory,
             reflection=self.reflection, progress=self.progress, learning=self.experience_learning,
@@ -83,6 +82,11 @@ class TARABrain:
     def perceive_screen(self, elements, *, confidence=0.9) -> MultimodalObservation: return self.multimodal.screen(elements, confidence=confidence)
     def conduct_research(self, question: str, searcher, *, max_queries=None) -> ResearchReport: return self.researcher.research(question, searcher, max_queries=max_queries)
     def run_experiment(self, design: ExperimentDesign, executor) -> ExperimentReport: return self.experimenter.run(design, executor)
+    def discover_algorithm(self, problem, *, generator, verifier, rounds=4, candidates_per_round=8, archive=None) -> DiscoveryCycle:
+        """Invent, verify, refine, and retain algorithm hypotheses without executing generated code."""
+        engine = AlgorithmDiscoveryEngine(generator, verifier, archive=archive)
+        return engine.discover(problem, rounds=rounds, candidates_per_round=candidates_per_round)
+
     def optimize_architecture(self, baseline: ArchitectureVariant, *, rounds=3, candidates_per_round=4, optimizer: ArchitectureOptimizer | None = None) -> OptimizationResult:
         engine = optimizer or self.architecture_optimizer
         if engine is None: raise ValueError("an ArchitectureOptimizer with an injected evaluator is required")
@@ -161,21 +165,19 @@ class TARABrain:
             if threshold < cumulative: return index
         return selected[-1]
     def build_reasoning_context(self, prompt, *, memory_limit=8, event_limit=8, temporal_limit=16, min_confidence=0.0):
-        recalled = tuple(self.memory.retrieve(prompt, limit=memory_limit)); world=self.world_context(event_limit=event_limit); temporal=self.temporal_context(limit=temporal_limit, min_confidence=min_confidence); memory_text="\n".join(str(item) for item in recalled) or "none"; return f"User/task: {prompt}\n\nMemory:\n{memory_text}\n\n{world.as_prompt_context()}\n\n{temporal.as_prompt_context()}"
+        recalled = tuple(self.memory.retrieve(prompt, limit=memory_limit))
+        world = self.world_context(event_limit=event_limit)
+        temporal = self.temporal_context(limit=temporal_limit, min_confidence=min_confidence)
+        memory_text = "\n".join(str(item) for item in recalled) or "none"
+        return (
+            f"User/task: {prompt}\n\n"
+            f"Memory:\n{memory_text}\n\n"
+            f"{world.as_prompt_context()}\n\n"
+            f"{temporal.as_prompt_context()}"
+        )
     def respond(self, prompt, *, remember_key=None, importance=1.0, max_new_tokens=32, temperature=1.0, top_k=None, top_p=None):
         self.observe(prompt, remember_key=remember_key, importance=importance, source="user", kind="prompt"); recalled=tuple(self.memory.retrieve(prompt)); context=self.build_reasoning_context(prompt)
-        if self.llm_provider is not None:
-            try:
-                text = self.llm_provider.complete(
-                    context,
-                    system="You are the language/reasoning backend inside TARA. Give a useful, concise response. TARA owns memory, planning, verification, and actions; do not claim actions were performed unless the supplied context proves it.",
-                    max_completion_tokens=max_new_tokens,
-                    temperature=temperature,
-                )
-            except (RuntimeError, TimeoutError):
-                text = self.generate(context, max_new_tokens=max_new_tokens, temperature=temperature, top_k=top_k, top_p=top_p)
-        else:
-            text = self.generate(context, max_new_tokens=max_new_tokens, temperature=temperature, top_k=top_k, top_p=top_p)
+        text = self.generate(context, max_new_tokens=max_new_tokens, temperature=temperature, top_k=top_k, top_p=top_p)
         return BrainResponse(text=text, recalled=recalled, observations=tuple(self.engine.state.observations.recent()), temporal_context=self.temporal_context().as_prompt_context())
     def verify_result(self, observed, expected): return self.agent.submit_result(observed, expected)
     def recover(self, replacement_tasks): return self.agent.recover(replacement_tasks)

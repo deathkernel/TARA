@@ -5,6 +5,7 @@ import pytest
 from src.dataset_acquisition import (
     CuratedRecord,
     DatasetAcquisitionError,
+    _normalize_dialogue,
     HuggingFaceStreamer,
     PublicDatasetAcquirer,
     PublicDatasetSpec,
@@ -102,7 +103,7 @@ def test_streamer_validates_bounds():
 
 
 def test_streamer_does_not_need_datasets_import(monkeypatch):
-    streamer = HuggingFaceStreamer()
+    streamer = HuggingFaceStreamer(min_chars=10)
     calls = []
 
     def fake_get_json(endpoint, params):
@@ -134,3 +135,29 @@ def test_streamer_does_not_need_datasets_import(monkeypatch):
     assert len(records) == 1
     assert records[0].text.startswith("This is a valid public")
     assert any(endpoint == "rows" for endpoint, _ in calls)
+
+
+def test_manifest_contains_conversation_curriculum():
+    specs = load_public_dataset_manifest("data/dataset_sources.json")
+    conversation = select_level(specs, "conversation-v1")
+    assert len(conversation) == 1
+    assert conversation[0].key == "soda"
+    assert conversation[0].dialogue_field == "dialogue"
+    assert conversation[0].speaker_field == "speakers"
+
+
+def test_normalize_dialogue_uses_stable_roles():
+    text = _normalize_dialogue(
+        ["Hi there", "Hey!", "What are you building?", "A little AI project."],
+        ["Alice", "Bob", "Alice", "Bob"],
+    )
+    assert text == (
+        "<|user|>\nHi there\n"
+        "<|assistant|>\nHey!\n"
+        "<|user|>\nWhat are you building?\n"
+        "<|assistant|>\nA little AI project."
+    )
+
+
+def test_normalize_dialogue_rejects_more_than_two_speakers():
+    assert _normalize_dialogue(["a", "b", "c"], ["A", "B", "C"]) == ""

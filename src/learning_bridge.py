@@ -42,7 +42,9 @@ class LearningBridge:
         kind = "verified_algorithm" if verified else "algorithm_failure"
         content = {
             "problem_id": problem_id,
-            "candidate": asdict(candidate) if hasattr(candidate, "__dataclass_fields__") else candidate,
+            "candidate": asdict(candidate) if hasattr(candidate, "__dataclass_fields__") else {
+                key: getattr(candidate, key) for key in ("language", "problem", "source") if hasattr(candidate, key)
+            },
             "benchmark": {
                 "passed": benchmark.passed,
                 "total": benchmark.total,

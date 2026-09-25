@@ -4,7 +4,7 @@ from pathlib import Path
 
 import torch
 
-from src.tokenizer import CharTokenizer
+from src.tokenizer import BPETokenizer, CharTokenizer
 from src.torch_language_model import FastTinyLanguageModel
 
 
@@ -12,9 +12,19 @@ def load_checkpoint(path):
     """Load a saved algorithm-language-model checkpoint."""
     checkpoint = torch.load(Path(path), map_location="cpu", weights_only=False)
     tokenizer_data = checkpoint["tokenizer"]
-    tokenizer = CharTokenizer("a")
-    tokenizer.itos = tokenizer_data["itos"]
-    tokenizer.stoi = tokenizer_data["stoi"]
+    tokenizer_type = tokenizer_data.get("type", "char")
+    if tokenizer_type == "bpe":
+        tokenizer = BPETokenizer("a", vocab_size=max(2, len(tokenizer_data["itos"])))
+        tokenizer.merges = [tuple(pair) for pair in tokenizer_data.get("merges", [])]
+        tokenizer._merge_ranks = {
+            pair: index for index, pair in enumerate(tokenizer.merges)
+        }
+    elif tokenizer_type == "char":
+        tokenizer = CharTokenizer("a")
+    else:
+        raise ValueError(f"unsupported checkpoint tokenizer type: {tokenizer_type}")
+    tokenizer.itos = list(tokenizer_data["itos"])
+    tokenizer.stoi = dict(tokenizer_data["stoi"])
     config = checkpoint["model_config"]
     model = FastTinyLanguageModel(**config)
     model.load_state_dict(checkpoint["model_state"])

@@ -5,8 +5,7 @@ from src.intelligence_benchmark import BenchmarkCase, BenchmarkReport
 
 
 def test_decision_rejects_non_improvement():
-    evaluator = object.__new__(CheckpointEvaluator)
-    evaluator.gate = type("Gate", (), {"check": lambda self, a, b: False})()
+    evaluator = CheckpointEvaluator()
     base = type("Eval", (), {"benchmark": type("B", (), {"overall_score": 0.5})(), "fingerprint": "a"})()
     candidate = type("Eval", (), {"benchmark": type("B", (), {"overall_score": 0.5})(), "fingerprint": "b"})()
     decision = evaluator.compare(base, candidate)
@@ -15,8 +14,7 @@ def test_decision_rejects_non_improvement():
 
 
 def test_decision_accepts_strict_improvement_without_regression():
-    evaluator = object.__new__(CheckpointEvaluator)
-    evaluator.gate = type("Gate", (), {"check": lambda self, a, b: False})()
+    evaluator = CheckpointEvaluator()
     base = type("Eval", (), {"benchmark": type("B", (), {"overall_score": 0.5})(), "fingerprint": "a"})()
     candidate = type("Eval", (), {"benchmark": type("B", (), {"overall_score": 0.75})(), "fingerprint": "b"})()
     decision = evaluator.compare(base, candidate)
@@ -26,7 +24,7 @@ def test_decision_accepts_strict_improvement_without_regression():
 def test_orchestrator_without_improvement_is_measurement_only(tmp_path: Path):
     orchestrator = EvaluationOrchestrator()
     orchestrator.evaluator = type("Evaluator", (), {
-        "evaluate": lambda self, path, name: type("Eval", (), {
+        "evaluate": lambda self, path, name=None: type("Eval", (), {
             "benchmark": type("B", (), {"overall_score": 0.25})(), "fingerprint": "fp"
         })()
     })()
