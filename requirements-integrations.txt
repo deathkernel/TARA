@@ -5,6 +5,7 @@ tensorflow
 jax
 gemma
 onnxruntime
+onnxruntime-genai
 semantic-kernel
 openai
 openai-whisper
