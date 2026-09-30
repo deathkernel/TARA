@@ -167,11 +167,19 @@ class FastTinyLanguageModel(nn.Module):
             raise ValueError("token_ids must not be empty")
         ids = ids[-self.max_context :]
         logits = self(ids)[:, -1, :][0]
-        return logits.detach().float().cpu().tolist()[None, :]
+        return [logits.detach().float().cpu().tolist()]
 
     @torch.no_grad()
     def next_token(self, token_ids):
-        ids = list(token_ids)[-self.max_context :]
+        if torch.is_tensor(token_ids):
+            if token_ids.numel() == 0:
+                raise ValueError("token_ids must not be empty")
+            ids = token_ids.detach().reshape(-1).tolist()
+        else:
+            ids = list(token_ids)
+            if not ids:
+                raise ValueError("token_ids must not be empty")
+        ids = ids[-self.max_context :]
         return self(ids)[:, -1, :].argmax(dim=-1)
 
     @torch.no_grad()
