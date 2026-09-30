@@ -118,14 +118,17 @@ class Value:
         stack = [(self, False)]
         while stack:
             node, expanded = stack.pop()
-            if node in visited and not expanded:
-                continue
             if expanded:
                 topo.append(node)
                 continue
+            if node in visited:
+                continue
             visited.add(node)
             stack.append((node, True))
-            for child in node._prev:
+            # Mark nodes as visited when scheduled, not when they are later
+            # popped. Shared subgraphs can otherwise be pushed repeatedly and
+            # make backward traversal grow dramatically on Transformer graphs.
+            for child in reversed(node._prev):
                 if child not in visited:
                     stack.append((child, False))
 
