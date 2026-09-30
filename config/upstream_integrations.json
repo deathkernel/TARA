@@ -10,6 +10,7 @@
     {"id":"gemma","repo":"google-deepmind/gemma","ref":"main","kind":"model","capabilities":["text-generation","multimodal","jax"],"adapter":"gemma","package":"gemma","optional":true},
     {"id":"phi","repo":"microsoft/PhiCookBook","ref":"main","kind":"model-guidance","capabilities":["phi-models","transformers","onnx"],"adapter":"phi","package":"transformers","optional":true},
     {"id":"onnxruntime","repo":"microsoft/onnxruntime","ref":"main","kind":"runtime","capabilities":["onnx-inference","training","accelerators"],"adapter":"onnxruntime","package":"onnxruntime","optional":true},
+    {"id":"onnxruntime-genai","repo":"microsoft/onnxruntime-genai","ref":"main","kind":"runtime","capabilities":["llm-inference","phi","gemma","gpt-oss","whisper"],"adapter":"onnxruntime-genai","package":"onnxruntime-genai","optional":true},
     {"id":"semantic-kernel","repo":"microsoft/semantic-kernel","ref":"main","kind":"orchestration","capabilities":["agents","plugins","workflows"],"adapter":"semantic-kernel","package":"semantic-kernel","optional":true},
     {"id":"gpt-oss","repo":"openai/gpt-oss","ref":"main","kind":"model","capabilities":["reasoning","agentic","local-inference","evals"],"adapter":"gpt-oss","package":null,"optional":true},
     {"id":"whisper","repo":"openai/whisper","ref":"main","kind":"speech","capabilities":["speech-to-text","translation","language-identification"],"adapter":"whisper","package":"openai-whisper","optional":true},
