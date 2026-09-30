@@ -72,7 +72,7 @@ class EarlyStopping:
             self.bad_steps = 0
         else:
             self.bad_steps += 1
-        return EarlyStopDecision(improved, self.bad_steps > self.patience, self.best, self.bad_steps)
+        return EarlyStopDecision(improved, self.bad_steps >= self.patience, self.best, self.bad_steps)
 
 
 @dataclass(frozen=True)
