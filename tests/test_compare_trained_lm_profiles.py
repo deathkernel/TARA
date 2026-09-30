@@ -1,8 +1,13 @@
 from experiments.compare_trained_lm_profiles import compare_trained
 
 
+# Unit tests use a compact deterministic corpus; the full scaled experiment
+# remains available through the experiment entry point without burdening CI.
+TEST_CORPUS = "tara trained profile test corpus " * 3
+
+
 def test_trained_profile_comparison_uses_same_budget_and_reports_metrics():
-    results = compare_trained(steps=1)
+    results = compare_trained(steps=1, corpus=TEST_CORPUS)
 
     assert set(results) == {"tiny", "scaled"}
     assert results["tiny"]["steps"] == results["scaled"]["steps"] == 1
