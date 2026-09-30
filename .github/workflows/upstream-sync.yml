@@ -1,0 +1,50 @@
+name: TARA upstream sync
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+  push:
+    paths:
+      - "config/upstream_integrations.json"
+      - "scripts/upstream_sync.py"
+      - "src/upstream/**"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout TARA
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Resolve upstream versions
+        run: python scripts/upstream_sync.py --write-lock
+
+      - name: Test upstream coordinator
+        run: python -m pytest tests/test_upstream_registry.py
+
+      - name: Open update PR
+        uses: peter-evans/create-pull-request@v7
+        with:
+          commit-message: "chore: refresh upstream integration locks"
+          title: "chore: refresh upstream integration locks"
+          body: |
+            Automated upstream integration refresh.
+            This updates only TARA's upstream lock metadata. External source
+            trees are not vendored and are not executed automatically.
+          branch: automation/upstream-sync
+          delete-branch: true
+          labels: |
+            dependencies
+            upstream-sync
