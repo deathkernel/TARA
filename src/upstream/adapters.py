@@ -77,13 +77,13 @@ def openai_chat(
     if api_key:
         kwargs["api_key"] = api_key
     client = create_openai_client(**kwargs)
-    response = client.responses.create(
+    response = client.chat.completions.create(
         model=model,
-        input=messages,
-        max_output_tokens=max_tokens,
+        messages=messages,
+        max_tokens=max_tokens,
         temperature=temperature,
     )
-    return str(getattr(response, "output_text", "")).strip()
+    return str(response.choices[0].message.content or "").strip()
 
 
 def load_whisper(model_name: str = "base"):
