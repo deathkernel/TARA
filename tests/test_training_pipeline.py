@@ -227,3 +227,11 @@ def test_resume_uses_saved_scheduler_metadata(tmp_path):
     payload = torch.load(checkpoint, map_location="cpu", weights_only=False)
     assert resumed.final_step == 3
     assert payload["scheduler"]["total_steps"] >= 3
+
+
+def test_early_stopping_honors_patience_exactly():
+    from src.training_hardening import EarlyStopping
+    stopper = EarlyStopping(patience=2)
+    assert stopper.update(1.0).should_stop is False
+    assert stopper.update(1.1).should_stop is False
+    assert stopper.update(1.2).should_stop is True
