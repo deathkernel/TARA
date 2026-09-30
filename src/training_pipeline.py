@@ -309,6 +309,7 @@ class TrainingPipeline:
         print(f"Loaded {len(texts):,} records")
         fingerprint = _fingerprint(texts)
         output_path = Path(output)
+        best_path = output_path.with_suffix(output_path.suffix + ".best.pt")
         tracker_path = Path(metrics_path) if metrics_path is not None else output_path.with_suffix(output_path.suffix + ".metrics.jsonl")
         tracker = ExperimentTracker(tracker_path)
         if resume is None:
@@ -376,7 +377,7 @@ class TrainingPipeline:
                 decision = early_stopping.update(last_validation_loss) if last_validation_loss is not None else None
                 print(f"step={update_step:5d} train_loss={last_train_loss:.4f} " + (f"val_loss={last_validation_loss:.4f} val_accuracy={last_validation_accuracy:.2%} " if last_validation_loss is not None else "") + f"lr={current_lr:.6g} device={self.device}")
                 if decision is not None and decision.improved:
-                    self._save(output_path, model, tokenizer, optimizer, update_step, last_train_loss, last_validation_loss, fingerprint, scheduler, early_stopping, tracker, last_validation_accuracy)
+                    self._save(best_path, model, tokenizer, optimizer, update_step, last_train_loss, last_validation_loss, fingerprint, scheduler, early_stopping, tracker, last_validation_accuracy)
                 if self.config.target_validation_accuracy is not None and last_validation_accuracy is not None and last_validation_accuracy >= self.config.target_validation_accuracy:
                     stopped_early = True
                     break
