@@ -190,3 +190,40 @@ def test_external_model_registry_has_supported_families():
 
     assert {"llama", "codellama", "gemma", "mistral"} <= set(MODEL_REGISTRY)
     assert all(spec.model_id for spec in MODEL_REGISTRY.values())
+
+
+def test_best_checkpoint_is_preserved_separately(tmp_path):
+    data = tmp_path / "data.jsonl"
+    checkpoint = tmp_path / "model.pt"
+    write_algorithm_dataset(data, count=8)
+    config = tiny_config(steps=2)
+    summary = TrainingPipeline(config).train(data, checkpoint)
+    best = checkpoint.with_suffix(checkpoint.suffix + ".best.pt")
+    assert checkpoint.exists()
+    assert best.exists()
+    last_payload = torch.load(checkpoint, map_location="cpu", weights_only=False)
+    best_payload = torch.load(best, map_location="cpu", weights_only=False)
+    assert last_payload["step"] == summary.final_step
+    assert best_payload["metrics"]["validation_loss"] is not None
+
+
+def test_checkpoint_contains_rng_state(tmp_path):
+    data = tmp_path / "data.jsonl"
+    checkpoint = tmp_path / "model.pt"
+    write_algorithm_dataset(data, count=8)
+    TrainingPipeline(tiny_config(steps=1)).train(data, checkpoint)
+    payload = torch.load(checkpoint, map_location="cpu", weights_only=False)
+    assert payload["rng_state"]["python"] is not None
+    assert payload["rng_state"]["torch"] is not None
+
+
+def test_resume_uses_saved_scheduler_metadata(tmp_path):
+    data = tmp_path / "data.jsonl"
+    checkpoint = tmp_path / "model.pt"
+    write_algorithm_dataset(data, count=8)
+    first = TrainingConfig(**{**tiny_config(steps=2).__dict__, "warmup_steps": 1, "min_lr_ratio": 0.2})
+    TrainingPipeline(first).train(data, checkpoint)
+    resumed = TrainingPipeline(tiny_config(steps=1)).train(data, checkpoint, resume=checkpoint)
+    payload = torch.load(checkpoint, map_location="cpu", weights_only=False)
+    assert resumed.final_step == 3
+    assert payload["scheduler"]["total_steps"] >= 3
