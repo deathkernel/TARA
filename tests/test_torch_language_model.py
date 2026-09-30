@@ -174,3 +174,31 @@ def test_vnext_rejects_odd_head_dimension():
     from src.torch_language_model import FastTinyLanguageModel
     with pytest.raises(ValueError, match="even"):
         FastTinyLanguageModel(vocab_size=16, embedding_dim=12, ff_dim=24, num_heads=4, max_context=16)
+
+
+def test_fast_model_supports_numeric_inference_and_context_truncation():
+    model = FastTinyLanguageModel(
+        vocab_size=9,
+        embedding_dim=8,
+        ff_dim=16,
+        num_heads=2,
+        max_context=4,
+        seed=5,
+    )
+    logits = model.forward_numeric([0, 1, 2, 3, 4, 5])
+    assert len(logits) == 1
+    assert len(logits[0]) == 9
+    assert all(torch.isfinite(torch.tensor(logits[0])))
+
+
+def test_fast_model_sampling_truncates_long_context():
+    model = FastTinyLanguageModel(
+        vocab_size=9,
+        embedding_dim=8,
+        ff_dim=16,
+        num_heads=2,
+        max_context=4,
+        seed=5,
+    )
+    token = model.sample_next_token([0, 1, 2, 3, 4, 5], temperature=1.0)
+    assert 0 <= token < 9
