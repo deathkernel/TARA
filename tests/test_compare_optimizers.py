@@ -1,8 +1,12 @@
-from experiments.compare_optimizers import SGD, compare
-from src.autograd import Value
+import time
+
+from experiments.compare_optimizers import compare
 
 
 def test_sgd_moves_parameter_against_gradient():
+    from experiments.compare_optimizers import SGD
+    from src.autograd import Value
+
     parameter = Value(2.0)
     parameter.grad = 3.0
     optimizer = SGD([parameter], learning_rate=0.1)
@@ -13,7 +17,10 @@ def test_sgd_moves_parameter_against_gradient():
 
 
 def test_matched_optimizer_comparison_has_same_budget():
+    start = time.perf_counter()
     report = compare(steps=1)
+    elapsed = time.perf_counter() - start
+    assert elapsed < 30, f"compare(steps=1) exceeded 30s: {elapsed:.2f}s"
     assert set(report) == {"SGD", "AdamW"}
     for result in report.values():
         assert result["steps"] == 1
