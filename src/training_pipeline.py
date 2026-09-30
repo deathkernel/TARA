@@ -270,8 +270,14 @@ class TrainingPipeline:
             raise ValueError("unsupported TARA training checkpoint format; retrain or migrate the checkpoint")
         if payload.get("dataset_fingerprint") != _fingerprint(texts):
             raise ValueError("dataset fingerprint differs from checkpoint; use the original dataset or start a fresh training run")
-        if payload.get("hardening_config") != self.config.hardening_config():
-            raise ValueError("checkpoint training controls do not match training config")
+        saved_hardening = payload.get("hardening_config", {})
+        current_hardening = self.config.hardening_config()
+        # Scheduler controls are intentionally restored from the checkpoint
+        # below, so changing them for a resume must not invalidate the run.
+        # Gradient accumulation changes the optimization trajectory and must
+        # remain compatible with the saved optimizer state.
+        if saved_hardening.get("gradient_accumulation_steps") != current_hardening.get("gradient_accumulation_steps"):
+            raise ValueError("checkpoint gradient accumulation does not match training config")
         tokenizer = self._load_tokenizer(payload)
         model_config = payload.get("model_config")
         if model_config != self.config.model_config(tokenizer.vocab_size):
