@@ -143,43 +143,56 @@ def split_texts(texts: list[str], validation_split: float, seed: int) -> tuple[l
     return ([text for i, text in enumerate(texts) if i not in validation_indices], [text for i, text in enumerate(texts) if i in validation_indices])
 
 def _tokenize_corpus(texts: list[str], tokenizer: CharTokenizer | BPETokenizer, context: int) -> list[torch.Tensor]:
-    """Encode each record separately so training never crosses a record boundary."""
+    """Encode records separately; context is a maximum, not a minimum length."""
+    if context <= 0:
+        raise ValueError("context must be positive")
     sequences: list[torch.Tensor] = []
     for text in texts:
         encoded = tokenizer.encode(text)
-        if len(encoded) >= context + 1:
+        # A record needs at least one input token and one target token. Shorter
+        # records are unusable for causal training and are skipped.
+        if len(encoded) >= 2:
             sequences.append(torch.tensor(encoded, dtype=torch.long))
     if not sequences:
-        raise ValueError("dataset has no record long enough for the requested context")
+        raise ValueError("dataset has no record with at least two tokens")
     return sequences
 
 def _sample_batch(sequences: list[torch.Tensor], batch_size: int, context: int, device: torch.device):
-    """Sample fixed-length windows entirely inside individual records."""
+    """Sample fixed-length windows without crossing individual record boundaries."""
     if not sequences:
         raise ValueError("token sequence collection is empty")
-    valid = [index for index, sequence in enumerate(sequences) if len(sequence) > context]
-    if not valid:
-        raise ValueError("dataset has no record long enough for the requested context")
+    if context <= 0:
+        raise ValueError("context must be positive")
+    usable_lengths = [len(sequence) for sequence in sequences if len(sequence) >= 2]
+    if not usable_lengths:
+        raise ValueError("dataset has no record with at least two tokens")
+    effective_context = min(context, min(usable_lengths) - 1)
+    valid = [index for index, sequence in enumerate(sequences) if len(sequence) > effective_context]
     sequence_indices = torch.randint(0, len(valid), (batch_size,)).tolist()
     rows = []
     targets = []
     for choice in sequence_indices:
         sequence = sequences[valid[choice]]
-        start = random.randrange(0, len(sequence) - context)
-        rows.append(sequence[start:start + context])
-        targets.append(sequence[start + 1:start + context + 1])
+        start = random.randrange(0, len(sequence) - effective_context)
+        rows.append(sequence[start:start + effective_context])
+        targets.append(sequence[start + 1:start + effective_context + 1])
     x = torch.stack(rows).to(device, non_blocking=True)
     y = torch.stack(targets).to(device, non_blocking=True)
     return x, y
 
 @torch.no_grad()
 def evaluate_metrics(model, sequences: list[torch.Tensor] | None, batch_size: int, context: int, device: torch.device) -> tuple[float, float] | None:
-    """Measure held-out next-token loss and exact token accuracy without crossing records."""
-    if not sequences:
+    """Measure held-out next-token loss and accuracy without crossing records."""
+    if not sequences or context <= 0:
         return None
+    usable_lengths = [len(sequence) for sequence in sequences if len(sequence) >= 2]
+    if not usable_lengths:
+        return None
+    effective_context = min(context, min(usable_lengths) - 1)
     windows: list[tuple[int, int]] = []
     for sequence_index, sequence in enumerate(sequences):
-        windows.extend((sequence_index, start) for start in range(max(0, len(sequence) - context)))
+        if len(sequence) > effective_context:
+            windows.extend((sequence_index, start) for start in range(len(sequence) - effective_context))
     if not windows:
         return None
     if len(windows) > 256:
@@ -191,8 +204,8 @@ def evaluate_metrics(model, sequences: list[torch.Tensor] | None, batch_size: in
     total = 0
     for offset in range(0, len(windows), batch_size):
         batch = windows[offset:offset + batch_size]
-        x = torch.stack([sequences[i][start:start + context] for i, start in batch]).to(device)
-        y = torch.stack([sequences[i][start + 1:start + context + 1] for i, start in batch]).to(device)
+        x = torch.stack([sequences[i][start:start + effective_context] for i, start in batch]).to(device)
+        y = torch.stack([sequences[i][start + 1:start + effective_context + 1] for i, start in batch]).to(device)
         logits = model(x)
         losses.append(float(torch.nn.functional.cross_entropy(logits.reshape(-1, model.vocab_size), y.reshape(-1)).item()))
         correct += int((logits.argmax(dim=-1) == y).sum().item())
