@@ -296,6 +296,11 @@ class TrainingPipeline:
             "scheduler": {"total_steps": scheduler.total_steps, "warmup_steps": scheduler.warmup_steps, "min_lr_ratio": scheduler.min_lr_ratio, "optimizer_steps": step},
             "early_stopping": {"best": early_stopping.best, "bad_steps": early_stopping.bad_steps},
             "metrics_fingerprint": tracker.fingerprint(),
+            "rng_state": {
+                "python": random.getstate(),
+                "torch": torch.get_rng_state(),
+                "cuda": torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None,
+            },
         }, path)
 
     def train(self, data: str | Path, output: str | Path, resume: str | Path | None = None, metrics_path: str | Path | None = None) -> TrainingSummary:
@@ -320,12 +325,24 @@ class TrainingPipeline:
             train_tokens = [tokens.to(self.device) for tokens in train_tokens]
             if validation_tokens is not None:
                 validation_tokens = [tokens.to(self.device) for tokens in validation_tokens]
-        total_steps = start_step + self.config.steps
-        scheduler = WarmupCosineScheduler(total_steps=max(1, total_steps), warmup_steps=min(self.config.warmup_steps, max(1, total_steps)), min_lr_ratio=self.config.min_lr_ratio)
-        random.seed(self.config.seed + start_step)
-        torch.manual_seed(self.config.seed + start_step)
-        if self.device.type == "cuda":
-            torch.cuda.manual_seed_all(self.config.seed + start_step)
+        saved_scheduler = payload.get("scheduler", {}) if resume is not None else {}
+        saved_total_steps = int(saved_scheduler.get("total_steps", 0)) if saved_scheduler else 0
+        total_steps = max(start_step + self.config.steps, saved_total_steps)
+        warmup_steps = int(saved_scheduler.get("warmup_steps", self.config.warmup_steps)) if saved_scheduler else self.config.warmup_steps
+        min_lr_ratio = float(saved_scheduler.get("min_lr_ratio", self.config.min_lr_ratio)) if saved_scheduler else self.config.min_lr_ratio
+        scheduler = WarmupCosineScheduler(total_steps=max(1, total_steps), warmup_steps=min(warmup_steps, max(1, total_steps)), min_lr_ratio=min_lr_ratio)
+        if resume is None:
+            random.seed(self.config.seed)
+            torch.manual_seed(self.config.seed)
+            if self.device.type == "cuda":
+                torch.cuda.manual_seed_all(self.config.seed)
+        else:
+            rng_state = payload.get("rng_state")
+            if isinstance(rng_state, dict) and rng_state.get("python") is not None:
+                random.setstate(rng_state["python"])
+                torch.set_rng_state(rng_state["torch"])
+                if torch.cuda.is_available() and rng_state.get("cuda") is not None:
+                    torch.cuda.set_rng_state_all(rng_state["cuda"])
         last_train_loss = float("nan")
         last_validation_loss = None
         last_validation_accuracy = None
