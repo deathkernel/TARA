@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "update_strategy": "track-upstream-pin-then-validate",
+  "sources": [
+    {"id":"tensorflow","repo":"tensorflow/tensorflow","ref":"master","kind":"runtime","capabilities":["tensor-runtime","training"],"adapter":"tensorflow","package":"tensorflow","optional":true},
+    {"id":"jax","repo":"jax-ml/jax","ref":"main","kind":"runtime","capabilities":["accelerated-array","jit","autodiff"],"adapter":"jax","package":"jax","optional":true},
+    {"id":"bazel","repo":"bazelbuild/bazel","ref":"master","kind":"build","capabilities":["build","test","cache"],"adapter":"bazel","package":null,"optional":true},
+    {"id":"error-prone","repo":"google/error-prone","ref":"master","kind":"quality","capabilities":["java-static-analysis"],"adapter":"error-prone","package":null,"optional":true},
+    {"id":"oss-fuzz","repo":"google/oss-fuzz","ref":"master","kind":"security","capabilities":["continuous-fuzzing"],"adapter":"oss-fuzz","package":null,"optional":true},
+    {"id":"gemma","repo":"google-deepmind/gemma","ref":"main","kind":"model","capabilities":["text-generation","multimodal","jax"],"adapter":"gemma","package":"gemma","optional":true},
+    {"id":"phi","repo":"microsoft/PhiCookBook","ref":"main","kind":"model-guidance","capabilities":["phi-models","transformers","onnx"],"adapter":"phi","package":"transformers","optional":true},
+    {"id":"onnxruntime","repo":"microsoft/onnxruntime","ref":"main","kind":"runtime","capabilities":["onnx-inference","training","accelerators"],"adapter":"onnxruntime","package":"onnxruntime","optional":true},
+    {"id":"semantic-kernel","repo":"microsoft/semantic-kernel","ref":"main","kind":"orchestration","capabilities":["agents","plugins","workflows"],"adapter":"semantic-kernel","package":"semantic-kernel","optional":true},
+    {"id":"gpt-oss","repo":"openai/gpt-oss","ref":"main","kind":"model","capabilities":["reasoning","agentic","local-inference","evals"],"adapter":"gpt-oss","package":null,"optional":true},
+    {"id":"whisper","repo":"openai/whisper","ref":"main","kind":"speech","capabilities":["speech-to-text","translation","language-identification"],"adapter":"whisper","package":"openai-whisper","optional":true},
+    {"id":"evals","repo":"openai/evals","ref":"main","kind":"evaluation","capabilities":["llm-evaluation","benchmark-registry"],"adapter":"openai-evals","package":null,"optional":true},
+    {"id":"openai-python","repo":"openai/openai-python","ref":"main","kind":"sdk","capabilities":["openai-api","responses","tools"],"adapter":"openai-python","package":"openai","optional":true},
+    {"id":"openai-node","repo":"openai/openai-node","ref":"master","kind":"sdk","capabilities":["openai-api","javascript"],"adapter":"openai-node","package":"openai","optional":true},
+    {"id":"tiktoken","repo":"openai/tiktoken","ref":"main","kind":"tokenizer","capabilities":["bpe-tokenization"],"adapter":"tiktoken","package":"tiktoken","optional":true},
+    {"id":"openai-cookbook","repo":"openai/openai-cookbook","ref":"main","kind":"knowledge","capabilities":["recipes","integration-guides"],"adapter":"openai-cookbook","package":null,"optional":true}
+  ]
+}
