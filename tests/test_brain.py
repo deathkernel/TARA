@@ -83,3 +83,19 @@ def test_brain_can_load_phase14_checkpoint(tmp_path):
     brain = TARABrain.from_checkpoint(checkpoint, seed=3)
     assert brain.tokenizer.vocab_size == tokenizer.vocab_size
     assert brain.generate("tara", max_new_tokens=2)
+
+
+def test_brain_vnext_top_p_and_long_prompt_are_supported():
+    text = "tara can reason with context and memory. "
+    tokenizer = CharTokenizer(text)
+    model = FastTinyLanguageModel(
+        vocab_size=tokenizer.vocab_size,
+        embedding_dim=8,
+        ff_dim=16,
+        num_heads=2,
+        max_context=8,
+        seed=5,
+    )
+    brain = TARABrain(model, tokenizer, seed=5)
+    output = brain.generate(text * 4, max_new_tokens=4, top_p=0.8)
+    assert output.startswith(text * 4)
