@@ -1,11 +1,8 @@
 """Optional Hugging Face model backends for TARA.
 
 The native tiny model remains the default. This module adds a common lazy-loading
-adapter for compatible text-generation checkpoints so TARA can use Llama, Code
-Llama, Gemma, and Mistral without copying their source trees into the project.
-
-Model weights are never bundled by TARA. Users must install Transformers and
-obtain access to any gated model according to its publisher's terms.
+adapter for compatible text-generation checkpoints so TARA can use Llama,
+Code Llama, Gemma, Phi, gpt-oss, and Mistral without copying their source trees.
 """
 
 from __future__ import annotations
@@ -36,6 +33,14 @@ MODEL_REGISTRY = {
     "gemma": ModelSpec(
         "gemma", "google/gemma-3-4b-it", "Gemma",
         "Google DeepMind / Hugging Face", "Gemma terms and use policy apply.",
+    ),
+    "phi": ModelSpec(
+        "phi", "microsoft/Phi-4-mini-instruct", "Phi",
+        "Microsoft / Hugging Face", "Microsoft model terms and model card apply.",
+    ),
+    "gpt-oss": ModelSpec(
+        "gpt-oss", "openai/gpt-oss-20b", "gpt-oss",
+        "OpenAI / Hugging Face", "OpenAI gpt-oss usage policy and model terms apply.",
     ),
     "mistral": ModelSpec(
         "mistral", "mistralai/Mistral-Small-3.2-24B-Instruct-2506", "Mistral",
@@ -72,7 +77,7 @@ class TransformersBackend:
             try:
                 from transformers import BitsAndBytesConfig
             except ImportError as exc:
-                raise RuntimeError("Quantization requires a Transformers build with bitsandbytes support.") from exc
+                raise RuntimeError("Quantization requires Transformers bitsandbytes support.") from exc
             kwargs["quantization_config"] = BitsAndBytesConfig(
                 load_in_4bit=quantization == "4bit", load_in_8bit=quantization == "8bit"
             )
@@ -90,7 +95,6 @@ class TransformersBackend:
         self._generation_cache = None
 
     def clear_cache(self) -> None:
-        """Release TARA-owned generation state; model-specific KV cache remains managed by Transformers."""
         self._generation_cache = None
 
     def stream_generate(
@@ -101,7 +105,6 @@ class TransformersBackend:
         temperature: float = 0.7,
         top_p: float = 0.9,
     ) -> Iterator[str]:
-        """Yield generated text chunks when the optional streamer is available."""
         self._load()
         assert self.tokenizer is not None and self.model is not None
         try:
