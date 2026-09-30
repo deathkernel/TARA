@@ -16,6 +16,7 @@ from .reflection_loop import ReflectionLoop
 from .goal_progress import GoalProgress, Progress
 from .structured_reasoning import ReasoningState, StructuredReasoner
 from .tool_intelligence import ToolAttempt, ToolSelection, ToolIntelligence
+from .error_handling import log_exception
 
 
 @dataclass(frozen=True)
@@ -139,7 +140,8 @@ class UnifiedCognitiveLoop:
         perception_text = str(perception)
         try:
             remembered = tuple(self.memory.retrieve(perception_text, limit=8))
-        except Exception:
+        except Exception as exc:
+            log_exception(exc, operation="cognitive_loop.memory.retrieve", level=30)
             remembered = ()
 
         reasoning = self.reasoner.start(self.goal)
@@ -189,8 +191,8 @@ class UnifiedCognitiveLoop:
                 memory_value,
                 importance=max(0.1, abs(outcome.score) + 0.5),
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            log_exception(exc, operation="cognitive_loop.memory.remember", level=30)
 
         reflection_cycle = self.reflection.record(
             self.goal,
