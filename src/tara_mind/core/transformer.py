@@ -160,14 +160,28 @@ class FastTinyLanguageModel(nn.Module):
         return F.cross_entropy(logits.reshape(-1, self.vocab_size), targets.reshape(-1))
 
     @torch.no_grad()
+    def forward_numeric(self, token_ids):
+        """Return the final-position logits as plain floats for legacy TARA inference."""
+        ids = list(token_ids)
+        if not ids:
+            raise ValueError("token_ids must not be empty")
+        ids = ids[-self.max_context :]
+        logits = self(ids)[:, -1, :][0]
+        return logits.detach().float().cpu().tolist()[None, :]
+
+    @torch.no_grad()
     def next_token(self, token_ids):
-        return self(token_ids)[:, -1, :].argmax(dim=-1)
+        ids = list(token_ids)[-self.max_context :]
+        return self(ids)[:, -1, :].argmax(dim=-1)
 
     @torch.no_grad()
     def sample_next_token(self, token_ids, temperature=1.0, top_k=None, rng=None):
         """Sample one next token while preserving the legacy TARA brain API."""
         if temperature <= 0:
             raise ValueError("temperature must be positive")
+        token_ids = list(token_ids)[-self.max_context :]
+        if not token_ids:
+            raise ValueError("token_ids must not be empty")
         logits = self(token_ids)[:, -1, :][0] / temperature
         if top_k is not None:
             if top_k <= 0:
