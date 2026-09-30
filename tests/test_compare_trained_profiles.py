@@ -1,9 +1,14 @@
 from experiments.compare_trained_profiles import compare, validate_result
 
 
-# Keep CI focused on the comparison contract; the full experiment retains its
-# production corpus and budget when invoked directly.
-TEST_CORPUS = "tara trained profiles test corpus " * 3
+# Compact but varied text prevents the BPE tokenizer from collapsing the test
+# corpus into too few tokens for a train/validation split.
+TEST_CORPUS = (
+    "TARA builds reliable reasoning systems. "
+    "Planning, memory, verification, learning, and tools work together. "
+    "Experiments compare models using controlled budgets and finite metrics. "
+    "Errors are logged, failures are bounded, and recovery remains explicit. "
+) * 2
 
 
 def test_trained_profiles_use_the_same_update_budget():
