@@ -57,6 +57,35 @@ def create_openai_client(**kwargs):
     return OpenAI(**kwargs)
 
 
+def openai_chat(
+    messages: list[dict[str, str]],
+    *,
+    model: str = "gpt-oss-20b",
+    base_url: str | None = None,
+    api_key: str | None = None,
+    max_tokens: int = 512,
+    temperature: float = 0.7,
+) -> str:
+    """Use the OpenAI SDK for hosted OpenAI or OpenAI-compatible local models.
+
+    base_url can point at a local gpt-oss-compatible server. Secrets are always
+    supplied by the caller/environment and are never persisted by this adapter.
+    """
+    kwargs: dict[str, Any] = {}
+    if base_url:
+        kwargs["base_url"] = base_url
+    if api_key:
+        kwargs["api_key"] = api_key
+    client = create_openai_client(**kwargs)
+    response = client.responses.create(
+        model=model,
+        input=messages,
+        max_output_tokens=max_tokens,
+        temperature=temperature,
+    )
+    return str(getattr(response, "output_text", "")).strip()
+
+
 def load_whisper(model_name: str = "base"):
     try:
         import whisper
@@ -85,3 +114,18 @@ def load_tensorflow():
         return importlib.import_module("tensorflow")
     except ImportError as exc:
         raise RuntimeError("Install tensorflow to enable the TensorFlow backend.") from exc
+
+
+def load_semantic_kernel():
+    try:
+        return importlib.import_module("semantic_kernel")
+    except ImportError as exc:
+        raise RuntimeError("Install semantic-kernel for the optional orchestration bridge.") from exc
+
+
+def encode_tiktoken(text: str, encoding: str = "o200k_base") -> list[int]:
+    try:
+        import tiktoken
+    except ImportError as exc:
+        raise RuntimeError("Install tiktoken to enable OpenAI-compatible token accounting.") from exc
+    return tiktoken.get_encoding(encoding).encode(text)
