@@ -52,8 +52,10 @@ class ToolController:
         if rollback is not None: self._rollback.append(rollback)
         result = self.execute(name, **kwargs)
         if not result.success and rollback is not None:
-            try: rollback()
-            except Exception: pass
+            try:
+                rollback()
+            except Exception as exc:
+                log_exception(exc, operation=f"rollback:{name}")
         return result
 
     def rollback_last(self) -> bool:
