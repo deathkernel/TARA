@@ -151,7 +151,9 @@ class TARABrain:
         token_ids = self.tokenizer.encode(prompt)
         if not token_ids: raise ValueError("prompt must encode to at least one token")
         for _ in range(max_new_tokens):
-            token_id = self.model.sample_next_token(token_ids, temperature=temperature, top_k=top_k, rng=self.rng) if top_p is None else self._sample_top_p(token_ids, temperature, top_p); token_ids.append(token_id)
+            context_ids = token_ids[-self.model.max_context:] if hasattr(self.model, "max_context") else token_ids
+            token_id = self.model.sample_next_token(context_ids, temperature=temperature, top_k=top_k, rng=self.rng) if top_p is None else self._sample_top_p(context_ids, temperature, top_p)
+            token_ids.append(token_id)
         return self.tokenizer.decode(token_ids)
     def _sample_top_p(self, token_ids, temperature, top_p):
         import math
