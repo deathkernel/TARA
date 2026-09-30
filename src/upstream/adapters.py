@@ -20,6 +20,7 @@ _PACKAGE_IMPORTS = {
     "jax": "jax",
     "gemma": "gemma",
     "onnxruntime": "onnxruntime",
+    "onnxruntime-genai": "onnxruntime_genai",
     "semantic-kernel": "semantic_kernel",
     "whisper": "whisper",
     "openai-python": "openai",
@@ -129,3 +130,12 @@ def encode_tiktoken(text: str, encoding: str = "o200k_base") -> list[int]:
     except ImportError as exc:
         raise RuntimeError("Install tiktoken to enable OpenAI-compatible token accounting.") from exc
     return tiktoken.get_encoding(encoding).encode(text)
+
+
+
+def load_onnx_genai_model(path: str):
+    try:
+        import onnxruntime_genai as og
+    except ImportError as exc:
+        raise RuntimeError("Install onnxruntime-genai for optimized local LLM inference.") from exc
+    return og.Model(path)
