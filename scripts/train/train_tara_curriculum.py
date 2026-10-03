@@ -42,7 +42,7 @@ DEFAULT_ORDER = tuple(STAGES)
 
 
 
-def _generated_scientific_method_text(count: int) -> str:
+def _generated_scientific_method_text(count: int, start: int = 0) -> str:
     """Build deterministic examples for the scientific-method stage."""
     templates = [
         (
@@ -70,10 +70,10 @@ def _generated_scientific_method_text(count: int) -> str:
             "Conclusion: report the measured mean and spread rather than claiming perfect equality."
         ),
     ]
-    return "\\n\\n".join(templates[i % len(templates)] for i in range(max(1, count)))
+    return "\\n\\n".join(templates[(i + start) % len(templates)] for i in range(max(1, count)))
 
 
-def _generated_tool_trace_text(count: int) -> str:
+def _generated_tool_trace_text(count: int, start: int = 0) -> str:
     """Build deterministic safe tool-use traces for the automation stage."""
     templates = [
         (
@@ -92,20 +92,21 @@ def _generated_tool_trace_text(count: int) -> str:
             "Tool policy: emergency stop has priority over continuation."
         ),
     ]
-    return "\\n\\n".join(templates[i % len(templates)] for i in range(max(1, count)))
+    return "\\n\\n".join(templates[(i + start) % len(templates)] for i in range(max(1, count)))
 
 
 def _load_generated_stage(stage: str, chars: int) -> tuple[str, str]:
+    count = max(1, chars // 700)
+    validation_chars = max(1, chars // 4)
     if stage == "E_method":
-        text = _generated_scientific_method_text(max(1, chars // 700))
+        text = _generated_scientific_method_text(count, start=0)
+        validation = _generated_scientific_method_text(max(1, validation_chars // 700), start=1)
     elif stage == "F_automation":
-        text = _generated_tool_trace_text(max(1, chars // 700))
+        text = _generated_tool_trace_text(count, start=0)
+        validation = _generated_tool_trace_text(max(1, validation_chars // 700), start=1)
     else:
         raise ValueError(f"unknown generated curriculum stage: {stage}")
-    text = text[:chars]
-    # Keep validation text deterministic but distinct from training text.
-    validation = (text[::-1] + "\\n" + text)[:max(1, chars // 4)]
-    return text, validation
+    return text[:chars], validation[:validation_chars]
 
 
 def windows(ids: list[int], context: int) -> list[tuple[list[int], list[int]]]:
