@@ -23,7 +23,7 @@ class DatasetSpec:
 
 
 DATASETS = {
-    "soda": DatasetSpec("SODA", "allenai/soda", "train", "valid", None,
+    "soda": DatasetSpec("SODA", "allenai/soda", "train", "validation", None,
                         "social dialogue, commonsense and interpersonal interaction",
                         "dialogue", "speakers", adapter="dialogue"),
     "empathetic_dialogues": DatasetSpec(
