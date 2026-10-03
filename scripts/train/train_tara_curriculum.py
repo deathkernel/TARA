@@ -31,9 +31,81 @@ STAGES = {
     "B_math": ["gsm8k", "competition_math"],
     "C_physics": ["physics_eval"],
     "D_science": ["sciq", "ai2_arc"],
+    # These stages are deterministic TARA-generated corpora. They are kept
+    # separate from external datasets so provenance and evaluation boundaries
+    # remain explicit.
+    "E_method": ["__generated_scientific_method__"],
+    "F_automation": ["__generated_tool_traces__"],
 }
 
 DEFAULT_ORDER = tuple(STAGES)
+
+
+
+def _generated_scientific_method_text(count: int) -> str:
+    """Build deterministic examples for the scientific-method stage."""
+    templates = [
+        (
+            "Observation: a plant in bright light grows 2 cm in seven days. "
+            "Hypothesis: increased light increases growth. Prediction: plants receiving "
+            "more light will show greater average growth over the same period. "
+            "Experiment: keep soil, water, temperature and plant age constant while varying light exposure. "
+            "Measurement: record height daily. Uncertainty: ruler resolution and biological variation. "
+            "Conclusion: accept the hypothesis only if the measured difference is larger than expected noise."
+        ),
+        (
+            "Observation: a metal sample becomes warmer when electrical current passes through it. "
+            "Hypothesis: electrical resistance converts part of the electrical energy into heat. "
+            "Prediction: for the same material, increasing current should increase heating. "
+            "Experiment: vary current while controlling ambient temperature and sample geometry. "
+            "Measurement: record temperature and current. Uncertainty: sensor precision and heat loss. "
+            "Conclusion: compare the measured relationship with the predicted trend before making a claim."
+        ),
+        (
+            "Observation: two identical objects fall at nearly the same rate in still air. "
+            "Hypothesis: gravitational acceleration dominates when air resistance is small. "
+            "Prediction: changing object mass alone should not substantially change acceleration. "
+            "Experiment: release objects from the same height and measure fall time repeatedly. "
+            "Measurement: use repeated trials. Uncertainty: timing resolution and release error. "
+            "Conclusion: report the measured mean and spread rather than claiming perfect equality."
+        ),
+    ]
+    return "\\n\\n".join(templates[i % len(templates)] for i in range(max(1, count)))
+
+
+def _generated_tool_trace_text(count: int) -> str:
+    """Build deterministic safe tool-use traces for the automation stage."""
+    templates = [
+        (
+            "Request: find whether a local file exists. Intent: inspect file state. "
+            "Plan: validate the path, call a read-only file-existence tool, inspect the observation, verify it matches the requested path, respond with the result. "
+            "Tool policy: read-only operation; no confirmation is required."
+        ),
+        (
+            "Request: rename a file. Intent: modify filesystem state. "
+            "Plan: validate source and destination, check for collisions, request confirmation when policy requires it, execute the rename, observe the result, verify the destination exists, report success or failure. "
+            "Tool policy: state-changing operation; never claim success without verification."
+        ),
+        (
+            "Request: stop an unsafe automation. Intent: halt execution. "
+            "Plan: invoke the emergency-stop capability, verify the process is no longer active, preserve the failure trace, respond with the verified state. "
+            "Tool policy: emergency stop has priority over continuation."
+        ),
+    ]
+    return "\\n\\n".join(templates[i % len(templates)] for i in range(max(1, count)))
+
+
+def _load_generated_stage(stage: str, chars: int) -> tuple[str, str]:
+    if stage == "E_method":
+        text = _generated_scientific_method_text(max(1, chars // 700))
+    elif stage == "F_automation":
+        text = _generated_tool_trace_text(max(1, chars // 700))
+    else:
+        raise ValueError(f"unknown generated curriculum stage: {stage}")
+    text = text[:chars]
+    # Keep validation text deterministic but distinct from training text.
+    validation = (text[::-1] + "\\n" + text)[:max(1, chars // 4)]
+    return text, validation
 
 
 def windows(ids: list[int], context: int) -> list[tuple[list[int], list[int]]]:
@@ -116,6 +188,21 @@ def load_stage_text(
     per_dataset_train = max(1, train_chars // len(datasets))
     per_dataset_validation = max(1, validation_chars // len(datasets))
     for index, dataset in enumerate(datasets):
+        if dataset.startswith("__generated_"):
+            if dataset == "__generated_scientific_method__":
+                generated_train, generated_validation = _load_generated_stage(
+                    "E_method", per_dataset_train
+                )
+            elif dataset == "__generated_tool_traces__":
+                generated_train, generated_validation = _load_generated_stage(
+                    "F_automation", per_dataset_train
+                )
+            else:
+                raise ValueError(f"unknown generated dataset: {dataset}")
+            train_parts.append(generated_train)
+            validation_parts.append(generated_validation[:per_dataset_validation])
+            continue
+
         train_parts.append(
             load_dataset_text(dataset, per_dataset_train, "train", seed + index)
         )
@@ -232,7 +319,7 @@ def main() -> None:
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
     replay_pool: list[tuple[list[int], list[int]]] = []
-    report: dict[str, object] = {"order": order, "device": str(device), "stages": []}
+    report: dict[str, object] = {"order": order, "device": str(device), "stages": [], "curriculum_version": 1}
 
     print("[4/6] Sequential curriculum + replay training...")
     for stage_index, stage in enumerate(order, start=1):
