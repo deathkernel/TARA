@@ -44,7 +44,7 @@ class CapabilityBenchmarkReport:
 
 
 def _load_checkpoint(path: str | Path) -> dict[str, Any]:
-    payload = torch.load(path, map_location="cpu", weights_only=False)
+    payload = torch.load(path, map_location="cpu", weights_only=True)
     if payload.get("format_version") != CHECKPOINT_FORMAT_VERSION:
         raise ValueError("unsupported TARA training checkpoint format")
     return payload

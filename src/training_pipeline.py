@@ -200,7 +200,8 @@ class TrainingPipeline:
         return tokenizer
 
     def _resume_state(self, checkpoint_path: Path, texts: list[str]):
-        payload = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+        # Checkpoints contain only tensors/primitives; never execute pickle payloads.
+        payload = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
         if payload.get("format_version") != CHECKPOINT_FORMAT_VERSION:
             raise ValueError("unsupported TARA training checkpoint format; retrain or migrate the checkpoint")
         if payload.get("dataset_fingerprint") != _fingerprint(texts):
@@ -223,6 +224,27 @@ class TrainingPipeline:
             raise ValueError("checkpoint step is invalid")
         return model, tokenizer, optimizer, train_tokens, validation_tokens, step, payload
 
+    @staticmethod
+    def _capture_rng_state() -> dict:
+        state = {
+            "python": random.getstate(),
+            "torch": torch.get_rng_state(),
+        }
+        if torch.cuda.is_available():
+            state["cuda"] = torch.cuda.get_rng_state_all()
+        return state
+
+    @staticmethod
+    def _restore_rng_state(state: dict | None) -> None:
+        if not isinstance(state, dict):
+            return
+        if "python" in state:
+            random.setstate(state["python"])
+        if "torch" in state:
+            torch.set_rng_state(state["torch"])
+        if "cuda" in state and torch.cuda.is_available():
+            torch.cuda.set_rng_state_all(state["cuda"])
+
     def _save(self, path: Path, model, tokenizer, optimizer, step, train_loss, validation_loss, fingerprint, scheduler, early_stopping, tracker):
         path.parent.mkdir(parents=True, exist_ok=True)
         torch.save({
@@ -239,6 +261,7 @@ class TrainingPipeline:
             "scheduler": {"total_steps": scheduler.total_steps, "warmup_steps": scheduler.warmup_steps, "min_lr_ratio": scheduler.min_lr_ratio, "optimizer_steps": step},
             "early_stopping": {"best": early_stopping.best, "bad_steps": early_stopping.bad_steps},
             "metrics_fingerprint": tracker.fingerprint(),
+            "rng_state": self._capture_rng_state(),
         }, path)
 
     def train(self, data: str | Path, output: str | Path, resume: str | Path | None = None, metrics_path: str | Path | None = None) -> TrainingSummary:
@@ -259,10 +282,13 @@ class TrainingPipeline:
             early_stopping.bad_steps = int(state.get("bad_steps", 0))
         total_steps = start_step + self.config.steps
         scheduler = WarmupCosineScheduler(total_steps=max(1, total_steps), warmup_steps=min(self.config.warmup_steps, max(1, total_steps)), min_lr_ratio=self.config.min_lr_ratio)
-        random.seed(self.config.seed + start_step)
-        torch.manual_seed(self.config.seed + start_step)
-        if self.device.type == "cuda":
-            torch.cuda.manual_seed_all(self.config.seed + start_step)
+        if resume is None:
+            random.seed(self.config.seed)
+            torch.manual_seed(self.config.seed)
+            if self.device.type == "cuda":
+                torch.cuda.manual_seed_all(self.config.seed)
+        else:
+            self._restore_rng_state(payload.get("rng_state"))
         last_train_loss = float("nan")
         last_validation_loss = None
         stopped_early = False
