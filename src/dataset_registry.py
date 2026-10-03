@@ -23,15 +23,15 @@ class DatasetSpec:
 
 
 DATASETS = {
-    "soda": DatasetSpec("SODA", "allenai/soda", "train", "validation", None,
+    "soda": DatasetSpec("SODA", "allenai/soda", "train", "valid", None,
                         "social dialogue, commonsense and interpersonal interaction",
                         "dialogue", "speakers", adapter="dialogue"),
     "empathetic_dialogues": DatasetSpec(
-        "EmpatheticDialogues", "facebook/empathetic_dialogues", "train", "validation",
+        "EmpatheticDialogues", "lighteval/empathetic_dialogues", "train", "validation",
         None, "emotion-grounded open-domain conversation", adapter="empathetic"
     ),
     "daily_dialog": DatasetSpec(
-        "DailyDialog", "li2017dailydialog/daily_dialog", "train", "validation",
+        "DailyDialog", "DeepPavlov/daily_dialog", "train", "validation",
         None, "human-written everyday dialogue with emotion and intent labels",
         dialogue_field="dialog", adapter="dialogue_list"
     ),
@@ -45,7 +45,7 @@ DATASETS = {
         "grade-school mathematical reasoning", config="main", adapter="gsm8k"
     ),
     "competition_math": DatasetSpec(
-        "MATH", "jeggers/competition_math", "training", "test", None,
+        "MATH", "jeggers/competition_math", "train", "test", None,
         "competition mathematics with worked solutions", adapter="math"
     ),
     "physics_eval": DatasetSpec(
