@@ -29,7 +29,7 @@ class TaskScheduler:
             requested_retries = int(task.metadata.get("retries", 0)) if isinstance(task.metadata, dict) else 0
             retries = min(max(0, requested_retries), self.budget.max_retries)
             queue.append(TaskNode(task.task_id, task.description, priority=task.priority, retries=retries))
-        orchestrator = AutonomousOrchestrator(max_steps=self.budget.max_tasks)
+        orchestrator = AutonomousOrchestrator(max_steps=self.budget.max_tasks * (self.budget.max_retries + 1))
         orchestrator.queue.extend(queue)
         report = orchestrator.run(executor)
         if self.store:

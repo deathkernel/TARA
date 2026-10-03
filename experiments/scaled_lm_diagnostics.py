@@ -56,22 +56,26 @@ def evaluate(model, dataset, batch_size=4):
     token_count = 0
     entropy_sum = 0.0
 
-    for batch in dataset.iter_batches(batch_size, shuffle=False):
-        for inputs, targets in batch:
-            logits = forward_numeric(model, inputs)
-            for row, target in zip(logits, targets):
-                probabilities = _softmax(row)
-                prediction = max(range(len(row)), key=row.__getitem__)
-                if not 0 <= target < len(row):
-                    raise IndexError("target token is outside model vocabulary")
-                target_probability = max(probabilities[target], 1e-30)
-                total_loss += -math.log(target_probability)
-                correct += int(prediction == target)
-                entropy_sum -= sum(
-                    probability * math.log(max(probability, 1e-30))
-                    for probability in probabilities
-                )
-                token_count += 1
+    # Evaluate non-overlapping windows.  The previous implementation visited
+    # every possible token offset, repeatedly recomputing nearly identical
+    # Transformer attention contexts.  Numeric inference is intentionally
+    # dependency-free and CPU-friendly, so avoiding that O(N * context^2)
+    # overlap keeps diagnostics practical on normal PCs.
+    for inputs, targets in dataset.iter_windows():
+        logits = forward_numeric(model, inputs)
+        for row, target in zip(logits, targets):
+            probabilities = _softmax(row)
+            prediction = max(range(len(row)), key=row.__getitem__)
+            if not 0 <= target < len(row):
+                raise IndexError("target token is outside model vocabulary")
+            target_probability = max(probabilities[target], 1e-30)
+            total_loss += -math.log(target_probability)
+            correct += int(prediction == target)
+            entropy_sum -= sum(
+                probability * math.log(max(probability, 1e-30))
+                for probability in probabilities
+            )
+            token_count += 1
 
     if token_count == 0:
         raise ValueError("dataset must contain at least one target token")
@@ -104,7 +108,7 @@ def build_experiment(corpus=CORPUS):
 
 
 def corpus_statistics(tokenizer, train_dataset, validation_dataset):
-    """Return token/window statistics for the train/validation streams."""
+    """Return transparent token/window statistics for an experiment."""
     unk_id = tokenizer.stoi[tokenizer.UNK]
     return {
         "train": dataset_statistics(train_dataset, unk_id=unk_id),

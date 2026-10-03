@@ -11,6 +11,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable
 
+from .error_handling import log_exception
+
 
 @dataclass
 class TaskNode:
@@ -137,7 +139,8 @@ class AutonomousOrchestrator:
                 task.error = None
                 self.events.append(OrchestrationEvent(task.task_id, "completed", task.result))
             except Exception as exc:
-                task.error = f"{type(exc).__name__}: {exc}"
+                record = log_exception(exc, operation=f"orchestrator:{task.task_id}")
+                task.error = f"{record.error_type}: {record.message}"
                 if task.retries > 0:
                     task.retries -= 1
                     task.status = "pending"

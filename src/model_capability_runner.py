@@ -56,6 +56,11 @@ class ModelCapabilityRunner:
         if not prompt_ids:
             raise ValueError("prompt must encode to at least one token")
         token_ids = list(prompt_ids)
+        if hasattr(self.model, "forward_numeric") and not hasattr(self.model, "eval"):
+            for _ in range(self.max_new_tokens):
+                logits = self.model.forward_numeric(token_ids)[-1]
+                token_ids.append(max(range(len(logits)), key=logits.__getitem__))
+            return self.tokenizer.decode(token_ids[len(prompt_ids):])
         self.model.eval()
         with torch.no_grad():
             for _ in range(self.max_new_tokens):

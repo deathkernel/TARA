@@ -102,21 +102,23 @@ def _run(name, optimizer_kind, steps=STEPS, corpus=CORPUS):
             seed=SEED + step,
         )
         model.zero_grad()
-        total_loss = None
+        total_loss_value = 0.0
         total_tokens = 0
         for inputs, targets in batch:
             loss = model.loss(inputs, targets)
             weighted = loss * len(targets)
-            total_loss = weighted if total_loss is None else total_loss + weighted
+            # Accumulate gradients per window instead of retaining every
+            # window's Transformer graph until one giant backward pass.
+            weighted.backward()
+            total_loss_value += weighted.data
             total_tokens += len(targets)
-        loss = total_loss / total_tokens
-        loss.backward()
+        loss_value = total_loss_value / total_tokens
         gradient_norm = clip_grad_norm_(model.parameters(), MAX_GRAD_NORM)
         learning_rate = scheduler.get_lr(step)
         optimizer.step(learning_rate=learning_rate)
         history.append({
             "step": step,
-            "loss": loss.data,
+            "loss": loss_value,
             "learning_rate": learning_rate,
             "gradient_norm": gradient_norm,
         })

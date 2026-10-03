@@ -20,6 +20,7 @@ from .brain import TARABrain
 from .experience_learning import Experience, LearningReport
 from .scientific_experiment import ExperimentDesign, ExperimentReport
 from .unified_cognitive_loop import ActionOutcome, CognitiveLoopReport
+from .error_handling import log_exception
 
 
 class CoreStatus(str, Enum):
@@ -146,7 +147,8 @@ class TARACore:
             return trace
         except Exception as exc:
             self.status = CoreStatus.ERROR
-            self._emit("error", type=type(exc).__name__, message=str(exc))
+            record = log_exception(exc, operation="tara_core.cycle")
+            self._emit("error", type=record.error_type, message=record.message)
             raise
 
     def run(self, goal: str, subtasks, perceptions: Iterable[Any], *, action_executor: Callable[[Any], ActionOutcome | Mapping[str, Any] | Any], expected: Any = None, required_capabilities: Iterable[str] = (), tool_facts: Mapping[str, str] | None = None) -> CognitiveLoopReport:
@@ -162,7 +164,8 @@ class TARACore:
             return report
         except Exception as exc:
             self.status = CoreStatus.ERROR
-            self._emit("error", type=type(exc).__name__, message=str(exc))
+            record = log_exception(exc, operation="tara_core.run")
+            self._emit("error", type=record.error_type, message=record.message)
             raise
 
     def respond(self, prompt: str, **kwargs):

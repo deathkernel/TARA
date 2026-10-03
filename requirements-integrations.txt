@@ -1,0 +1,13 @@
+# Optional TARA upstream integrations.
+# Kept separate from requirements.txt so external runtime upgrades cannot
+# destabilize the native TARA training environment.
+tensorflow
+jax
+gemma
+onnxruntime
+onnxruntime-genai
+semantic-kernel
+openai
+openai-whisper
+tiktoken
+transformers

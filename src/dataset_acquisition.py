@@ -27,11 +27,13 @@ class PublicDatasetSpec:
     dataset_id: str
     config: str | None
     split: str
-    text_field: str
+    text_field: str | None
     level: str
     license: str
     role: str
     answer_field: str | None = None
+    dialogue_field: str | None = None
+    speaker_field: str | None = None
     notes: str = ""
 
 
@@ -69,6 +71,47 @@ def _fingerprint(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
+def _normalize_dialogue(dialogue: Any, speakers: Any = None) -> str:
+    """Convert a two-party dialogue into stable TARA conversation markers."""
+    if not isinstance(dialogue, list) or not dialogue:
+        return ""
+    if not all(isinstance(item, str) and item.strip() for item in dialogue):
+        return ""
+    speaker_values = list(speakers) if isinstance(speakers, list) else []
+    if speaker_values and len(speaker_values) != len(dialogue):
+        return ""
+    unique = []
+    for speaker in speaker_values:
+        if speaker not in unique:
+            unique.append(speaker)
+    if speaker_values and len(unique) != 2:
+        return ""
+    role_by_speaker = {unique[0]: "user", unique[1]: "assistant"} if len(unique) == 2 else {}
+    lines = []
+    for index, turn in enumerate(dialogue):
+        role = role_by_speaker.get(speaker_values[index]) if speaker_values else ("user" if index % 2 == 0 else "assistant")
+        if role is None:
+            return ""
+        lines.append(f"<|{role}|>")
+        lines.append(turn.strip())
+    return "\n".join(lines).strip()
+
+
+def _extract_record_text(example: Mapping[str, Any], spec: PublicDatasetSpec) -> str:
+    if spec.dialogue_field:
+        text = _normalize_dialogue(
+            example.get(spec.dialogue_field),
+            example.get(spec.speaker_field) if spec.speaker_field else None,
+        )
+    else:
+        text = _normalize_text(example.get(spec.text_field, "")) if spec.text_field else ""
+    if spec.answer_field:
+        answer = _normalize_text(example.get(spec.answer_field, ""))
+        if answer:
+            text = f"Question: {text} Answer: {answer}"
+    return text
+
+
 def load_public_dataset_manifest(path: str | Path) -> list[PublicDatasetSpec]:
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
     items = payload.get("datasets") if isinstance(payload, dict) else payload
@@ -85,7 +128,6 @@ def load_public_dataset_manifest(path: str | Path) -> list[PublicDatasetSpec]:
             "organization",
             "dataset_id",
             "split",
-            "text_field",
             "level",
             "license",
             "role",
@@ -101,11 +143,13 @@ def load_public_dataset_manifest(path: str | Path) -> list[PublicDatasetSpec]:
                 dataset_id=str(item["dataset_id"]),
                 config=str(item["config"]) if item.get("config") else None,
                 split=str(item["split"]),
-                text_field=str(item["text_field"]),
+                text_field=str(item["text_field"]) if item.get("text_field") else None,
                 level=str(item["level"]),
                 license=str(item["license"]),
                 role=str(item["role"]),
                 answer_field=str(item["answer_field"]) if item.get("answer_field") else None,
+                dialogue_field=str(item["dialogue_field"]) if item.get("dialogue_field") else None,
+                speaker_field=str(item["speaker_field"]) if item.get("speaker_field") else None,
                 notes=str(item.get("notes", "")),
             )
         )
@@ -134,7 +178,7 @@ class HuggingFaceStreamer:
         seed: int = 42,
         shuffle_buffer: int = 1000,
         api_base: str = "https://datasets-server.huggingface.co",
-        allow_datasets_fallback: bool = False,
+        allow_datasets_fallback: bool = True,
     ) -> None:
         if min_chars < 0 or max_chars < min_chars:
             raise ValueError("invalid text length bounds")
@@ -219,11 +263,7 @@ class HuggingFaceStreamer:
                     self.last_filtered += 1
                     continue
 
-                text = _normalize_text(example.get(spec.text_field, ""))
-                if spec.answer_field:
-                    answer = _normalize_text(example.get(spec.answer_field, ""))
-                    if answer:
-                        text = f"Question: {text} Answer: {answer}"
+                text = _extract_record_text(example, spec)
 
                 if len(text) < self.min_chars:
                     self.last_filtered += 1
@@ -284,11 +324,7 @@ class HuggingFaceStreamer:
             if not isinstance(example, Mapping):
                 self.last_filtered += 1
                 continue
-            text = _normalize_text(example.get(spec.text_field, ""))
-            if spec.answer_field:
-                answer = _normalize_text(example.get(spec.answer_field, ""))
-                if answer:
-                    text = f"Question: {text} Answer: {answer}"
+            text = _extract_record_text(example, spec)
             if len(text) < self.min_chars:
                 self.last_filtered += 1
                 continue

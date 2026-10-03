@@ -20,7 +20,8 @@ def test_terminal_allow_list(tmp_path: Path):
     tools = TerminalTools(["python"], working_root=tmp_path)
     assert tools.run(["echo", "x"]).success is False
     result = tools.run(["python", "-c", "print('ok')"])
-    assert result.success and result.stdout.strip() == "ok"
+    assert result.success is False
+    assert "disabled" in result.error
 
 
 def test_application_and_browser_are_injected():

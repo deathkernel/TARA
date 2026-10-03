@@ -9,8 +9,9 @@ def test_python_candidate_executes():
         source="print(input().upper())",
     )
     result = PolyglotExecutor(run_timeout=2).execute(candidate, "tara\n")
-    assert result.success
-    assert result.stdout.strip() == "TARA"
+    assert not result.success
+    assert result.phase == "disabled"
+    assert "disabled" in result.error
 
 
 def test_unknown_language_is_rejected():
@@ -30,5 +31,7 @@ def test_timeout_is_reported():
         source="while True: pass",
     )
     result = PolyglotExecutor(run_timeout=0.2).execute(candidate)
-    assert result.timed_out
+    assert not result.timed_out
     assert not result.success
+    assert result.phase == "disabled"
+    assert "disabled" in result.error

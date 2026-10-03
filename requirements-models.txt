@@ -1,0 +1,8 @@
+# Optional model backends for TARA.
+#
+# Install only when using a Hugging Face backend:
+#   pip install -r requirements-models.txt
+transformers>=4.52
+accelerate>=1.2
+safetensors>=0.5
+huggingface_hub>=0.28

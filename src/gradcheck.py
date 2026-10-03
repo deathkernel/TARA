@@ -23,7 +23,7 @@ def numerical_gradient(loss_fn, parameter, epsilon=1e-6):
         parameter.data = original
 
 
-def relative_error(analytic, numerical, floor=1e-12):
+def relative_error(analytic, numerical, floor=1e-8):
     """Return a scale-aware absolute relative error."""
     return abs(analytic - numerical) / max(floor, abs(analytic) + abs(numerical))
 

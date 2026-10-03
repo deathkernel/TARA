@@ -77,7 +77,7 @@ def test_phase14_split_is_deterministic_and_non_overlapping():
 
 
 def tiny_config(steps=2):
-    return TrainingConfig(steps=steps, batch_size=2, context=16, embedding_dim=8, ff_dim=16, heads=2, lr=1e-3, validation_split=0.25, seed=11, log_every=2)
+    return TrainingConfig(steps=steps, batch_size=2, context=8, embedding_dim=8, ff_dim=16, heads=2, lr=1e-3, validation_split=0.25, seed=11, log_every=2)
 
 
 def test_phase14_writes_self_contained_checkpoint(tmp_path):
@@ -89,7 +89,7 @@ def test_phase14_writes_self_contained_checkpoint(tmp_path):
     assert summary.final_step == 2
     assert checkpoint.exists()
     payload = torch.load(checkpoint, map_location="cpu", weights_only=False)
-    assert payload["format_version"] == 3
+    assert payload["format_version"] == 5
     assert payload["step"] == 2
     assert "model_state" in payload
     assert "optimizer_state" in payload
@@ -135,3 +135,103 @@ def test_phase37_gradient_accumulation_scheduler_and_tracker(tmp_path):
     assert payload["hardening_config"]["gradient_accumulation_steps"] == 2
     assert payload["scheduler"]["optimizer_steps"] == 3
     assert payload["metrics_fingerprint"]
+
+
+def test_bpe_tokenizer_is_default_and_persisted(tmp_path):
+    data = tmp_path / "data.jsonl"
+    checkpoint = tmp_path / "model.pt"
+    write_algorithm_dataset(data, count=12)
+    config = TrainingConfig(steps=1, batch_size=2, context=8, embedding_dim=8, ff_dim=16, heads=2, lr=1e-3, validation_split=0.25, seed=11, log_every=1, vocab_size=64)
+    summary = TrainingPipeline(config).train(data, checkpoint)
+    assert summary.final_step == 1
+    payload = torch.load(checkpoint, map_location="cpu", weights_only=False)
+    assert payload["format_version"] == 5
+    assert payload["tokenizer"]["type"] == "bpe"
+    assert payload["tokenizer"]["merges"]
+
+    
+def test_tokenize_corpus_keeps_records_separate():
+    from src.tokenizer import CharTokenizer
+    from src.training_pipeline import _tokenize_corpus
+
+    tokenizer = CharTokenizer("a" * 80 + "b" * 80)
+    sequences = _tokenize_corpus(["a" * 80, "b" * 80], tokenizer, context=16)
+    assert len(sequences) == 2
+    assert sequences[0].shape[0] == 80
+    assert sequences[1].shape[0] == 80
+
+
+def test_sample_batch_never_crosses_record_boundary():
+    from src.tokenizer import CharTokenizer
+    from src.training_pipeline import _sample_batch, _tokenize_corpus
+
+    tokenizer = CharTokenizer("a" * 80 + "b" * 80)
+    sequences = _tokenize_corpus(["a" * 80, "b" * 80], tokenizer, context=16)
+    x, y = _sample_batch(sequences, batch_size=32, context=16, device=torch.device("cpu"))
+    assert x.shape == (32, 16)
+    assert y.shape == (32, 16)
+    for row in x:
+        assert len(set(row.tolist())) == 1
+
+
+def test_curriculum_v2_has_shorter_lesson_records():
+    from pathlib import Path
+
+    path = Path("data/curriculum_v2.jsonl")
+    rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    assert len(rows) == 24
+    assert all(row["level"] in range(1, 13) for row in rows)
+    assert all(row["text"].count("<|user|>") == row["text"].count("<|assistant|>") for row in rows)
+    assert all(row["text"].count("<|user|>") >= 4 for row in rows)
+
+
+def test_external_model_registry_has_supported_families():
+    from src.model_backends import MODEL_REGISTRY
+
+    assert {"llama", "codellama", "gemma", "mistral"} <= set(MODEL_REGISTRY)
+    assert all(spec.model_id for spec in MODEL_REGISTRY.values())
+
+
+def test_best_checkpoint_is_preserved_separately(tmp_path):
+    data = tmp_path / "data.jsonl"
+    checkpoint = tmp_path / "model.pt"
+    write_algorithm_dataset(data, count=8)
+    config = tiny_config(steps=2)
+    summary = TrainingPipeline(config).train(data, checkpoint)
+    best = checkpoint.with_suffix(checkpoint.suffix + ".best.pt")
+    assert checkpoint.exists()
+    assert best.exists()
+    last_payload = torch.load(checkpoint, map_location="cpu", weights_only=False)
+    best_payload = torch.load(best, map_location="cpu", weights_only=False)
+    assert last_payload["step"] == summary.final_step
+    assert best_payload["metrics"]["validation_loss"] is not None
+
+
+def test_checkpoint_contains_rng_state(tmp_path):
+    data = tmp_path / "data.jsonl"
+    checkpoint = tmp_path / "model.pt"
+    write_algorithm_dataset(data, count=8)
+    TrainingPipeline(tiny_config(steps=1)).train(data, checkpoint)
+    payload = torch.load(checkpoint, map_location="cpu", weights_only=False)
+    assert payload["rng_state"]["python"] is not None
+    assert payload["rng_state"]["torch"] is not None
+
+
+def test_resume_uses_saved_scheduler_metadata(tmp_path):
+    data = tmp_path / "data.jsonl"
+    checkpoint = tmp_path / "model.pt"
+    write_algorithm_dataset(data, count=8)
+    first = TrainingConfig(**{**tiny_config(steps=2).__dict__, "warmup_steps": 1, "min_lr_ratio": 0.2})
+    TrainingPipeline(first).train(data, checkpoint)
+    resumed = TrainingPipeline(tiny_config(steps=1)).train(data, checkpoint, resume=checkpoint)
+    payload = torch.load(checkpoint, map_location="cpu", weights_only=False)
+    assert resumed.final_step == 3
+    assert payload["scheduler"]["total_steps"] >= 3
+
+
+def test_early_stopping_honors_patience_exactly():
+    from src.training_hardening import EarlyStopping
+    stopper = EarlyStopping(patience=2)
+    assert stopper.update(1.0).should_stop is False
+    assert stopper.update(1.1).should_stop is False
+    assert stopper.update(1.2).should_stop is True

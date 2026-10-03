@@ -61,7 +61,7 @@ def test_sample_next_token_rejects_invalid_temperature_and_top_k():
 def test_small_language_model_has_explicit_pc_friendly_capacity_profile():
     model = SmallLanguageModel(vocab_size=16, seed=11)
     assert model.transformer.num_layers == 2
-    assert len(model.embedding.parameters()) == 16
+    assert len(model.embedding.parameters()) == 16 * 32
     assert len(model.forward([0, 1, 2])) == 3
     assert all(len(row) == 16 for row in model.forward([0, 1, 2]))
     assert len(model.parameters()) > len(TinyLanguageModel(vocab_size=16, seed=11).parameters())

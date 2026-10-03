@@ -13,7 +13,7 @@ from src.dataset_acquisition import (
 def main() -> None:
     parser = argparse.ArgumentParser(description="Prepare a bounded TARA dataset sample")
     parser.add_argument("--manifest", default="data/dataset_sources.json")
-    parser.add_argument("--level", default="basic", choices=("basic", "intermediate", "advanced", "specialized"))
+    parser.add_argument("--level", default="basic", choices=("basic", "conversation-v1", "intermediate", "advanced", "specialized"))
     parser.add_argument("--output", default=None)
     parser.add_argument("--max-records-per-source", type=int, default=1000)
     parser.add_argument("--min-chars", type=int, default=40)

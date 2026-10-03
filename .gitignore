@@ -1,8 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Secrets and local configuration
 .env
 .env.*
 !.env.example
-__pycache__/
-*.py[cod]
-.pytest_cache/
-.venv/
-venv/
+
+# TARA local training artifacts
+checkpoints/
+*.pt
+*.pth
+*.safetensors
+*.ckpt
+*.metrics.jsonl
+*.log
+runs/
+outputs/
+
+# Local datasets and caches
+data/raw/
+data/cache/
+data/downloads/
+.huggingface/
+huggingface/
+.cache/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+target/

@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable
 
+from ..error_handling import log_exception
+
 @dataclass(frozen=True)
 class ToolDecision:
     tool: str
@@ -43,14 +45,17 @@ class ToolController:
             output = self._tools[name](**kwargs)
             return ToolExecution(decision, output=output, success=True)
         except Exception as exc:
-            return ToolExecution(decision, error=f"{type(exc).__name__}: {exc}")
+            record = log_exception(exc, operation=f"tool:{name}")
+            return ToolExecution(decision, error=f"{record.error_type}: {record.message}")
 
     def execute_with_rollback(self, name: str, *, rollback: Callable[[], Any] | None = None, **kwargs: Any) -> ToolExecution:
         if rollback is not None: self._rollback.append(rollback)
         result = self.execute(name, **kwargs)
         if not result.success and rollback is not None:
-            try: rollback()
-            except Exception: pass
+            try:
+                rollback()
+            except Exception as exc:
+                log_exception(exc, operation=f"rollback:{name}")
         return result
 
     def rollback_last(self) -> bool:
