@@ -70,6 +70,34 @@ The resulting JSONL is directly consumable by the existing training pipeline bec
 
 The public source manifest records dataset identity, organization, role and stated licensing information. Downstream use must still follow each upstream dataset's current terms and provenance requirements.
 
+## TARA Baby curriculum training — A–F wired
+
+The canonical curriculum trainer now runs these stages in order:
+
+1. **A_social** — SODA, EmpatheticDialogues, DailyDialog, BlendedSkillTalk.
+2. **B_math** — GSM8K and MATH-style problems.
+3. **C_physics** — PhysicsEval.
+4. **D_science** — SciQ and AI2 ARC.
+5. **E_method** — deterministic TARA-generated scientific-method traces.
+6. **F_automation** — deterministic TARA-generated safe tool-use traces.
+
+Stages E/F are generated locally and remain explicitly separated from external
+datasets for provenance. The trainer keeps one tokenizer/model, uses replay to
+reduce forgetting, evaluates the current and previous stages, and writes a
+checkpoint after every stage.
+
+Run a bounded local experiment with:
+
+```bash
+python scripts/train/train_tara_curriculum.py --steps-per-stage 200 --chars-per-dataset 65536 --validation-chars-per-dataset 16384
+```
+
+This produces local stage checkpoints under `checkpoints/curriculum/` and a
+JSON report under `outputs/curriculum_report.json`. A successful code path is
+**not** a claim that the model is intelligent; the final model still requires
+real training hardware, held-out evaluation, and inspection of the resulting
+checkpoint.
+
 ## Phase 37.11 — Single-Command Learning Pipeline Complete
 
 `run_learning_experiment.py` connects baseline evaluation, explicit training, candidate evaluation and evidence-gated promotion into one reproducible workflow.
