@@ -36,7 +36,7 @@ DATASETS = {
         dialogue_field="dialog", adapter="dialogue_list"
     ),
     "blended_skill_talk": DatasetSpec(
-        "BlendedSkillTalk", "anezatra/blended-skill-talk", "train", "validation",
+        "BlendedSkillTalk", "TutorialGuide/blended-skill-talk-fixed", "train", "validation",
         None, "persona, empathy, knowledge and dialogue flow",
         adapter="blended"
     ),
@@ -132,7 +132,16 @@ def _example_to_text(spec, example):
         return "\n".join(f"Speaker: {_clean(x)}" for x in dialogue if _clean(x))
 
     if adapter == "empathetic":
-        fields = [_clean(example.get("context")), _clean(example.get("prompt")), _clean(example.get("utterance"))]
+        # Current Parquet mirror exposes an input plus the full reference
+        # dialogue; older script-backed versions used different field names.
+        fields = [_clean(example.get("input"))]
+        references = example.get("references")
+        if isinstance(references, list):
+            fields.extend(_clean(x) for x in references if _clean(x))
+        for key in ("context", "prompt", "utterance"):
+            value = _clean(example.get(key))
+            if value:
+                fields.append(value)
         return "\n".join(x for x in fields if x)
 
     if adapter == "blended":
