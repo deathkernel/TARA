@@ -41,9 +41,12 @@ A plant needs light to grow.
 """.strip()
 
 VALIDATION_TEXT = """
-TARA updates its weights from prediction error.
-A triangle has three sides.
-Two plus two equals four.
+Prediction error provides a signal that changes neural parameters.
+A shape with three straight edges is a triangle.
+Adding two objects to two objects gives four objects.
+Plants commonly use light as an energy source for photosynthesis.
+Ice is solid water, while liquid water changes state when heated.
+A model can improve its predictions without a hand-written rule for every answer.
 """.strip()
 
 
