@@ -720,3 +720,35 @@ Still dependent on actual runtime experiments:
 - claims about general intelligence or human-level reasoning.
 
 This distinction is intentional: **source-code capability, executed capability, and measured capability are three different things in TARA.**
+
+
+## ElevenLabs voice output
+
+TARA can optionally speak generated responses through an ElevenLabs voice. The voice provider is separate from TARA's cognition, so memory, reasoning, planning and verification remain TARA-owned.
+
+Install the dependency:
+
+```bash
+pip install elevenlabs
+```
+
+Configure the local environment:
+
+```env
+ELEVENLABS_API_KEY=your_api_key
+ELEVENLABS_VOICE_ID=your_voice_id
+ELEVENLABS_MODEL=eleven_v4
+ELEVENLABS_OUTPUT_FORMAT=mp3_44100_128
+```
+
+Then use the configured voice from the brain/core:
+
+```python
+response = brain.respond("Hello", speak=True)
+# or
+audio = core.speak(response.text)
+```
+
+The API key is never stored in the repository. The ElevenLabs voice ID is also configuration-driven, so you can change TARA's voice without changing code.
+
+ElevenLabs' current Python SDK supports `text_to_speech.convert(...)` with a selected `voice_id`, model and output format. See the official API documentation for the current parameters. 
