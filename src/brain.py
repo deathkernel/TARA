@@ -63,7 +63,7 @@ class TARABrain:
         self.experience_learning = experience_learning or ExperienceLearningEngine()
         self.intelligence_improver = intelligence_improver or IntelligenceImprovementEngine()
         self.llm_provider = llm_provider
-        self.voice = voice
+        self.voice = ElevenLabsTTS.from_env() if voice is None else voice
         self.cognitive_loop = cognitive_loop or UnifiedCognitiveLoop(
             reasoner=self.reasoner, planner=self.planner, tools=self.tools, memory=self.memory,
             reflection=self.reflection, progress=self.progress, learning=self.experience_learning,
