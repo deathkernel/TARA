@@ -6,3 +6,4 @@ pytest
 torch
 pyarrow
 groq
+elevenlabs
