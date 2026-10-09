@@ -175,6 +175,12 @@ class TARACore:
         self._emit("generation", characters=len(text))
         return text
 
+    def speak(self, text: str) -> bytes:
+        """Speak already-generated TARA text through the configured voice."""
+        audio = self.brain.speak(text)
+        self._emit("speech", characters=len(text), bytes=len(audio))
+        return audio
+
     def evaluate_checkpoint(self, path: str | Path, *, output: str | Path | None = None, max_new_tokens: int = 32):
         from .capability_suite import capability_cases
         from .model_capability_runner import evaluate_checkpoint, write_evaluation
