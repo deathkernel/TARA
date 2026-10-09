@@ -22,7 +22,7 @@ class ElevenLabsConfig:
     @classmethod
     def from_env(cls) -> "ElevenLabsConfig | None":
         api_key = os.getenv("ELEVENLABS_API_KEY", "").strip()
-        voice_id = os.getenv("ELEVENLABS_VOICE_ID", "").strip()
+        voice_id = os.getenv("ELEVENLABS_VOICE_ID", "4cLxTzxGs6YiIomdhhqO").strip()
         if not api_key or not voice_id:
             return None
         return cls(
