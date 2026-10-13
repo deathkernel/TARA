@@ -89,7 +89,7 @@ flowchart TD
 
 ### 5. Validation status — do not guess
 
-Latest CI evidence checked on 2026-10-13: runs `38441158044` (run 1067) and `38441158193` (run 1068), associated with rollback test commits `87d4687` and `07a0893`, were **queued**; both reported `python-tests` and `rust-tests` queued. Run `38441003150` (run 1058) for validator follow-up `479a9a0` was also queued. The latest reliability batch `88ba6db` adds apply-check retry and cleanup-warning/report-retention regressions; CI for that commit still needs to be checked. The current branch head has not been confirmed green, and the branch is **not CI-verified**. No local tests have been run by the assistant.
+Latest CI evidence checked on 2026-10-13: runs `38441158044` (run 1067) and `38441158193` (run 1068), associated with rollback test commits `87d4687` and `07a0893`, were **queued**; both reported `python-tests` and `rust-tests` queued. Run `38441003150` (run 1058) for validator follow-up `479a9a0` was also queued. The latest reliability batch `88ba6db` adds apply-check retry and cleanup-warning/report-retention regressions. Its CI run `38441408859` (run 1074) currently reports both `python-tests` and `rust-tests` as **queued**. The current branch head has not been confirmed green, and the branch is **not CI-verified**. No local tests have been run by the assistant.
 
 **Latest batched changes:**
 - `ec9112f` + `789b6e2`: fix report consistency; persist `report_path` in the JSON and test returned/saved values.
