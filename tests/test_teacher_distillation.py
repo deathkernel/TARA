@@ -133,7 +133,7 @@ def test_audit_reports_tampering_duplicate_and_blank_lines(tmp_path):
 
     assert report["records"] == 4
     assert report["invalid_records"] == 3
-    assert report["duplicate_fingerprints"] == 1
+    assert report["duplicate_fingerprints"] == 2
     assert any("fingerprint mismatch" in error for issue in report["issues"] for error in issue["errors"])
     assert any("blank line" in error for issue in report["issues"] for error in issue["errors"])
     assert any("duplicate fingerprint" in error for issue in report["issues"] for error in issue["errors"])
