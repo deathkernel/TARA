@@ -85,7 +85,7 @@ flowchart TD
 
 ### 5. Validation status — do not guess
 
-Latest verified API snapshot on 2026-10-13: GitHub Actions run `38439358733` (TARA CI) for test commit `fec965192a78e6f363ee92fe37c39bd91d3c5dc9` was **queued** when checked. Later test commits may have newer runs; the combined-status wrapper returned no status entries. Live CI remains unverified. Re-check [PR #8](https://github.com/deathkernel/TARA/pull/8) for the newest commit's run. No local tests have been run by the assistant.
+Latest verified API snapshot on 2026-10-13: GitHub Actions run `38439757987` (TARA CI) for test commit `e91f06924582050834b226a8d2065b3b8b9b2e0b` was **queued** when checked. The newest observed job status was queued, not passed; the live CI outcome remains unverified. Re-check [PR #8](https://github.com/deathkernel/TARA/pull/8) for current status. No local tests have been run by the assistant.
 
 **Latest batched changes:**
 - `ec9112f` + `789b6e2`: fix report consistency; persist `report_path` in the JSON and test returned/saved values.
@@ -95,7 +95,29 @@ Latest verified API snapshot on 2026-10-13: GitHub Actions run `38439358733` (TA
 - `fec9651`: added a bounded-retry regression test using a temporary Git repository; repeated empty patches must produce a failed report and leave the base worktree unchanged.
 - `518dc65` + `fec9651`: added failure-path tests for command startup errors, worktree creation failure, bounded retries, and unchanged base repository state.
 - `f338912` + `862ce83`: added teacher-data checks for reproducible SHA-256 provenance, candidate review labels, short-answer filtering, and preserving an existing dataset when generation fails.
-- These are test additions, not passing-test claims. The assistant has **not executed the local test suite**; check CI before treating them as passing.
+- `71a497d` + `3819ef1` + `f19fd66` + `6c2927d`: added a read-only candidate JSONL audit that checks schema, domains, source/model provenance, review labels, text consistency, SHA-256 fingerprints, duplicate fingerprints, malformed JSON, and blank lines. It always reports `ready_for_training: false`; structural validation cannot prove semantic correctness.
+- `2921bd6` + `ee665d6` + `6f2144e` + `e91f069`: added tests for clean audit, tampering, duplicate records, malformed input, missing files, and CLI exit codes.
+- These are code/test additions, not passing-test claims. The assistant has **not executed the local test suite**; check CI before treating them as passing.
+
+### Teacher dataset audit — read-only
+
+Generate candidate examples as before, then audit the file without calling Ollama or changing the dataset:
+
+```bat
+python -m src.teacher_distillation --audit data/llama_teacher_v1.jsonl
+```
+
+```mermaid
+flowchart TD
+    J[Candidate JSONL] --> S[Parse each line]
+    S --> P[Check schema and provenance]
+    P --> H[Recompute text and SHA-256]
+    H --> D[Detect duplicate fingerprints]
+    D --> R[Write audit report to stdout]
+    R --> U[Still unverified; human semantic review required]
+```
+
+Exit code is `0` when every record passes structural/provenance checks, `1` when records are invalid, and missing files raise a clear error. Even a clean audit **never certifies training readiness**; it cannot determine whether a teacher answer is factually correct, safe, or pedagogically useful.
 
 ### 6. Next actions — follow in order
 
