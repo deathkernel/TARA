@@ -89,10 +89,13 @@ flowchart TD
 
 ### 5. Validation status — do not guess
 
-Latest CI evidence checked on 2026-10-13: runs `38441158044` (1067), `38441158193` (1068), `38441408859` (1074), `38442379219` (1081), `38442450949` (1085), `38443017869` (1089), and the current code hardening run `38443133189` (1093) were queued when checked. The latest context-isolation test commit `dcd8e6e` has no run returned by the commit-run lookup yet. No green CI result has been observed and the latest head has no reported combined status checks. The branch is **not CI-verified**. No local tests have been run by the assistant.
+Latest CI evidence checked on 2026-10-13: runs `38443188525` (1097) was still queued for both Python and Rust jobs. The planning-context hardening commit `95e3bd6` has run `38443418896` (1099) queued; no run was returned yet for the latest test commit `5a544cf`. The current PR head has no reported combined status checks. No green CI result has been observed. The branch remains **not CI-verified**, and no local tests have been run by the assistant.
 
 **Latest batched changes:**
 - `d4decb1` + `d834996`: normalize tab-separated timestamps in diff markers before restricted-path checks; permit ordinary `new file mode 100644` patches while rejecting executable/symlink/submodule/rename/copy/binary metadata; add regression coverage for timestamp-suffixed dependency paths and adding a new test file.
+- `05d7165` + `dcd8e6e`: build generated-code prompt context from the isolated candidate worktree, not the original checkout; add a regression test for a dirty original working tree.
+- `95e3bd6` + `5a544cf`: planning context now reads the committed `HEAD` tree via Git, excluding dirty edits and staged-only files from provider prompts; add a regression test that checks both file contents and staged file names stay out of the prompt context.
+ `d4decb1` + `d834996`: normalize tab-separated timestamps in diff markers before restricted-path checks; permit ordinary `new file mode 100644` patches while rejecting executable/symlink/submodule/rename/copy/binary metadata; add regression coverage for timestamp-suffixed dependency paths and adding a new test file.
 - `05d7165` + `dcd8e6e`: build the LLM prompt context from the isolated candidate worktree rather than the original checkout, preventing uncommitted user edits from being silently mixed into the candidate's HEAD context; add a regression test for a dirty original working tree.
  `d4decb1`: normalize tab-separated timestamps in unified-diff file markers before applying restricted-path checks; allow normal `new file mode 100644` patches while still rejecting executable, symlink, submodule, rename/copy, and binary metadata.
 - `d834996`: add a regression case for timestamp-suffixed dependency paths and an end-to-end candidate-worktree test for adding a normal test file via a standard Git diff.
