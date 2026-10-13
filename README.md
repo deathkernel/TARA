@@ -91,8 +91,6 @@ Latest verified API snapshot on 2026-10-13: GitHub Actions run `38439757987` (TA
 - `ec9112f` + `789b6e2`: fix report consistency; persist `report_path` in the JSON and test returned/saved values.
 - `5df5f62` + `fef8e30`: validate `diff --git` header paths, reject file-mode/rename/copy/binary patches, and add regression cases for traversal, symlink-mode, and binary patch attempts.
 - `c66a797`: added command-runner regression tests for `shell=False`, timeout propagation, and bounded failure output.
-- `518dc65`: added coverage for converting command-start `OSError` into a controlled error and reporting a worktree-creation failure without calling the provider or dirtying the original repository.
-- `fec9651`: added a bounded-retry regression test using a temporary Git repository; repeated empty patches must produce a failed report and leave the base worktree unchanged.
 - `518dc65` + `fec9651`: added failure-path tests for command startup errors, worktree creation failure, bounded retries, and unchanged base repository state.
 - `f338912` + `862ce83`: added teacher-data checks for reproducible SHA-256 provenance, candidate review labels, short-answer filtering, and preserving an existing dataset when generation fails.
 - `71a497d` + `3819ef1` + `f19fd66` + `6c2927d`: added a read-only candidate JSONL audit that checks schema, domains, source/model provenance, review labels, text consistency, SHA-256 fingerprints, duplicate fingerprints, malformed JSON, and blank lines. It always reports `ready_for_training: false`; structural validation cannot prove semantic correctness.
