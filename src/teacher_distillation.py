@@ -175,9 +175,14 @@ def audit_teacher_dataset(path: str | Path) -> dict[str, object]:
     if not source_path.is_file():
         raise FileNotFoundError(f"Dataset file not found: {source_path}")
 
-    with source_path.open("r", encoding="utf-8") as stream:
-        for line_number, raw_line in enumerate(stream, start=1):
+    with source_path.open("rb") as stream:
+        for line_number, raw_bytes in enumerate(stream, start=1):
             records += 1
+            try:
+                raw_line = raw_bytes.decode("utf-8")
+            except UnicodeDecodeError:
+                issues.append({"line": line_number, "errors": ["line is not valid UTF-8"]})
+                continue
             if not raw_line.strip():
                 issues.append({"line": line_number, "errors": ["blank line is not valid JSONL data"]})
                 continue
