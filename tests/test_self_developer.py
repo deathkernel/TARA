@@ -14,6 +14,8 @@ from src.self_developer import SelfDeveloper, SelfDeveloperError
     "--- a/.github/workflows/tests.yml\n+++ b/.github/workflows/tests.yml\n@@ -1 +1 @@\n-a\n+b\n",
     "--- a/requirements.txt\n+++ b/requirements.txt\n@@ -1 +1 @@\n-a\n+b\n",
     "diff --git a/../../outside.txt b/src/example.py\n--- a/src/example.py\n+++ b/src/example.py\n@@ -1 +1 @@\n-a\n+b\n",
+    "diff --git a/src/one.py b/src/one.py\\n--- a/src/two.py\\n+++ b/src/one.py\\n@@ -1 +1 @@\\n-a\\n+b\\n",
+    "--- a/.git\\n+++ b/.git\\n@@ -1 +1 @@\\n-a\\n+b\\n",
     "--- a/src/link\n+++ b/src/link\nnew file mode 120000\n@@ -0,0 +1 @@\n+target\n",
     "--- a/src/blob.bin\n+++ b/src/blob.bin\nGIT binary patch\n@@ -0,0 +1 @@\n+binary\n",
 ])
@@ -239,6 +241,48 @@ def test_provider_exception_cleans_failed_candidate_and_keeps_report(tmp_path):
         ["git", "branch", "--list", report["candidate_branch"]], cwd=repo, check=True,
         capture_output=True, text=True,
     ).stdout.strip() == ""
+    assert subprocess.run(
+        ["git", "status", "--porcelain"], cwd=repo, check=True,
+        capture_output=True, text=True,
+    ).stdout == ""
+
+
+def test_successful_candidate_is_retained_for_manual_review(tmp_path):
+    import subprocess
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    def git(*args):
+        subprocess.run(
+            ["git", *args], cwd=repo, check=True,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        )
+
+    git("init")
+    git("config", "user.email", "tara-tests@example.invalid")
+    git("config", "user.name", "TARA test")
+    (repo / "src").mkdir()
+    (repo / "src" / "module.py").write_text("VALUE = 1\\n", encoding="utf-8")
+    git("add", "src/module.py")
+    git("commit", "-m", "test baseline")
+
+    class ValidPatchProvider:
+        def complete(self, *args, **kwargs):
+            return "--- a/src/module.py\\n+++ b/src/module.py\\n@@ -1 +1 @@\\n-VALUE = 1\\n+VALUE = 2"
+
+    engine = SelfDeveloper(repo, provider=ValidPatchProvider(), state_root=tmp_path / "state")
+    report = engine.run_task("Change module value", max_attempts=1)
+
+    candidate = Path(report["candidate_worktree"])
+    assert report["status"] == "candidate_ready_for_review"
+    assert candidate.is_dir()
+    assert (candidate / "src" / "module.py").read_text(encoding="utf-8") == "VALUE = 2\\n"
+    assert (repo / "src" / "module.py").read_text(encoding="utf-8") == "VALUE = 1\\n"
+    assert subprocess.run(
+        ["git", "branch", "--list", report["candidate_branch"]], cwd=repo, check=True,
+        capture_output=True, text=True,
+    ).stdout.strip() == report["candidate_branch"]
     assert subprocess.run(
         ["git", "status", "--porcelain"], cwd=repo, check=True,
         capture_output=True, text=True,
