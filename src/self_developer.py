@@ -300,8 +300,16 @@ class SelfDeveloper:
                             pass
                     try:
                         self._git("reset", "--hard", base_head, cwd=worktree)
-                    except SelfDeveloperError:
-                        pass
+                    except SelfDeveloperError as rollback_exc:
+                        attempt_record["rollback_error"] = str(rollback_exc)
+                        record["status"] = "failed"
+                        record["error"] = "Candidate reset failed; stopped to avoid a contaminated retry."
+                        cleanup_warnings = self._cleanup_failed_candidate(worktree, branch)
+                        if cleanup_warnings:
+                            record["cleanup_warnings"] = cleanup_warnings
+                        if patch_file is not None:
+                            patch_file.unlink(missing_ok=True)
+                        return self._write_report(record)
                     # A failed reverse-apply/reset can leave generated untracked files.
                     # Clean ignored and untracked artifacts only inside this disposable
                     # candidate worktree before another attempt sees the filesystem.
