@@ -197,29 +197,19 @@ class SelfDeveloper:
                     temperature=0.1,
                 ).strip()
                 attempt_record: dict[str, Any] = {"attempt": attempt, "patch_chars": len(patch)}
+                patch_file = None
+                applied = False
                 try:
                     self._validate_patch(patch)
                     patch_file = self.runs_root / f"{run_id}.attempt-{attempt}.patch"
                     patch_file.write_text(patch + "\n", encoding="utf-8")
-                    applied = False
-                    try:
-                        self._git("apply", "--check", str(patch_file), cwd=worktree)
-                        self._git("apply", str(patch_file), cwd=worktree)
-                        applied = True
-                        # Include newly-created files in diff/test discovery without staging content.
-                        self._git("add", "-N", "--", ".", cwd=worktree)
-                        self._git("diff", "--check", cwd=worktree)
-                        changed = self._git("diff", "--name-only", cwd=worktree).stdout.splitlines()
-                    except Exception:
-                        if applied:
-                            try:
-                                self._git("apply", "--reverse", str(patch_file), cwd=worktree)
-                                self._git("reset", "--hard", base_head, cwd=worktree)
-                            except Exception:
-                                pass
-                        raise
-                    finally:
-                        patch_file.unlink(missing_ok=True)
+                    self._git("apply", "--check", str(patch_file), cwd=worktree)
+                    self._git("apply", str(patch_file), cwd=worktree)
+                    applied = True
+                    # Include newly-created files in diff/test discovery without staging content.
+                    self._git("add", "-N", "--", ".", cwd=worktree)
+                    self._git("diff", "--check", cwd=worktree)
+                    changed = self._git("diff", "--name-only", cwd=worktree).stdout.splitlines()
                     tests = [p for p in changed if p.startswith("tests/") and p.endswith(".py")]
                     if tests:
                         test_result = _run(
@@ -239,6 +229,8 @@ class SelfDeveloper:
                         "test_output": (test_result.stdout or "")[-_OUTPUT_LIMIT:],
                         "result": "validation and selected checks passed",
                     })
+                    if patch_file is not None:
+                        patch_file.unlink(missing_ok=True)
                     record["attempts"].append(attempt_record)
                     record["changed_files"] = changed
                     record["status"] = "candidate_ready_for_review"
@@ -247,16 +239,18 @@ class SelfDeveloper:
                 except (SelfDeveloperError, OSError, ValueError) as exc:
                     attempt_record.update({"tests_passed": False, "result": str(exc)})
                     record["attempts"].append(attempt_record)
-                    # Candidate-only cleanup: reverse the failed patch when possible.
-                    # The original working tree is never reset or cleaned.
-                    try:
-                        if patch_file.exists():
+                    # Candidate-only cleanup; never reset or clean the original working tree.
+                    if applied and patch_file is not None and patch_file.exists():
+                        try:
                             self._git("apply", "--reverse", str(patch_file), cwd=worktree)
-                    except Exception:
+                        except Exception:
+                            pass
+                    try:
+                        self._git("reset", "--hard", base_head, cwd=worktree)
+                    except SelfDeveloperError:
                         pass
-                    self._git("reset", "--hard", base_head, cwd=worktree)
-                    patch_file.unlink(missing_ok=True)
-                    self._git("add", "-N", "--", ".", cwd=worktree)
+                    if patch_file is not None:
+                        patch_file.unlink(missing_ok=True)
             record["status"] = "failed"
             record["error"] = "All bounded attempts failed validation or checks."
             return self._write_report(record)
