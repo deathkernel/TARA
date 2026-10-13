@@ -699,3 +699,62 @@ def test_ignored_generated_test_is_still_discovered_for_validation(tmp_path):
     assert report["attempts"][0]["tests_passed"] is True
     assert (candidate / "tests" / "test_generated.py").is_file()
     assert not (repo / "tests" / "test_generated.py").exists()
+
+def test_reset_failure_stops_retries_and_removes_candidate(tmp_path):
+    import subprocess
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    def git(*args):
+        subprocess.run(
+            ["git", *args], cwd=repo, check=True,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        )
+
+    git("init")
+    git("config", "user.email", "tara-tests@example.invalid")
+    git("config", "user.name", "TARA test")
+    (repo / "src").mkdir()
+    source = repo / "src" / "module.py"
+    source.write_text("VALUE = 1\\n", encoding="utf-8")
+    git("add", "src/module.py")
+    git("commit", "-m", "test baseline")
+
+    class FailingTestProvider:
+        def __init__(self):
+            self.calls = 0
+
+        def complete(self, *args, **kwargs):
+            self.calls += 1
+            return (
+                "--- /dev/null\\n"
+                "+++ b/tests/test_failure.py\\n"
+                "@@ -0,0 +1,2 @@\\n"
+                "+def test_intentionally_fails():\\n"
+                "+    assert False\\n"
+            )
+
+    def reset_failure_runner(args, **kwargs):
+        if args[:3] == ["git", "reset", "--hard"]:
+            raise OSError("simulated candidate reset failure")
+        return subprocess.run(args, **kwargs)
+
+    provider = FailingTestProvider()
+    engine = SelfDeveloper(
+        repo, provider=provider, state_root=tmp_path / "state",
+        command_runner=reset_failure_runner,
+    )
+    report = engine.run_task("Stop safely when candidate rollback fails", max_attempts=3)
+
+    assert provider.calls == 1
+    assert report["status"] == "failed"
+    assert len(report["attempts"]) == 1
+    assert "Candidate reset failed" in report["error"]
+    assert "simulated candidate reset failure" in report["attempts"][0]["rollback_error"]
+    assert not Path(report["candidate_worktree"]).exists()
+    assert source.read_text(encoding="utf-8") == "VALUE = 1\\n"
+    assert subprocess.run(
+        ["git", "status", "--porcelain"], cwd=repo, check=True,
+        capture_output=True, text=True,
+    ).stdout == ""
