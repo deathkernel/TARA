@@ -361,8 +361,20 @@ class SelfDeveloper:
                 continue
             if path.startswith("/") or re.match(r"^[A-Za-z]:", path):
                 raise SelfDeveloperError(f"Absolute paths are not allowed: {path}")
-            if any(part in {"", ".", ".."} for part in path.split("/")):
+            parts = path.split("/")
+            if any(part in {"", ".", ".."} for part in parts):
                 raise SelfDeveloperError(f"Unsafe patch path: {path}")
+            # Windows treats device names and alternate data streams specially.
+            # Reject these cross-platform so a candidate cannot behave differently
+            # when reviewed or applied on the Windows-first TARA setup.
+            for part in parts:
+                if ":" in part:
+                    raise SelfDeveloperError(f"Windows alternate data streams are not allowed: {path}")
+                if part.endswith((" ", ".")):
+                    raise SelfDeveloperError(f"Windows paths may not end in a space or dot: {path}")
+                device_stem = part.split(".", 1)[0].upper()
+                if re.fullmatch(r"(?:CON|PRN|AUX|NUL|COM[1-9¹²³]|LPT[1-9¹²³])", device_stem):
+                    raise SelfDeveloperError(f"Windows reserved device names are not allowed: {path}")
             normalized = path.lower()
             if any(normalized == item.rstrip("/") or normalized.startswith(item) for item in protected):
                 raise SelfDeveloperError(f"Patch targets a protected path: {path}")
