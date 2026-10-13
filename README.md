@@ -85,7 +85,7 @@ flowchart TD
 
 ### 5. Validation status — do not guess
 
-At the last recorded check, GitHub Actions run `38436465295` for the Self-Developer implementation commit was **queued**, with `python-tests` and `rust-tests` jobs queued. Local tests had not yet been run by the assistant. Check [PR #8](https://github.com/deathkernel/TARA/pull/8) for the latest result before reporting status. The later README-only commits were documentation changes; verify their checks separately if needed.
+Latest check on 2026-10-13: GitHub Actions run `38436916513` (run #976) for README handoff commit `0fcdbb9defeb0372ff22b9298a072de989c20ffe` is still **queued**, with `python-tests` and `rust-tests` jobs queued. The earlier Self-Developer implementation run `38436465295` was also queued at its last check. Local focused tests have not yet been run by the assistant. Re-check [PR #8](https://github.com/deathkernel/TARA/pull/8) before reporting a pass/fail result.
 
 ### 6. Next actions — follow in order
 
