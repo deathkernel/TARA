@@ -148,6 +148,24 @@ class SelfDeveloper:
             "integration": "requires explicit user approval",
         })
 
+    def _cleanup_failed_candidate(self, worktree: Path, branch: str) -> list[str]:
+        """Remove only this run's failed candidate worktree/branch; retain its report."""
+        warnings: list[str] = []
+        if not branch.startswith("tara-selfdev-"):
+            return ["refused cleanup for a branch outside the self-developer namespace"]
+        if worktree.exists():
+            try:
+                self._git("worktree", "remove", "--force", str(worktree))
+            except SelfDeveloperError as exc:
+                warnings.append(f"could not remove failed worktree: {exc}")
+        try:
+            self._git("branch", "-D", branch)
+        except SelfDeveloperError as exc:
+            # Worktree creation can fail before Git creates the branch.
+            if "not found" not in str(exc).lower() and "not exist" not in str(exc).lower():
+                warnings.append(f"could not remove failed candidate branch: {exc}")
+        return warnings
+
     def run_task(self, task: str, *, max_attempts: int = 3) -> dict[str, Any]:
         task = self._validate_task(task)
         if not 1 <= max_attempts <= 3:
@@ -253,10 +271,16 @@ class SelfDeveloper:
                         patch_file.unlink(missing_ok=True)
             record["status"] = "failed"
             record["error"] = "All bounded attempts failed validation or checks."
+            cleanup_warnings = self._cleanup_failed_candidate(worktree, branch)
+            if cleanup_warnings:
+                record["cleanup_warnings"] = cleanup_warnings
             return self._write_report(record)
         except Exception as exc:
             record["status"] = "failed"
             record["error"] = f"{type(exc).__name__}: {exc}"
+            cleanup_warnings = self._cleanup_failed_candidate(worktree, branch)
+            if cleanup_warnings:
+                record["cleanup_warnings"] = cleanup_warnings
             return self._write_report(record)
 
     @staticmethod
