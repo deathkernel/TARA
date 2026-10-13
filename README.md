@@ -90,6 +90,7 @@ Latest check on 2026-10-13: GitHub Actions run `38436916513` (run #976) was **qu
 **Latest batched changes:**
 - `ec9112f` + `789b6e2`: fix report consistency; persist `report_path` in the JSON and test returned/saved values.
 - `5df5f62` + `fef8e30`: validate `diff --git` header paths, reject file-mode/rename/copy/binary patches, and add regression cases for traversal, symlink-mode, and binary patch attempts.
+- `c66a797`: added command-runner regression tests for `shell=False`, timeout propagation, and bounded failure output.
 - These changes were authored on the PR #8 feature branch but have **not been locally tested by the assistant**. Check current CI before treating them as passing.
 
 ### 6. Next actions — follow in order
