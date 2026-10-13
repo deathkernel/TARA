@@ -85,13 +85,14 @@ flowchart TD
 
 ### 5. Validation status — do not guess
 
-Latest verified API snapshot on 2026-10-13: GitHub Actions run `38440263707` for test commit `7c0540e996dc40db8ba73c08580aaed69773a219` was **queued**. Its `python-tests` and `rust-tests` jobs were both queued at last check. The later README commit `ab75d6942c74941e1f801d1af4888da38bd8c73a` returned no associated run from the workflow lookup. Current changes are therefore **not CI-verified**. No local tests have been run by the assistant.
+Latest verified API snapshot on 2026-10-13: GitHub Actions run `38440263707` for earlier test commit `7c0540e996dc40db8ba73c08580aaed69773a219` had `python-tests` and `rust-tests` queued. The newer Self-Developer commits `c7efb00` and `f32e370` have not yet been verified by a returned workflow run. Current changes are **not CI-verified**. No local tests have been run by the assistant.
 
 **Latest batched changes:**
 - `ec9112f` + `789b6e2`: fix report consistency; persist `report_path` in the JSON and test returned/saved values.
 - `5df5f62` + `fef8e30`: validate `diff --git` header paths, reject file-mode/rename/copy/binary patches, and add regression cases for traversal, symlink-mode, and binary patch attempts.
 - `c66a797`: added command-runner regression tests for `shell=False`, timeout propagation, and bounded failure output.
-- `518dc65` + `fec9651`: added failure-path tests for command startup errors, worktree creation failure, bounded retries, and unchanged base repository state.
+- `c7efb00`: failed Self-Developer runs now attempt to remove only their own generated candidate worktree and `tara-selfdev-*` branch while retaining the JSON report; cleanup warnings are recorded rather than silently discarded.
+- `518dc65` + `fec9651` + `f32e370`: added failure-path tests for command startup errors, worktree creation failure, bounded retries, provider exceptions, failed candidate cleanup, and unchanged base repository state.
 - `f338912` + `862ce83`: added teacher-data checks for reproducible SHA-256 provenance, candidate review labels, short-answer filtering, and preserving an existing dataset when generation fails.
 - `71a497d` + `3819ef1` + `f19fd66` + `6c2927d`: added a read-only candidate JSONL audit that checks schema, domains, source/model provenance, review labels, text consistency, SHA-256 fingerprints, duplicate fingerprints, malformed JSON, and blank lines. It always reports `ready_for_training: false`; structural validation cannot prove semantic correctness.
 - `4362432`: audit now reports invalid UTF-8 per line instead of crashing on decoding errors.
