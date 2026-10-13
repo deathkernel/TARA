@@ -89,36 +89,22 @@ flowchart TD
 
 ### 5. Validation status — do not guess
 
-Latest CI evidence checked on 2026-10-13: PR #8 remains draft/open/unmerged. Workflow run `38444659377` (1121), associated with Windows filename validation commit `f104343`, is still queued; no workflow run was returned for the latest test fixture commit `42f7f14`, and the latest head has no reported combined status checks. No green CI result has been observed. The branch remains **not CI-verified**, and no local tests have been run by the assistant.
+Latest verified branch state (2026-10-13): PR #8 is still draft/open/unmerged, with HEAD `8364a9b8eca583636d2e883779f9175d8a35a816`. The newest workflow run checked after the CI change is run `38445056711` (#1128), event `pull_request`, and remains queued; the prior runs for the same head were also queued. Both `python-tests` and `rust-tests` were queued when last inspected. **No green CI result has been observed.** Local test execution was attempted from the assistant environment but could not download the repository because outbound DNS/network access was unavailable. Do not treat tests as passing.
 
-**Latest batched changes:**
-- `d4decb1` + `d834996`: normalize tab-separated timestamps in diff markers before restricted-path checks; permit ordinary `new file mode 100644` patches while rejecting executable/symlink/submodule/rename/copy/binary metadata; add regression coverage for timestamp-suffixed dependency paths and adding a new test file.
-- `05d7165` + `dcd8e6e`: build generated-code prompt context from the isolated candidate worktree, not the original checkout; add a regression test for a dirty original working tree.
-- `95e3bd6` + `5a544cf`: planning context now reads the committed `HEAD` tree via Git, excluding dirty edits and staged-only files from provider prompts; add a regression test that checks both file contents and staged file names stay out of the prompt context.
-- `e05ef93` + `adc029d`: reject Windows-special patch paths, including reserved device names (`CON`, `NUL`, `COM1`/`LPT1` families), alternate data streams (`:`), and trailing spaces/dots; add rejection tests plus lookalike filename acceptance tests.
-- `f104343` + `42f7f14`: extend Windows path rejection to invalid filename characters (`<`, `>`, `|`, `?`, `*`, and control characters); add regression fixtures. CI for the code change remains queued.
-- `97079e9` + `6545463` + `4c0d943`: every candidate now runs `compileall src`; Python source changes trigger the full pytest suite, while test-only changes run the changed tests. Add command-selection regression tests and update the Self-Developer usage guide. The full-suite policy is code-defined but remains CI-unverified.
- `d4decb1` + `d834996`: normalize tab-separated timestamps in diff markers before restricted-path checks; permit ordinary `new file mode 100644` patches while rejecting executable/symlink/submodule/rename/copy/binary metadata; add regression coverage for timestamp-suffixed dependency paths and adding a new test file.
-- `05d7165` + `dcd8e6e`: build the LLM prompt context from the isolated candidate worktree rather than the original checkout, preventing uncommitted user edits from being silently mixed into the candidate's HEAD context; add a regression test for a dirty original working tree.
- `d4decb1`: normalize tab-separated timestamps in unified-diff file markers before applying restricted-path checks; allow normal `new file mode 100644` patches while still rejecting executable, symlink, submodule, rename/copy, and binary metadata.
-- `d834996`: add a regression case for timestamp-suffixed dependency paths and an end-to-end candidate-worktree test for adding a normal test file via a standard Git diff.
- `ec9112f` + `789b6e2`: fix report consistency; persist `report_path` in the JSON and test returned/saved values.
-- `5df5f62` + `fef8e30`: validate `diff --git` header paths, reject file-mode/rename/copy/binary patches, and add regression cases for traversal, symlink-mode, and binary patch attempts.
-- `c66a797`: added command-runner regression tests for `shell=False`, timeout propagation, and bounded failure output.
-- `c7efb00`: failed Self-Developer runs now attempt to remove only their own generated candidate worktree and `tara-selfdev-*` branch while retaining the JSON report; cleanup warnings are recorded rather than silently discarded.
-- `0e2ce86`: validator now checks that `diff --git` paths agree with the corresponding `---`/`+++` markers and blocks Git metadata paths.
-- `f3a8c4d` + `7ec2dd6`: hardened the patch gate to reject `.git` metadata in any path component, including nested paths such as `src/.git/config`, with a regression fixture.
-- `479a9a0`: diff marker path parsing now strips tab-separated timestamps correctly before comparing header paths.
-- `34c837f` + `5639e5b` + `ff95418`: added regression coverage for mismatched diff paths, exact `.git` path rejection, and retaining successful candidates for human review; corrected newline escaping in the new test fixtures.
-- `87d4687` + `07a0893`: added a retry regression where a newly added failing test must be rolled back before a second, successful candidate patch; corrected the fixture newline escapes.
-- `88ba6db`: added temporary-repository regressions for `git apply --check` failure followed by a clean retry, and for worktree/branch cleanup failures remaining visible in the returned and persisted failure report.
-- `518dc65` + `fec9651` + `f32e370`: added failure-path tests for command startup errors, worktree creation failure, bounded retries, provider exceptions, failed candidate cleanup, and unchanged base repository state.
-- `f338912` + `862ce83`: added teacher-data checks for reproducible SHA-256 provenance, candidate review labels, short-answer filtering, and preserving an existing dataset when generation fails.
-- `71a497d` + `3819ef1` + `f19fd66` + `6c2927d`: added a read-only candidate JSONL audit that checks schema, domains, source/model provenance, review labels, text consistency, SHA-256 fingerprints, duplicate fingerprints, malformed JSON, and blank lines. It always reports `ready_for_training: false`; structural validation cannot prove semantic correctness.
-- `4362432`: audit now reports invalid UTF-8 per line instead of crashing on decoding errors.
-- `2921bd6` + `ee665d6` + `6f2144e` + `e91f069` + `11f5dcdb` + `f868d43` + `7c0540e9`: added tests for clean audit, tampering, duplicate records, malformed JSON/UTF-8, missing files, CLI exit codes, and JSONL line endings.
-- `ef59f33`: removed a duplicate handoff bullet and refreshed the CI caveat.
-- These are code/test additions, not passing-test claims. The assistant has **not executed the local test suite**; check CI before treating them as passing.
+**CI queue mitigation just applied:**
+- Commit `8364a9b` updates `.github/workflows/tests.yml` to run CI on pull requests and manual dispatch, rather than duplicate push + pull-request events for each feature-branch commit.
+- Adds workflow concurrency keyed by PR number (or ref for manual runs) with `cancel-in-progress: true`, so superseded runs for the same PR do not keep consuming queue capacity.
+- This reduces avoidable duplicate runs but does **not** prove that GitHub-hosted runners are healthy or that the current run will start. Recheck run #1128 and its jobs.
+
+**Implemented on this branch (tests still require execution):**
+- Patch validation: rejects unsafe/traversal/absolute/protected paths, dependency and workflow edits, nested `.git` metadata, mismatched diff headers/markers, rename/copy/binary metadata, unsafe file modes, and Windows-invalid names (reserved device names, ADS colons, invalid characters/control characters, trailing dots/spaces); permits normal new-file mode `100644` patches.
+- Isolation: planning context is built from committed `HEAD`; run-task context comes from the candidate worktree, not dirty user checkout files.
+- Validation selection: always compiles `src`; source changes run full `pytest -q`; test-only changes run the changed test files; docs-only changes compile source.
+- Lifecycle and reporting: bounded retries/timeouts, candidate-only rollback/cleanup, retained failure reports, cleanup warnings, and successful candidate retention for human review.
+- Teacher dataset audit: read-only JSONL schema/provenance/fingerprint/duplicate/UTF-8 checks, with `ready_for_training: false` regardless of structural success.
+- Regression tests were added for the behaviors above. **Code and test additions are not passing-test claims.**
+
+**Remaining blockers:** obtain actual CI results; run focused and full tests on a real Windows checkout; fix any failures; inspect the final PR diff and candidate report behavior. Integration remains a separate human-approved step.
 
 ### Teacher dataset audit — read-only
 
@@ -144,46 +130,40 @@ Exit code is `0` when every record passes structural/provenance checks, `1` when
 
 ```mermaid
 flowchart TD
-    N1[1. Recheck CI for latest head] --> N2[2. Run focused tests locally]
-    N2 --> N3[3. Fix any failures on feature branch]
-    N3 --> N4[4. Verify cleanup and candidate retention]
-    N4 --> N5[5. Review full diff and report]
-    N5 --> N6[6. Confirm PR #7 dependency]
+    N1[1. Recheck latest CI run and job queue] --> N2[2. Run focused tests on Windows]
+    N2 --> N3[3. Fix any reproducible failures]
+    N3 --> N4[4. Run full pytest and static repository audit]
+    N4 --> N5[5. Review CLI lifecycle, reports, and final diff]
+    N5 --> N6[6. Confirm PR #7 base/dependency]
     N6 --> N7[7. Ask before integration]
-    N7 --> N8[8. Update this README handoff]
 ```
 
-**Windows CMD — safe start**
+**Windows CMD — preserve local data**
 
 ```bat
-git fetch origin
-git switch --track origin/feature/tara-self-developer-v1
 git status --short
+git fetch origin
+git switch feature/tara-self-developer-v1
+git pull --ff-only
 ```
 
-If the local branch already exists, use `git switch feature/tara-self-developer-v1`. **Read `git status --short` before proceeding** and preserve existing user files.
+If the branch does not exist locally, use `git switch --track origin/feature/tara-self-developer-v1`. Check `git status --short` first. Do not clean/reset the original checkout; preserve `checkpoints/`, `outputs/`, conversation JSONL/manifest files, and `test_voice.py`.
 
-Run focused tests:
+Run focused tests and CLI smoke checks:
 
 ```bat
-python -m pytest -q tests/test_self_developer.py tests/test_self_developer_cli.py
+python -m pytest -q tests/test_self_developer.py tests/test_self_developer_cli.py tests/test_teacher_distillation.py
 python -m src.self_developer_cli status
+python -m src.repository_audit .
 ```
 
-Configure local Ollama for planning in the current CMD window:
+Then run the full suite:
 
 ```bat
-set TARA_LLM_BACKEND=ollama
-set TARA_LLAMA_MODEL=llama3.2:3b
-python -m src.self_developer_cli plan "Add a regression test for memory retrieval"
+python -m pytest -q
 ```
 
-After reviewing the plan and branch state, a candidate task can be run with:
-
-```bat
-python -m src.self_developer_cli run "Add a regression test for memory retrieval"
-python -m src.self_developer_cli report
-```
+Use the exact output as evidence in this handoff. Do not claim success from a command that was not executed.
 
 ### 7. Keep these distinctions clear
 
