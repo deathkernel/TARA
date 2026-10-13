@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from src.teacher_distillation import DOMAIN_TASKS, generate_teacher_dataset
+from src.teacher_distillation import DOMAIN_TASKS, audit_teacher_dataset, generate_teacher_dataset
 
 
 class FakeProvider:
@@ -98,3 +98,61 @@ def test_provider_failure_does_not_replace_existing_dataset_or_leave_temp(tmp_pa
 
     assert output.read_text(encoding="utf-8") == "known-good-data\n"
     assert not (tmp_path / "teacher.jsonl.tmp").exists()
+
+
+
+def test_audit_accepts_generated_candidates_but_never_certifies_training_readiness(tmp_path):
+    output = tmp_path / "teacher.jsonl"
+    generate_teacher_dataset(FakeProvider(), output, per_domain=1)
+
+    report = audit_teacher_dataset(output)
+
+    assert report["records"] == len(DOMAIN_TASKS)
+    assert report["valid_records"] == len(DOMAIN_TASKS)
+    assert report["invalid_records"] == 0
+    assert report["issues"] == []
+    assert report["candidate_only"] is True
+    assert report["semantic_review_required"] is True
+    assert report["ready_for_training"] is False
+
+
+def test_audit_reports_tampering_duplicate_and_blank_lines(tmp_path):
+    output = tmp_path / "candidate.jsonl"
+    provider = FakeProvider()
+    generated = tmp_path / "generated.jsonl"
+    generate_teacher_dataset(provider, generated, per_domain=1)
+    first = json.loads(generated.read_text(encoding="utf-8").splitlines()[0])
+    tampered = dict(first)
+    tampered["answer"] = "Tampered answer content long enough to pass length checks."
+    output.write_text(
+        json.dumps(first) + "\n" + json.dumps(tampered) + "\n\n" + json.dumps(first) + "\n",
+        encoding="utf-8",
+    )
+
+    report = audit_teacher_dataset(output)
+
+    assert report["records"] == 4
+    assert report["invalid_records"] == 3
+    assert report["duplicate_fingerprints"] == 1
+    assert any("fingerprint mismatch" in error for issue in report["issues"] for error in issue["errors"])
+    assert any("blank line" in error for issue in report["issues"] for error in issue["errors"])
+    assert any("duplicate fingerprint" in error for issue in report["issues"] for error in issue["errors"])
+    assert report["ready_for_training"] is False
+
+
+def test_audit_reports_invalid_json_and_malformed_domain_without_crashing(tmp_path):
+    output = tmp_path / "malformed.jsonl"
+    output.write_text('not-json\n' + json.dumps({"domain": [], "instruction": "", "answer": ""}) + "\n", encoding="utf-8")
+
+    report = audit_teacher_dataset(output)
+
+    assert report["records"] == 2
+    assert report["invalid_records"] == 2
+    assert len(report["issues"]) == 2
+    assert any("invalid JSON" in error for issue in report["issues"] for error in issue["errors"])
+    assert any("unknown or missing domain" in error for issue in report["issues"] for error in issue["errors"])
+
+
+def test_audit_missing_file_fails_clearly(tmp_path):
+    with pytest.raises(FileNotFoundError, match="Dataset file not found"):
+        audit_teacher_dataset(tmp_path / "missing.jsonl")
