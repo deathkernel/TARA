@@ -207,11 +207,11 @@ def audit_teacher_dataset(path: str | Path) -> dict[str, object]:
             if row.get("review_status") != "unverified_candidate":
                 errors.append("review_status must remain unverified_candidate")
             if isinstance(domain, str) and isinstance(instruction, str) and isinstance(answer, str):
-                expected_text = f"Domain: {domain}\\nInstruction: {instruction}\\nAnswer: {answer}"
+                expected_text = f"Domain: {domain}\nInstruction: {instruction}\nAnswer: {answer}"
                 if row.get("text") != expected_text:
                     errors.append("text field does not match domain/instruction/answer")
                 expected_fingerprint = hashlib.sha256(
-                    f"{domain}\\n{instruction}\\n{answer}".encode("utf-8")
+                    f"{domain}\n{instruction}\n{answer}".encode("utf-8")
                 ).hexdigest()
                 if fingerprint != expected_fingerprint:
                     errors.append("fingerprint mismatch")
