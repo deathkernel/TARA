@@ -155,3 +155,46 @@ def test_worktree_creation_failure_is_reported_without_provider_call(tmp_path):
         ["git", "status", "--porcelain"], cwd=repo, check=True,
         capture_output=True, text=True,
     ).stdout == ""
+
+
+def test_invalid_patch_retries_are_bounded_and_leave_base_unchanged(tmp_path):
+    import subprocess
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    def git(*args):
+        subprocess.run(
+            ["git", *args], cwd=repo, check=True,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        )
+
+    git("init")
+    git("config", "user.email", "tara-tests@example.invalid")
+    git("config", "user.name", "TARA test")
+    (repo / "baseline.py").write_text("VALUE = 1\\n", encoding="utf-8")
+    git("add", "baseline.py")
+    git("commit", "-m", "test baseline")
+
+    class EmptyPatchProvider:
+        def __init__(self):
+            self.calls = 0
+
+        def complete(self, *args, **kwargs):
+            self.calls += 1
+            return ""
+
+    provider = EmptyPatchProvider()
+    engine = SelfDeveloper(repo, provider=provider, state_root=tmp_path / "state")
+    report = engine.run_task("Make a small safe change", max_attempts=2)
+
+    assert provider.calls == 2
+    assert report["status"] == "failed"
+    assert len(report["attempts"]) == 2
+    assert all(not attempt["tests_passed"] for attempt in report["attempts"])
+    assert "All bounded attempts failed" in report["error"]
+    assert (repo / "baseline.py").read_text(encoding="utf-8") == "VALUE = 1\\n"
+    assert subprocess.run(
+        ["git", "status", "--porcelain"], cwd=repo, check=True,
+        capture_output=True, text=True,
+    ).stdout == ""
