@@ -85,7 +85,7 @@ flowchart TD
 
 ### 5. Validation status — do not guess
 
-Latest verified API snapshot on 2026-10-13: GitHub Actions run `38439757987` (TARA CI) for earlier test commit `e91f06924582050834b226a8d2065b3b8b9b2e0b` remained **queued** at last check (`python-tests` and `rust-tests`). The later test commit `11f5dcdb55db779dbaa350f418d189867a4a5909` and README update `ef59f333abfd65b142d9fc7e2b3678962fb68951` returned no associated run from the workflow lookup. Current changes are therefore **not CI-verified**. No local tests have been run by the assistant.
+Latest verified API snapshot on 2026-10-13: GitHub Actions run `38439757987` (TARA CI) for earlier test commit `e91f06924582050834b226a8d2065b3b8b9b2e0b` remained **queued** at last check (`python-tests` and `rust-tests`). The later test commit `11f5dcdb55db779dbaa350f418d189867a4a5909` and README update `ef59f333abfd65b142d9fc7e2b3678962fb68951` returned no associated run from the workflow lookup. Current changes are therefore **not CI-verified**. Later invalid-UTF-8 commits may not have their own run reported by the workflow lookup. No local tests have been run by the assistant.
 
 **Latest batched changes:**
 - `ec9112f` + `789b6e2`: fix report consistency; persist `report_path` in the JSON and test returned/saved values.
@@ -94,7 +94,8 @@ Latest verified API snapshot on 2026-10-13: GitHub Actions run `38439757987` (TA
 - `518dc65` + `fec9651`: added failure-path tests for command startup errors, worktree creation failure, bounded retries, and unchanged base repository state.
 - `f338912` + `862ce83`: added teacher-data checks for reproducible SHA-256 provenance, candidate review labels, short-answer filtering, and preserving an existing dataset when generation fails.
 - `71a497d` + `3819ef1` + `f19fd66` + `6c2927d`: added a read-only candidate JSONL audit that checks schema, domains, source/model provenance, review labels, text consistency, SHA-256 fingerprints, duplicate fingerprints, malformed JSON, and blank lines. It always reports `ready_for_training: false`; structural validation cannot prove semantic correctness.
-- `2921bd6` + `ee665d6` + `6f2144e` + `e91f069` + `11f5dcdb`: added tests for clean audit, tampering, duplicate records, malformed input, missing files, CLI exit codes, and proper JSONL line endings.
+- `4362432`: audit now reports invalid UTF-8 per line instead of crashing on decoding errors.
+- `2921bd6` + `ee665d6` + `6f2144e` + `e91f069` + `11f5dcdb` + `f868d43` + `7c0540e9`: added tests for clean audit, tampering, duplicate records, malformed JSON/UTF-8, missing files, CLI exit codes, and JSONL line endings.
 - `ef59f33`: removed a duplicate handoff bullet and refreshed the CI caveat.
 - These are code/test additions, not passing-test claims. The assistant has **not executed the local test suite**; check CI before treating them as passing.
 
