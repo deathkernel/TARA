@@ -277,12 +277,24 @@ class SelfDeveloper:
         if "```" in patch:
             raise SelfDeveloperError("Patch must not contain Markdown fences")
         paths = []
-        for line in patch.splitlines():
-            if line.startswith("--- a/"):
+        lines = patch.splitlines()
+        for line in lines:
+            if line.startswith("diff --git "):
+                match = re.match(r"^diff --git a/(.*?) b/(.*?)$", line)
+                if not match:
+                    raise SelfDeveloperError("Malformed or unsupported git diff header")
+                paths.extend(item.replace("\\", "/") for item in match.groups())
+            elif line.startswith("--- a/"):
                 paths.append(line[6:].replace("\\", "/"))
             elif line.startswith("+++ b/"):
                 paths.append(line[6:].replace("\\", "/"))
-        if not paths or not any(line.startswith("@@") for line in patch.splitlines()):
+            # Mode changes can create symlinks/executables; binary patches are outside
+            # this conservative text-only patch format.
+            if line.startswith(("old mode ", "new mode ", "new file mode ", "deleted file mode ",
+                                "rename from ", "rename to ", "copy from ", "copy to ",
+                                "GIT binary patch", "Binary files ")):
+                raise SelfDeveloperError("File mode, rename/copy, and binary patches are not allowed")
+        if not paths or not any(line.startswith("@@") for line in lines):
             raise SelfDeveloperError("Output is not a recognizable unified diff")
         protected = [item.lower() for item in PROTECTED_PATHS]
         for path in paths:
