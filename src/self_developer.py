@@ -264,12 +264,12 @@ class SelfDeveloper:
                             runner=self._command_runner,
                         )
                         validation_outputs.append(
-                            "$ " + " ".join(command) + "\\n" + (result.stdout or "")
+                            "$ " + " ".join(command) + "\n" + (result.stdout or "")
                         )
                     attempt_record.update({
                         "changed_files": changed,
                         "tests_passed": True,
-                        "test_output": "\\n".join(validation_outputs)[-_OUTPUT_LIMIT:],
+                        "test_output": "\n".join(validation_outputs)[-_OUTPUT_LIMIT:],
                         "result": "all selected validation commands passed",
                     })
                     if patch_file is not None:
