@@ -85,7 +85,7 @@ flowchart TD
 
 ### 5. Validation status — do not guess
 
-Latest verified API snapshot on 2026-10-13: GitHub Actions run `38440263707` for earlier test commit `7c0540e996dc40db8ba73c08580aaed69773a219` had `python-tests` and `rust-tests` queued. The newer Self-Developer commits `c7efb00` and `f32e370` have not yet been verified by a returned workflow run. Current changes are **not CI-verified**. No local tests have been run by the assistant.
+Latest verified API snapshot on 2026-10-13: GitHub Actions run `38440500902` for test commit `f32e37073a87406477526ae69c59282045ccfe67` was **queued**; both `python-tests` and `rust-tests` were queued when checked. The later README update does not have a confirmed run in the lookup response. Current changes are **not CI-verified**. No local tests have been run by the assistant.
 
 **Latest batched changes:**
 - `ec9112f` + `789b6e2`: fix report consistency; persist `report_path` in the JSON and test returned/saved values.
