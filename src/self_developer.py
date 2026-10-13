@@ -354,7 +354,7 @@ class SelfDeveloper:
             normalized = path.lower()
             if any(normalized == item.rstrip("/") or normalized.startswith(item) for item in protected):
                 raise SelfDeveloperError(f"Patch targets a protected path: {path}")
-            if normalized == ".git" or normalized.startswith((".git/", ".github/workflows/")) or normalized in {
+            if ".git" in normalized.split("/") or normalized.startswith(".github/workflows/") or normalized in {
                 ".env", ".env.example", "requirements.txt", "pyproject.toml", "setup.py",
             }:
                 raise SelfDeveloperError(f"Patch targets a restricted path: {path}")
