@@ -85,7 +85,7 @@ flowchart TD
 
 ### 5. Validation status — do not guess
 
-Latest verified API snapshot on 2026-10-13: GitHub Actions run `38439003307` (run #995) for README commit `2a5cae25871f1ff199c12dc239fc71ace762b204` was **queued**. The combined-status wrapper returned no status entries, so the live CI outcome remains unverified. Re-check [PR #8](https://github.com/deathkernel/TARA/pull/8) for the newest commit's run. No local tests have been run by the assistant.
+Latest verified API snapshot on 2026-10-13: GitHub Actions run `38439358733` (TARA CI) for test commit `fec965192a78e6f363ee92fe37c39bd91d3c5dc9` was **queued** when checked. Later test commits may have newer runs; the combined-status wrapper returned no status entries. Live CI remains unverified. Re-check [PR #8](https://github.com/deathkernel/TARA/pull/8) for the newest commit's run. No local tests have been run by the assistant.
 
 **Latest batched changes:**
 - `ec9112f` + `789b6e2`: fix report consistency; persist `report_path` in the JSON and test returned/saved values.
@@ -93,6 +93,8 @@ Latest verified API snapshot on 2026-10-13: GitHub Actions run `38439003307` (ru
 - `c66a797`: added command-runner regression tests for `shell=False`, timeout propagation, and bounded failure output.
 - `518dc65`: added coverage for converting command-start `OSError` into a controlled error and reporting a worktree-creation failure without calling the provider or dirtying the original repository.
 - `fec9651`: added a bounded-retry regression test using a temporary Git repository; repeated empty patches must produce a failed report and leave the base worktree unchanged.
+- `518dc65` + `fec9651`: added failure-path tests for command startup errors, worktree creation failure, bounded retries, and unchanged base repository state.
+- `f338912` + `862ce83`: added teacher-data checks for reproducible SHA-256 provenance, candidate review labels, short-answer filtering, and preserving an existing dataset when generation fails.
 - These are test additions, not passing-test claims. The assistant has **not executed the local test suite**; check CI before treating them as passing.
 
 ### 6. Next actions — follow in order
