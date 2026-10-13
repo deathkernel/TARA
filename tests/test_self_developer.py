@@ -287,3 +287,54 @@ def test_successful_candidate_is_retained_for_manual_review(tmp_path):
         ["git", "status", "--porcelain"], cwd=repo, check=True,
         capture_output=True, text=True,
     ).stdout == ""
+
+
+def test_failed_test_attempt_rolls_back_before_retry(tmp_path):
+    import subprocess
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    def git(*args):
+        subprocess.run(
+            ["git", *args], cwd=repo, check=True,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        )
+
+    git("init")
+    git("config", "user.email", "tara-tests@example.invalid")
+    git("config", "user.name", "TARA test")
+    (repo / "src").mkdir()
+    (repo / "tests").mkdir()
+    (repo / "src" / "module.py").write_text("VALUE = 1\\n", encoding="utf-8")
+    git("add", "src/module.py")
+    git("commit", "-m", "test baseline")
+
+    class RetryProvider:
+        def __init__(self):
+            self.calls = 0
+
+        def complete(self, *args, **kwargs):
+            self.calls += 1
+            if self.calls == 1:
+                return "--- /dev/null\\n+++ b/tests/test_broken.py\\n@@ -0,0 +1,2 @@\\n+def test_intentionally_fails():\\n+    assert False\\n"
+            return "--- a/src/module.py\\n+++ b/src/module.py\\n@@ -1 +1 @@\\n-VALUE = 1\\n+VALUE = 2"
+
+    provider = RetryProvider()
+    engine = SelfDeveloper(repo, provider=provider, state_root=tmp_path / "state")
+    report = engine.run_task("Exercise rollback and retry", max_attempts=2)
+
+    candidate = Path(report["candidate_worktree"])
+    assert provider.calls == 2
+    assert report["status"] == "candidate_ready_for_review"
+    assert len(report["attempts"]) == 2
+    assert report["attempts"][0]["tests_passed"] is False
+    assert "Command failed" in report["attempts"][0]["result"]
+    assert report["attempts"][1]["tests_passed"] is True
+    assert not (candidate / "tests" / "test_broken.py").exists()
+    assert (candidate / "src" / "module.py").read_text(encoding="utf-8") == "VALUE = 2\\n"
+    assert (repo / "src" / "module.py").read_text(encoding="utf-8") == "VALUE = 1\\n"
+    assert subprocess.run(
+        ["git", "status", "--porcelain"], cwd=repo, check=True,
+        capture_output=True, text=True,
+    ).stdout == ""
