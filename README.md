@@ -89,10 +89,12 @@ flowchart TD
 
 ### 5. Validation status — do not guess
 
-Latest CI evidence checked on 2026-10-13: runs `38441158044` (run 1067), `38441158193` (run 1068), `38441408859` (run 1074), `38442379219` (run 1081), and `38442450949` (run 1085) were still queued when checked. The latest validator commit `d4decb1` has run `38442974684` (run 1087) queued; the regression-test commit `d834996` has run `38443017869` (run 1089) queued. The current head has no reported combined status checks, and no green CI result has been observed. The branch is **not CI-verified**. No local tests have been run by the assistant.
+Latest CI evidence checked on 2026-10-13: runs `38441158044` (1067), `38441158193` (1068), `38441408859` (1074), `38442379219` (1081), `38442450949` (1085), `38443017869` (1089), and the current code hardening run `38443133189` (1093) were queued when checked. The latest context-isolation test commit `dcd8e6e` has no run returned by the commit-run lookup yet. No green CI result has been observed and the latest head has no reported combined status checks. The branch is **not CI-verified**. No local tests have been run by the assistant.
 
 **Latest batched changes:**
-- `d4decb1`: normalize tab-separated timestamps in unified-diff file markers before applying restricted-path checks; allow normal `new file mode 100644` patches while still rejecting executable, symlink, submodule, rename/copy, and binary metadata.
+- `d4decb1` + `d834996`: normalize tab-separated timestamps in diff markers before restricted-path checks; permit ordinary `new file mode 100644` patches while rejecting executable/symlink/submodule/rename/copy/binary metadata; add regression coverage for timestamp-suffixed dependency paths and adding a new test file.
+- `05d7165` + `dcd8e6e`: build the LLM prompt context from the isolated candidate worktree rather than the original checkout, preventing uncommitted user edits from being silently mixed into the candidate's HEAD context; add a regression test for a dirty original working tree.
+ `d4decb1`: normalize tab-separated timestamps in unified-diff file markers before applying restricted-path checks; allow normal `new file mode 100644` patches while still rejecting executable, symlink, submodule, rename/copy, and binary metadata.
 - `d834996`: add a regression case for timestamp-suffixed dependency paths and an end-to-end candidate-worktree test for adding a normal test file via a standard Git diff.
  `ec9112f` + `789b6e2`: fix report consistency; persist `report_path` in the JSON and test returned/saved values.
 - `5df5f62` + `fef8e30`: validate `diff --git` header paths, reject file-mode/rename/copy/binary patches, and add regression cases for traversal, symlink-mode, and binary patch attempts.
