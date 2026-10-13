@@ -306,7 +306,7 @@ def test_failed_test_attempt_rolls_back_before_retry(tmp_path):
     git("config", "user.name", "TARA test")
     (repo / "src").mkdir()
     (repo / "tests").mkdir()
-    (repo / "src" / "module.py").write_text("VALUE = 1\\n", encoding="utf-8")
+    (repo / "src" / "module.py").write_text("VALUE = 1\n", encoding="utf-8")
     git("add", "src/module.py")
     git("commit", "-m", "test baseline")
 
@@ -317,8 +317,8 @@ def test_failed_test_attempt_rolls_back_before_retry(tmp_path):
         def complete(self, *args, **kwargs):
             self.calls += 1
             if self.calls == 1:
-                return "--- /dev/null\\n+++ b/tests/test_broken.py\\n@@ -0,0 +1,2 @@\\n+def test_intentionally_fails():\\n+    assert False\\n"
-            return "--- a/src/module.py\\n+++ b/src/module.py\\n@@ -1 +1 @@\\n-VALUE = 1\\n+VALUE = 2"
+                return "--- /dev/null\n+++ b/tests/test_broken.py\n@@ -0,0 +1,2 @@\n+def test_intentionally_fails():\n+    assert False\n"
+            return "--- a/src/module.py\n+++ b/src/module.py\n@@ -1 +1 @@\n-VALUE = 1\n+VALUE = 2"
 
     provider = RetryProvider()
     engine = SelfDeveloper(repo, provider=provider, state_root=tmp_path / "state")
@@ -332,8 +332,8 @@ def test_failed_test_attempt_rolls_back_before_retry(tmp_path):
     assert "Command failed" in report["attempts"][0]["result"]
     assert report["attempts"][1]["tests_passed"] is True
     assert not (candidate / "tests" / "test_broken.py").exists()
-    assert (candidate / "src" / "module.py").read_text(encoding="utf-8") == "VALUE = 2\\n"
-    assert (repo / "src" / "module.py").read_text(encoding="utf-8") == "VALUE = 1\\n"
+    assert (candidate / "src" / "module.py").read_text(encoding="utf-8") == "VALUE = 2\n"
+    assert (repo / "src" / "module.py").read_text(encoding="utf-8") == "VALUE = 1\n"
     assert subprocess.run(
         ["git", "status", "--porcelain"], cwd=repo, check=True,
         capture_output=True, text=True,
