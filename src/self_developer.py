@@ -309,15 +309,17 @@ class SelfDeveloper:
                     raise SelfDeveloperError("Malformed or unsupported git diff header")
                 paths.extend(item.replace("\\", "/") for item in match.groups())
             elif line.startswith("--- a/"):
-                paths.append(line[6:].replace("\\", "/"))
+                paths.append(line[6:].split("\t", 1)[0].replace("\\", "/"))
             elif line.startswith("+++ b/"):
-                paths.append(line[6:].replace("\\", "/"))
-            # Mode changes can create symlinks/executables; binary patches are outside
-            # this conservative text-only patch format.
-            if line.startswith(("old mode ", "new mode ", "new file mode ", "deleted file mode ",
+                paths.append(line[6:].split("\t", 1)[0].replace("\\", "/"))
+            # Permit ordinary 0644 new text files, but reject mode changes,
+            # executable/symlink/submodule modes, renames/copies, and binary patches.
+            if line.startswith(("old mode ", "new mode ", "deleted file mode ",
                                 "rename from ", "rename to ", "copy from ", "copy to ",
                                 "GIT binary patch", "Binary files ")):
-                raise SelfDeveloperError("File mode, rename/copy, and binary patches are not allowed")
+                raise SelfDeveloperError("File mode changes, rename/copy, and binary patches are not allowed")
+            if line.startswith("new file mode ") and line != "new file mode 100644":
+                raise SelfDeveloperError("Only regular non-executable text files may be added")
         # When Git file headers are present, require them to agree with the
         # unified-diff file markers. This prevents ambiguous/mismatched path pairs.
         for index, line in enumerate(lines):
