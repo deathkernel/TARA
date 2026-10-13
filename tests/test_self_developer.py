@@ -17,6 +17,7 @@ from src.self_developer import SelfDeveloper, SelfDeveloperError
     "diff --git a/src/one.py b/src/one.py\n--- a/src/two.py\n+++ b/src/one.py\n@@ -1 +1 @@\n-a\n+b\n",
     "--- a/.git\n+++ b/.git\n@@ -1 +1 @@\n-a\n+b\n",
     "--- a/src/.git/config\n+++ b/src/.git/config\n@@ -1 +1 @@\n-a\n+b\n",
+    "--- a/requirements.txt\t2026-10-13 10:00:00 +0000\n+++ b/requirements.txt\t2026-10-13 10:00:00 +0000\n@@ -1 +1 @@\n-old\n+new\n",
     "--- a/src/link\n+++ b/src/link\nnew file mode 120000\n@@ -0,0 +1 @@\n+target\n",
     "--- a/src/blob.bin\n+++ b/src/blob.bin\nGIT binary patch\n@@ -0,0 +1 @@\n+binary\n",
 ])
@@ -433,3 +434,52 @@ def test_cleanup_warnings_are_reported_and_failure_report_retained(tmp_path):
     persisted = json.loads(report_path.read_text(encoding="utf-8"))
     assert persisted["cleanup_warnings"] == report["cleanup_warnings"]
     assert persisted["status"] == "failed"
+
+
+def test_standard_git_diff_can_add_regular_test_file_in_candidate_only(tmp_path):
+    import subprocess
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    def git(*args):
+        subprocess.run(
+            ["git", *args], cwd=repo, check=True,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        )
+
+    git("init")
+    git("config", "user.email", "tara-tests@example.invalid")
+    git("config", "user.name", "TARA test")
+    (repo / "src").mkdir()
+    (repo / "src" / "module.py").write_text("VALUE = 1\n", encoding="utf-8")
+    git("add", "src/module.py")
+    git("commit", "-m", "test baseline")
+
+    patch = (
+        "diff --git a/tests/test_added.py b/tests/test_added.py\n"
+        "new file mode 100644\n"
+        "index 0000000..1111111\n"
+        "--- /dev/null\n"
+        "+++ b/tests/test_added.py\n"
+        "@@ -0,0 +1,2 @@\n"
+        "+def test_added_file_is_runnable():\n"
+        "+    assert True\n"
+    )
+
+    class NewFileProvider:
+        def complete(self, *args, **kwargs):
+            return patch
+
+    engine = SelfDeveloper(repo, provider=NewFileProvider(), state_root=tmp_path / "state")
+    report = engine.run_task("Add a small focused regression test", max_attempts=1)
+
+    candidate = Path(report["candidate_worktree"])
+    assert report["status"] == "candidate_ready_for_review"
+    assert report["attempts"][0]["tests_passed"] is True
+    assert (candidate / "tests" / "test_added.py").is_file()
+    assert not (repo / "tests" / "test_added.py").exists()
+    assert subprocess.run(
+        ["git", "status", "--porcelain"], cwd=repo, check=True,
+        capture_output=True, text=True,
+    ).stdout == ""
