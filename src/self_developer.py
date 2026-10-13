@@ -120,6 +120,7 @@ class SelfDeveloper:
         # its isolated worktree. Never send dirty original-checkout files to a provider.
         context_root = root or self.repository
         committed_snapshot = root is None
+        resolved_context_root = context_root.resolve()
         if committed_snapshot:
             paths = self._git("ls-tree", "-r", "--name-only", "HEAD", cwd=context_root).stdout.splitlines()
         else:
@@ -139,10 +140,19 @@ class SelfDeveloper:
                 break
             try:
                 if committed_snapshot:
+                    # Read the committed blob directly; do not follow checkout links.
                     content = self._git("show", f"HEAD:{relative}", cwd=context_root).stdout
                 else:
-                    content = (context_root / relative).read_text(encoding="utf-8")
-            except (OSError, UnicodeError, SelfDeveloperError):
+                    candidate_path = context_root / relative
+                    # A tracked symlink (or symlinked parent) must not let repository
+                    # context read files outside the candidate worktree and send them
+                    # to the configured provider.
+                    resolved_path = candidate_path.resolve(strict=True)
+                    resolved_path.relative_to(resolved_context_root)
+                    if not resolved_path.is_file():
+                        continue
+                    content = resolved_path.read_text(encoding="utf-8")
+            except (OSError, UnicodeError, ValueError, RuntimeError, SelfDeveloperError):
                 continue
             if len(content) > 8_000:
                 content = content[:8_000] + "\n[truncated]"
