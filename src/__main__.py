@@ -11,6 +11,16 @@ from .brain import TARABrain
 from .llm_provider_factory import provider_from_env
 
 
+class OllamaChatBrain(TARABrain):
+    """TARA brain with an explicit error when no checkpoint fallback exists."""
+
+    def generate(self, prompt, *, max_new_tokens=32, temperature=1.0, top_k=None, top_p=None):
+        raise RuntimeError(
+            "Ollama inference failed and no trained TARA checkpoint is configured "
+            "as a fallback. Check the Ollama server and model, then retry."
+        )
+
+
 def chat_loop(brain, *, input_fn=input, output_fn=print) -> None:
     """Run a small interactive terminal chat loop; injectable for unit tests."""
     output_fn("TARA chat is ready. Type /help for commands, /exit to quit.")
@@ -36,8 +46,8 @@ def chat_loop(brain, *, input_fn=input, output_fn=print) -> None:
             response = brain.respond(prompt, max_new_tokens=256, temperature=0.6)
         except (RuntimeError, TimeoutError, OSError) as exc:
             output_fn(
-                "TARA: I couldn't reach the configured language model. "
-                "Check that Ollama is running and the model is installed. "
+                "TARA: I couldn't generate a response. Check that Ollama is "
+                "running and the configured model is installed. "
                 f"Details: {exc}"
             )
             continue
@@ -53,7 +63,7 @@ def main() -> int:
         if provider is None:
             print("TARA chat needs a language provider. Set TARA_LLM_BACKEND=ollama.")
             return 2
-        brain = TARABrain(model=None, tokenizer=None, llm_provider=provider)
+        brain = OllamaChatBrain(model=None, tokenizer=None, llm_provider=provider)
     except (ValueError, RuntimeError) as exc:
         print(f"TARA could not start: {exc}")
         return 2
