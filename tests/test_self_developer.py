@@ -483,3 +483,39 @@ def test_standard_git_diff_can_add_regular_test_file_in_candidate_only(tmp_path)
         ["git", "status", "--porcelain"], cwd=repo, check=True,
         capture_output=True, text=True,
     ).stdout == ""
+
+
+def test_context_uses_candidate_snapshot_not_dirty_original_checkout(tmp_path):
+    import subprocess
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    def git(*args, cwd=repo):
+        return subprocess.run(
+            ["git", *args], cwd=cwd, check=True,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        )
+
+    git("init")
+    git("config", "user.email", "tara-tests@example.invalid")
+    git("config", "user.name", "TARA test")
+    (repo / "src").mkdir()
+    source = repo / "src" / "module.py"
+    source.write_text("VALUE = 1\n", encoding="utf-8")
+    git("add", "src/module.py")
+    git("commit", "-m", "test baseline")
+
+    # Simulate a user edit in the original checkout after the candidate base HEAD.
+    source.write_text("VALUE = 99\n", encoding="utf-8")
+    candidate = tmp_path / "candidate"
+    git("worktree", "add", "--detach", str(candidate), "HEAD")
+
+    engine = SelfDeveloper(repo, state_root=tmp_path / "state")
+    context = engine._tracked_context(candidate)
+
+    assert "VALUE = 1" in context
+    assert "VALUE = 99" not in context
+    assert source.read_text(encoding="utf-8") == "VALUE = 99\n"
+    assert (candidate / "src" / "module.py").read_text(encoding="utf-8") == "VALUE = 1\n"
+    git("worktree", "remove", "--force", str(candidate))
