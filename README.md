@@ -89,7 +89,7 @@ flowchart TD
 
 ### 5. Validation status — do not guess
 
-Latest CI evidence checked on 2026-10-13: run `38441003150` (run 1058) for parser follow-up commit `479a9a02abfb6f4a07901d5f92c91ce1ce24a911` is **queued**; the visible job snapshot for run `38440822794` (run 1050) also still showed `python-tests` and `rust-tests` queued. The latest test corrections (`5639e5b` and `ff95418`) have no associated run in the connector lookup response. The current branch is **not CI-verified**. No local tests have been run by the assistant.
+Latest CI evidence checked on 2026-10-13: run `38441003150` (run 1058) for parser follow-up commit `479a9a02abfb6f4a07901d5f92c91ce1ce24a911` is **queued**; the visible job snapshot for run `38440822794` (run 1050) also still showed `python-tests` and `rust-tests` queued. The latest test corrections (`5639e5b`, `ff95418`, and rollback fixture fix `07a0893`) have no associated run in the connector lookup response. The current branch is **not CI-verified**. No local tests have been run by the assistant.
 
 **Latest batched changes:**
 - `ec9112f` + `789b6e2`: fix report consistency; persist `report_path` in the JSON and test returned/saved values.
@@ -99,6 +99,7 @@ Latest CI evidence checked on 2026-10-13: run `38441003150` (run 1058) for parse
 - `0e2ce86`: validator now checks that `diff --git` paths agree with the corresponding `---`/`+++` markers and blocks the exact `.git` metadata path.
 - `479a9a0`: diff marker path parsing now strips tab-separated timestamps correctly before comparing header paths.
 - `34c837f` + `5639e5b` + `ff95418`: added regression coverage for mismatched diff paths, exact `.git` path rejection, and retaining successful candidates for human review; corrected newline escaping in the new test fixtures.
+- `87d4687` + `07a0893`: added a retry regression where a newly added failing test must be rolled back before a second, successful candidate patch; corrected the fixture newline escapes.
 - `518dc65` + `fec9651` + `f32e370`: added failure-path tests for command startup errors, worktree creation failure, bounded retries, provider exceptions, failed candidate cleanup, and unchanged base repository state.
 - `f338912` + `862ce83`: added teacher-data checks for reproducible SHA-256 provenance, candidate review labels, short-answer filtering, and preserving an existing dataset when generation fails.
 - `71a497d` + `3819ef1` + `f19fd66` + `6c2927d`: added a read-only candidate JSONL audit that checks schema, domains, source/model provenance, review labels, text consistency, SHA-256 fingerprints, duplicate fingerprints, malformed JSON, and blank lines. It always reports `ready_for_training: false`; structural validation cannot prove semantic correctness.
