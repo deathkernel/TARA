@@ -96,8 +96,11 @@ class SelfDeveloper:
             )
         return self.provider
 
-    def _tracked_context(self) -> str:
-        paths = self._git("ls-files").stdout.splitlines()
+    def _tracked_context(self, root: Path | None = None) -> str:
+        # Build context from the candidate's checked-out HEAD, never dirty files
+        # in the user's original working tree.
+        context_root = root or self.repository
+        paths = self._git("ls-files", cwd=context_root).stdout.splitlines()
         chunks = ["Tracked repository paths:\n" + "\n".join(paths[:500])]
         budget = MAX_CONTEXT_CHARS - len(chunks[0])
         preferred = [
@@ -112,7 +115,7 @@ class SelfDeveloper:
             if budget <= 0 or len(chunks) >= 24:
                 break
             try:
-                content = (self.repository / relative).read_text(encoding="utf-8")
+                content = (context_root / relative).read_text(encoding="utf-8")
             except (OSError, UnicodeError):
                 continue
             if len(content) > 8_000:
@@ -191,7 +194,7 @@ class SelfDeveloper:
         }
         try:
             self._git("worktree", "add", "-b", branch, str(worktree), base_head)
-            context = self._tracked_context()
+            context = self._tracked_context(worktree)
             for attempt in range(1, max_attempts + 1):
                 prompt = (
                     "Implement the requested task in the TARA repository. Return ONLY a "
