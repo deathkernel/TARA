@@ -97,10 +97,14 @@ class SelfDeveloper:
         return self.provider
 
     def _tracked_context(self, root: Path | None = None) -> str:
-        # Build context from the candidate's checked-out HEAD, never dirty files
-        # in the user's original working tree.
+        # Planning uses committed HEAD content only. Candidate generation uses
+        # its isolated worktree. Never send dirty original-checkout files to a provider.
         context_root = root or self.repository
-        paths = self._git("ls-files", cwd=context_root).stdout.splitlines()
+        committed_snapshot = root is None
+        if committed_snapshot:
+            paths = self._git("ls-tree", "-r", "--name-only", "HEAD", cwd=context_root).stdout.splitlines()
+        else:
+            paths = self._git("ls-files", cwd=context_root).stdout.splitlines()
         chunks = ["Tracked repository paths:\n" + "\n".join(paths[:500])]
         budget = MAX_CONTEXT_CHARS - len(chunks[0])
         preferred = [
@@ -115,8 +119,11 @@ class SelfDeveloper:
             if budget <= 0 or len(chunks) >= 24:
                 break
             try:
-                content = (context_root / relative).read_text(encoding="utf-8")
-            except (OSError, UnicodeError):
+                if committed_snapshot:
+                    content = self._git("show", f"HEAD:{relative}", cwd=context_root).stdout
+                else:
+                    content = (context_root / relative).read_text(encoding="utf-8")
+            except (OSError, UnicodeError, SelfDeveloperError):
                 continue
             if len(content) > 8_000:
                 content = content[:8_000] + "\n[truncated]"
