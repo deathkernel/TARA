@@ -190,7 +190,7 @@ def test_audit_cli_returns_nonzero_for_invalid_dataset(monkeypatch, tmp_path, ca
 
 def test_audit_reports_invalid_utf8_without_crashing(tmp_path):
     output = tmp_path / "invalid-utf8.jsonl"
-    output.write_bytes(b'{"valid": false}\\n' + b'\\xff\\xfe\\n')
+    output.write_bytes(b'{"valid": false}\n' + b'\xff\xfe\n')
 
     report = audit_teacher_dataset(output)
 
