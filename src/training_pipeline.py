@@ -270,6 +270,9 @@ class TrainingPipeline:
         output_path = Path(output)
         tracker_path = Path(metrics_path) if metrics_path is not None else output_path.with_suffix(output_path.suffix + ".metrics.jsonl")
         tracker = ExperimentTracker(tracker_path)
+        # Keep the best validation checkpoint separate from periodic/final saves.
+        best_checkpoint_path = output_path.with_name(output_path.name + ".best")
+        best_checkpoint_path.unlink(missing_ok=True)
         if resume is None:
             model, tokenizer, optimizer, train_tokens, validation_tokens = self._new_state(texts)
             start_step = 0
@@ -318,12 +321,16 @@ class TrainingPipeline:
                 decision = early_stopping.update(last_validation_loss) if last_validation_loss is not None else None
                 print(f"step={update_step:5d} train_loss={last_train_loss:.4f} " + (f"val_loss={last_validation_loss:.4f} " if last_validation_loss is not None else "") + f"lr={current_lr:.6g} device={self.device}")
                 if decision is not None and decision.improved:
-                    self._save(output_path, model, tokenizer, optimizer, update_step, last_train_loss, last_validation_loss, fingerprint, scheduler, early_stopping, tracker)
+                    self._save(best_checkpoint_path, model, tokenizer, optimizer, update_step, last_train_loss, last_validation_loss, fingerprint, scheduler, early_stopping, tracker)
                 if decision is not None and decision.should_stop:
                     stopped_early = True
                     break
                 model.train()
             if self.config.checkpoint_every and update_step % self.config.checkpoint_every == 0:
                 self._save(output_path, model, tokenizer, optimizer, update_step, last_train_loss, last_validation_loss, fingerprint, scheduler, early_stopping, tracker)
-        self._save(output_path, model, tokenizer, optimizer, update_step, last_train_loss, last_validation_loss, fingerprint, scheduler, early_stopping, tracker)
+        if validation_tokens is not None and best_checkpoint_path.exists():
+            # Preserve the lowest observed validation loss as the published checkpoint.
+            best_checkpoint_path.replace(output_path)
+        else:
+            self._save(output_path, model, tokenizer, optimizer, update_step, last_train_loss, last_validation_loss, fingerprint, scheduler, early_stopping, tracker)
         return TrainingSummary(str(output_path), start_step, update_step, last_train_loss, last_validation_loss, str(self.device), fingerprint, stopped_early, str(tracker_path))
