@@ -40,8 +40,12 @@ def test_report_is_written_and_can_be_read(tmp_path):
     engine = SelfDeveloper(repo, state_root=tmp_path / "state")
     written = engine._write_report({"run_id": "test-run", "status": "plan_only", "task": "test"})
     assert Path(written["report_path"]).is_file()
-    assert engine.latest_report()["task"] == "test"
-    assert json.loads(Path(written["report_path"]).read_text(encoding="utf-8"))["status"] == "plan_only"
+    latest = engine.latest_report()
+    assert latest["task"] == "test"
+    assert latest["report_path"] == written["report_path"]
+    persisted = json.loads(Path(written["report_path"]).read_text(encoding="utf-8"))
+    assert persisted["status"] == "plan_only"
+    assert persisted["report_path"] == written["report_path"]
 
 
 def test_task_validation_rejects_empty_and_oversized_tasks():
