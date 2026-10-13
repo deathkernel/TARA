@@ -338,3 +338,97 @@ def test_failed_test_attempt_rolls_back_before_retry(tmp_path):
         ["git", "status", "--porcelain"], cwd=repo, check=True,
         capture_output=True, text=True,
     ).stdout == ""
+def test_apply_check_failure_rolls_back_and_retries(tmp_path):
+    import subprocess
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    def git(*args):
+        subprocess.run(
+            ["git", *args], cwd=repo, check=True,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        )
+
+    git("init")
+    git("config", "user.email", "tara-tests@example.invalid")
+    git("config", "user.name", "TARA test")
+    (repo / "src").mkdir()
+    (repo / "src" / "module.py").write_text("VALUE = 1\n", encoding="utf-8")
+    git("add", "src/module.py")
+    git("commit", "-m", "test baseline")
+
+    class ApplyRetryProvider:
+        def __init__(self):
+            self.calls = 0
+
+        def complete(self, *args, **kwargs):
+            self.calls += 1
+            if self.calls == 1:
+                return "--- a/src/module.py\n+++ b/src/module.py\n@@ -1 +1 @@\n-VALUE = 999\n+VALUE = 2"
+            return "--- a/src/module.py\n+++ b/src/module.py\n@@ -1 +1 @@\n-VALUE = 1\n+VALUE = 2"
+
+    provider = ApplyRetryProvider()
+    engine = SelfDeveloper(repo, provider=provider, state_root=tmp_path / "state")
+    report = engine.run_task("Retry a patch that does not apply", max_attempts=2)
+
+    candidate = Path(report["candidate_worktree"])
+    assert provider.calls == 2
+    assert report["status"] == "candidate_ready_for_review"
+    assert len(report["attempts"]) == 2
+    assert report["attempts"][0]["tests_passed"] is False
+    assert "Command failed" in report["attempts"][0]["result"]
+    assert report["attempts"][1]["tests_passed"] is True
+    assert (candidate / "src" / "module.py").read_text(encoding="utf-8") == "VALUE = 2\n"
+    assert (repo / "src" / "module.py").read_text(encoding="utf-8") == "VALUE = 1\n"
+    assert subprocess.run(
+        ["git", "status", "--porcelain"], cwd=repo, check=True,
+        capture_output=True, text=True,
+    ).stdout == ""
+
+
+def test_cleanup_warnings_are_reported_and_failure_report_retained(tmp_path):
+    import subprocess
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    def git(*args):
+        subprocess.run(
+            ["git", *args], cwd=repo, check=True,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        )
+
+    git("init")
+    git("config", "user.email", "tara-tests@example.invalid")
+    git("config", "user.name", "TARA test")
+    (repo / "baseline.py").write_text("VALUE = 1\n", encoding="utf-8")
+    git("add", "baseline.py")
+    git("commit", "-m", "test baseline")
+
+    class EmptyPatchProvider:
+        def complete(self, *args, **kwargs):
+            return ""
+
+    def cleanup_failure_runner(args, **kwargs):
+        if args[:3] == ["git", "worktree", "remove"]:
+            raise OSError("simulated worktree cleanup failure")
+        if args[:3] == ["git", "branch", "-D"]:
+            raise OSError("simulated branch cleanup failure")
+        return subprocess.run(args, **kwargs)
+
+    engine = SelfDeveloper(
+        repo, provider=EmptyPatchProvider(), state_root=tmp_path / "state",
+        command_runner=cleanup_failure_runner,
+    )
+    report = engine.run_task("Keep cleanup failures visible", max_attempts=1)
+
+    assert report["status"] == "failed"
+    assert len(report["cleanup_warnings"]) == 2
+    assert any("worktree cleanup failure" in item for item in report["cleanup_warnings"])
+    assert any("branch cleanup failure" in item for item in report["cleanup_warnings"])
+    report_path = Path(report["report_path"])
+    assert report_path.is_file()
+    persisted = json.loads(report_path.read_text(encoding="utf-8"))
+    assert persisted["cleanup_warnings"] == report["cleanup_warnings"]
+    assert persisted["status"] == "failed"
