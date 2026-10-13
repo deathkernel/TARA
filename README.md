@@ -85,13 +85,15 @@ flowchart TD
 
 ### 5. Validation status — do not guess
 
-Latest check on 2026-10-13: GitHub Actions run `38436916513` (run #976) was **queued** for README handoff commit `0fcdbb9defeb0372ff22b9298a072de989c20ffe`; its `python-tests` and `rust-tests` jobs were queued. Run `38437038886` (run #978) was also queued for docs commit `3d0e58fe9251e4d03851e031a9c303f3e539562c`. The Self-Developer implementation run `38436465295` was queued at its last check. These are historical snapshots: re-check [PR #8](https://github.com/deathkernel/TARA/pull/8) for the live status. No local tests have been run by the assistant.
+Latest verified API snapshot on 2026-10-13: GitHub Actions run `38439003307` (run #995) for README commit `2a5cae25871f1ff199c12dc239fc71ace762b204` was **queued**. The combined-status wrapper returned no status entries, so the live CI outcome remains unverified. Re-check [PR #8](https://github.com/deathkernel/TARA/pull/8) for the newest commit's run. No local tests have been run by the assistant.
 
 **Latest batched changes:**
 - `ec9112f` + `789b6e2`: fix report consistency; persist `report_path` in the JSON and test returned/saved values.
 - `5df5f62` + `fef8e30`: validate `diff --git` header paths, reject file-mode/rename/copy/binary patches, and add regression cases for traversal, symlink-mode, and binary patch attempts.
 - `c66a797`: added command-runner regression tests for `shell=False`, timeout propagation, and bounded failure output.
-- These changes were authored on the PR #8 feature branch but have **not been locally tested by the assistant**. Check current CI before treating them as passing.
+- `518dc65`: added coverage for converting command-start `OSError` into a controlled error and reporting a worktree-creation failure without calling the provider or dirtying the original repository.
+- `fec9651`: added a bounded-retry regression test using a temporary Git repository; repeated empty patches must produce a failed report and leave the base worktree unchanged.
+- These are test additions, not passing-test claims. The assistant has **not executed the local test suite**; check CI before treating them as passing.
 
 ### 6. Next actions — follow in order
 
