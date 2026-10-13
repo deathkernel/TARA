@@ -57,14 +57,14 @@ def test_candidate_fingerprint_and_provenance_are_reproducible(tmp_path):
 
     for row in rows:
         expected = hashlib.sha256(
-            (row["domain"] + "\\n" + row["instruction"] + "\\n" + row["answer"]).encode("utf-8")
+            (row["domain"] + "\n" + row["instruction"] + "\n" + row["answer"]).encode("utf-8")
         ).hexdigest()
         assert row["fingerprint"] == expected
         assert row["source"] == "ollama_teacher_generated"
         assert row["teacher_model"] == "fake-teacher"
         assert row["review_status"] == "unverified_candidate"
         assert row["text"] == (
-            f"Domain: {row['domain']}\\nInstruction: {row['instruction']}\\nAnswer: {row['answer']}"
+            f"Domain: {row['domain']}\nInstruction: {row['instruction']}\nAnswer: {row['answer']}"
         )
 
 
@@ -85,7 +85,7 @@ def test_short_teacher_answers_are_skipped_without_bad_records(tmp_path):
 
 def test_provider_failure_does_not_replace_existing_dataset_or_leave_temp(tmp_path):
     output = tmp_path / "teacher.jsonl"
-    output.write_text("known-good-data\\n", encoding="utf-8")
+    output.write_text("known-good-data\n", encoding="utf-8")
 
     class FailingProvider:
         def complete(self, prompt, **kwargs):
@@ -96,5 +96,5 @@ def test_provider_failure_does_not_replace_existing_dataset_or_leave_temp(tmp_pa
             FailingProvider(), output, per_domain=1, overwrite=True,
         )
 
-    assert output.read_text(encoding="utf-8") == "known-good-data\\n"
+    assert output.read_text(encoding="utf-8") == "known-good-data\n"
     assert not (tmp_path / "teacher.jsonl.tmp").exists()
