@@ -7,67 +7,162 @@ TARA is a research-first neural-network project built from mathematical and impl
 ## Cross-chat project handoff (update this section after each meaningful task)
 
 > **Last updated:** 2026-10-13  
-> **Purpose:** This is the continuity note for future ChatGPT conversations. Read this section first, then inspect the linked PRs/branches and current CI before making changes. Keep it accurate as work progresses; never mark work complete without evidence.
+> **Purpose:** Future ChatGPT chats should read this section first, verify the current GitHub state, and continue from the next action. Keep this section and its diagrams updated after meaningful work.
 
-### Project direction and non-negotiable constraints
-- TARA is the user-facing assistant and owns the cognitive/orchestration layer. Ollama/Llama is a local background language/reasoning provider, not a replacement for TARA.
-- Current local model: Ollama `llama3.2:3b`; select it with `TARA_LLM_BACKEND=ollama`.
-- Platform/workflow: Windows, CMD-first, Python 3.14 environment.
-- **Preserve local user data.** Do not delete, clean, overwrite, or reset the original working tree's untracked/personal files, checkpoints, outputs, or conversation data. In particular, prior local status reported:
-  ```
-  ?? checkpoints/
-  ?? data/conversation_v1.jsonl
-  ?? data/conversation_v1.jsonl.manifest.json
-  ?? outputs/
-  ?? test_voice.py
-  ```
-- Controlled autonomy is the agreed policy: TARA may generate candidate code and run tests in an isolated candidate worktree; human approval is required before integration. Do not automatically commit, push, merge, or promote generated changes.
-- A worktree is isolation from the main working tree, **not** a security sandbox for hostile generated code. Review generated changes.
+### 1. TARA at a glance
 
-### Current work and pull requests
-- **PR #6 — conversation learning/memory:** [feature/tara-conversation-learning](https://github.com/deathkernel/TARA/tree/feature/tara-conversation-learning), draft/open as last reported, not merged. Adds user-approved persistent memory commands; memory is separate from model-weight training.
-- **PR #7 — Llama teacher distillation:** [feature/tara-llama-distillation](https://github.com/deathkernel/TARA/tree/feature/tara-llama-distillation), draft/open as last reported, not merged. Generates candidate multi-domain teacher examples via local Ollama. Generated examples are unverified until reviewed; this does not itself train a TARA checkpoint.
-- **PR #8 — Self-Developer v1:** [review PR #8](https://github.com/deathkernel/TARA/pull/8), branch [feature/tara-self-developer-v1](https://github.com/deathkernel/TARA/tree/feature/tara-self-developer-v1), based on PR #7's branch. Draft/open, not merged. Self-Developer implementation commit: `198c2050c5b689c976b4edeec35a00a028347f07`; README handoff update commit: `ceba5cb002f2af8db8a390b11e5d59e9dd125daa`.
-- PR #8 adds `src/self_developer.py`, `src/self_developer_cli.py`, tests, and `docs/tara_self_developer.md`. The CLI supports `status`, `plan`, `run`, and `report`. Task runs use a candidate Git worktree, validate patch paths, run targeted tests (or compile checks), save reports outside the repo, and do not integrate changes.
-- Self-Developer explicitly protects `checkpoints/`, `outputs/`, `data/conversation_v1.jsonl`, `data/conversation_v1.jsonl.manifest.json`, and `test_voice.py`.
-- **Validation status:** the GitHub Actions run for PR #8 commit above was still `queued` at the last check (run ID `38436465295`; jobs `python-tests` and `rust-tests` queued). Do not claim CI or local tests passed until results are checked. Local tests had not yet been run by the assistant.
+```mermaid
+flowchart TD
+    U[User] --> T[TARA: main assistant and orchestrator]
+    T --> M[Memory and context]
+    T --> R[Reasoning and planning]
+    T --> V[Verification and safety]
+    R <--> L[Local LLM: Ollama / Llama]
+    V --> A[Authorized tools and actions]
+    A --> E[Measured outcomes and learning evidence]
+    E --> M
+```
 
-### Next actions (do these in order)
-1. Check [PR #8](https://github.com/deathkernel/TARA/pull/8) and its latest GitHub Actions result; inspect job logs and fix failures on the feature branch.
-2. On Windows, fetch/switch to the branch without touching the existing working tree's user files:
-   ```bat
-   git fetch origin
-   git switch --track origin/feature/tara-self-developer-v1
-   git status --short
-   ```
-   If the local branch already exists, use `git switch feature/tara-self-developer-v1`. Review `git status --short` before doing anything else.
-3. Run focused tests first:
-   ```bat
-   python -m pytest -q tests/test_self_developer.py tests/test_self_developer_cli.py
-   python -m src.self_developer_cli status
-   ```
-4. For local Ollama-backed planning/runs in the current CMD window:
-   ```bat
-   set TARA_LLM_BACKEND=ollama
-   set TARA_LLAMA_MODEL=llama3.2:3b
-   python -m src.self_developer_cli plan "Add a regression test for memory retrieval"
-   ```
-   Only run a code-generation task after reviewing the plan and confirming the target branch/status. Example run:
-   ```bat
-   python -m src.self_developer_cli run "Add a regression test for memory retrieval"
-   python -m src.self_developer_cli report
-   ```
-5. Inspect generated diffs/reports and tests; request user approval before any integration. Keep PRs in dependency order and do not merge PR #8 ahead of its base work.
-6. **Update this handoff section and the relevant feature docs after every meaningful task**: date, what changed, branch/commit/PR, test/CI evidence, remaining blockers, and the next concrete action. Distinguish planned, implemented, tested, and merged work.
+**Core boundary:** TARA owns the cognitive/orchestration layer. Ollama/Llama supplies language generation and reasoning; it does not replace TARA. Current local model is `llama3.2:3b`, selected with `TARA_LLM_BACKEND=ollama`.
 
-### Important interpretation notes
-- Persistent conversation memory is not model-weight training.
-- Teacher-generated data is not automatically correct and is not TARA's raw pretraining corpus. Curate and independently evaluate it before training.
-- A training script, benchmark suite, or provider integration in source code is not proof that a checkpoint was trained, an API authenticated, or a capability was achieved. Report only measured results.
-- Previously, commands for `src.self_developer_cli` were suggested before the module existed and failed with `No module named src.self_developer_cli`. The module is now included on the PR #8 branch; use that branch before running these commands.
+### 2. Previous work → current state → next step
+
+```mermaid
+flowchart LR
+    P[Previous: audit existing TARA modules] --> D[Designed controlled Self-Developer]
+    D --> I[Implemented on feature branch]
+    I --> C[Current: check CI and run focused tests]
+    C --> H{Tests and review clean?}
+    H -- No --> F[Fix on feature branch]
+    F --> C
+    H -- Yes --> R[Review diff and reports]
+    R --> A[Ask user approval]
+    A --> G[Integrate only after approval]
+```
+
+### 3. Current pull-request map
+
+```mermaid
+flowchart TD
+    P6["PR #6: conversation learning / persistent memory"]
+    P7["PR #7: Llama teacher distillation"]
+    P8["PR #8: Self-Developer v1"]
+    P7 -->|"base branch dependency"| P8
+```
+
+- **PR #6 — conversation learning/memory:** [PR #6 / branch](https://github.com/deathkernel/TARA/tree/feature/tara-conversation-learning). Adds user-approved persistent memory commands. Draft/open and not merged as last reported.
+- **PR #7 — teacher distillation:** [PR #7 / branch](https://github.com/deathkernel/TARA/tree/feature/tara-llama-distillation). Generates candidate multi-domain teacher examples with local Ollama. Examples need review; this does **not** train a TARA checkpoint. Draft/open and not merged as last reported.
+- **PR #8 — Self-Developer v1:** [review PR #8](https://github.com/deathkernel/TARA/pull/8) · [branch](https://github.com/deathkernel/TARA/tree/feature/tara-self-developer-v1). Based on PR #7's branch; draft/open and not merged as last reported.
+  - Self-Developer implementation commit: `198c2050c5b689c976b4edeec35a00a028347f07`.
+  - README handoff commits: `ceba5cb002f2af8db8a390b11e5d59e9dd125daa`, `461686de55bfc078181d57b39f6b175b68384043`.
+  - Adds `src/self_developer.py`, `src/self_developer_cli.py`, tests, and `docs/tara_self_developer.md`.
+  - CLI commands: `status`, `plan`, `run`, `report`.
+  - Candidate worktree changes are not committed, pushed, merged, or integrated automatically.
+
+### 4. Self-Developer task lifecycle
+
+```mermaid
+flowchart TD
+    S[User task] --> PL[Plan using configured LLM]
+    PL --> WT[Create candidate Git worktree]
+    WT --> PG[Generate patch]
+    PG --> PV{Patch paths safe and allowed?}
+    PV -- No --> REJ[Reject patch and record report]
+    PV -- Yes --> AP[Apply patch in candidate worktree]
+    AP --> TS[Run targeted tests or compile check]
+    TS --> OK{Checks pass?}
+    OK -- No --> RT[Bounded retry and report]
+    RT --> PG
+    OK -- Yes --> RV[Human reviews diff, tests and report]
+    RV -->|Approval required| IN[Integrate separately]
+```
+
+**Safety rules**
+- Controlled autonomy: code generation and tests may run in a candidate worktree; approval is required before integration.
+- A Git worktree is **not** a hostile-code security sandbox. Review generated code and test behavior.
+- Self-Developer protects `checkpoints/`, `outputs/`, `data/conversation_v1.jsonl`, `data/conversation_v1.jsonl.manifest.json`, and `test_voice.py`.
+- Never run `git clean`, destructive resets, or cleanup against the original user working tree. Preserve local untracked files and data.
+
+### 5. Validation status — do not guess
+
+At the last recorded check, GitHub Actions run `38436465295` for the Self-Developer implementation commit was **queued**, with `python-tests` and `rust-tests` jobs queued. Local tests had not yet been run by the assistant. Check [PR #8](https://github.com/deathkernel/TARA/pull/8) for the latest result before reporting status. The later README-only commits were documentation changes; verify their checks separately if needed.
+
+### 6. Next actions — follow in order
+
+```mermaid
+flowchart TD
+    N1[1. Check PR #8 CI] --> N2[2. Fetch feature branch]
+    N2 --> N3[3. Inspect git status]
+    N3 --> N4[4. Run focused tests]
+    N4 --> N5[5. Fix failures on feature branch]
+    N5 --> N6[6. Review diff and report]
+    N6 --> N7[7. Ask before integration]
+    N7 --> N8[8. Update this README handoff]
+```
+
+**Windows CMD — safe start**
+
+```bat
+git fetch origin
+git switch --track origin/feature/tara-self-developer-v1
+git status --short
+```
+
+If the local branch already exists, use `git switch feature/tara-self-developer-v1`. **Read `git status --short` before proceeding** and preserve existing user files.
+
+Run focused tests:
+
+```bat
+python -m pytest -q tests/test_self_developer.py tests/test_self_developer_cli.py
+python -m src.self_developer_cli status
+```
+
+Configure local Ollama for planning in the current CMD window:
+
+```bat
+set TARA_LLM_BACKEND=ollama
+set TARA_LLAMA_MODEL=llama3.2:3b
+python -m src.self_developer_cli plan "Add a regression test for memory retrieval"
+```
+
+After reviewing the plan and branch state, a candidate task can be run with:
+
+```bat
+python -m src.self_developer_cli run "Add a regression test for memory retrieval"
+python -m src.self_developer_cli report
+```
+
+### 7. Keep these distinctions clear
+
+```mermaid
+flowchart TD
+    G[Generated teacher examples] --> Q[Review and curate]
+    Q --> DS[Prepared training dataset]
+    DS --> TR[Explicit training run]
+    TR --> CK[Checkpoint]
+    CK --> EV[Measured evaluation]
+    EV -->|Evidence supports it| PR[Consider promotion]
+```
+
+- Persistent conversation memory **is not** model-weight training.
+- Teacher-generated examples are not automatically correct and are not TARA's raw pretraining corpus.
+- A script or provider integration in source code is not proof that training ran, an API authenticated, or a capability was achieved.
+- Report only results supported by actual test/CI output or measured evaluation.
+- Previous commands for `src.self_developer_cli` failed before the module existed. The module is now on the PR #8 branch; switch to that branch before using the commands above.
+
+### 8. Update protocol for every meaningful task
+
+After a meaningful change, update this section with:
+1. **What changed** — files/features and a short explanation.
+2. **Where** — branch, commit and PR link.
+3. **Evidence** — exact tests/CI run and pass/fail/pending result.
+4. **Still pending** — blockers and decisions awaiting user approval.
+5. **Next step** — the next command or review action.
+6. **Diagrams** — adjust these when architecture, PR dependencies or task flow changes.
+
+Do not mark work as tested or merged until there is evidence. Keep the diagrams useful and simple; add one when it explains a flow better than a paragraph.
 
 ---
-
 
 ## Pre-training readiness — complete
 
