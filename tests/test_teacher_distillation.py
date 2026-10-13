@@ -2,7 +2,8 @@ import json
 
 import pytest
 
-from src import teacher_distillation\nfrom src.teacher_distillation import DOMAIN_TASKS, audit_teacher_dataset, generate_teacher_dataset
+from src import teacher_distillation
+from src.teacher_distillation import DOMAIN_TASKS, audit_teacher_dataset, generate_teacher_dataset
 
 
 class FakeProvider:
