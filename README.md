@@ -89,10 +89,12 @@ flowchart TD
 
 ### 5. Validation status — do not guess
 
-Latest CI evidence checked on 2026-10-13: runs `38441158044` (run 1067) and `38441158193` (run 1068), associated with rollback test commits `87d4687` and `07a0893`, were **queued**; both reported `python-tests` and `rust-tests` queued. Run `38441003150` (run 1058) for validator follow-up `479a9a0` was also queued. The latest reliability batch `88ba6db` adds apply-check retry and cleanup-warning/report-retention regressions; run `38441408859` (run 1074) still reports both `python-tests` and `rust-tests` as **queued**. The newest patch-guard hardening commits `f3a8c4d` and `7ec2dd6` reject nested `.git` metadata paths; the current PR head has CI run `38442379219` (run 1081), with both `python-tests` and `rust-tests` still **queued**. The current branch head has not been confirmed green, and the branch is **not CI-verified**. No local tests have been run by the assistant.
+Latest CI evidence checked on 2026-10-13: runs `38441158044` (run 1067), `38441158193` (run 1068), `38441408859` (run 1074), `38442379219` (run 1081), and `38442450949` (run 1085) were still queued when checked. The latest validator commit `d4decb1` has run `38442974684` (run 1087) queued; the regression-test commit `d834996` has run `38443017869` (run 1089) queued. The current head has no reported combined status checks, and no green CI result has been observed. The branch is **not CI-verified**. No local tests have been run by the assistant.
 
 **Latest batched changes:**
-- `ec9112f` + `789b6e2`: fix report consistency; persist `report_path` in the JSON and test returned/saved values.
+- `d4decb1`: normalize tab-separated timestamps in unified-diff file markers before applying restricted-path checks; allow normal `new file mode 100644` patches while still rejecting executable, symlink, submodule, rename/copy, and binary metadata.
+- `d834996`: add a regression case for timestamp-suffixed dependency paths and an end-to-end candidate-worktree test for adding a normal test file via a standard Git diff.
+ `ec9112f` + `789b6e2`: fix report consistency; persist `report_path` in the JSON and test returned/saved values.
 - `5df5f62` + `fef8e30`: validate `diff --git` header paths, reject file-mode/rename/copy/binary patches, and add regression cases for traversal, symlink-mode, and binary patch attempts.
 - `c66a797`: added command-runner regression tests for `shell=False`, timeout propagation, and bounded failure output.
 - `c7efb00`: failed Self-Developer runs now attempt to remove only their own generated candidate worktree and `tara-selfdev-*` branch while retaining the JSON report; cleanup warnings are recorded rather than silently discarded.
