@@ -89,22 +89,22 @@ flowchart TD
 
 ### 5. Validation status — do not guess
 
-Latest verified branch state (2026-10-13): PR #8 is still draft/open/unmerged, with HEAD `8364a9b8eca583636d2e883779f9175d8a35a816`. The newest workflow run checked after the CI change is run `38445056711` (#1128), event `pull_request`, and remains queued; the prior runs for the same head were also queued. Both `python-tests` and `rust-tests` were queued when last inspected. **No green CI result has been observed.** Local test execution was attempted from the assistant environment but could not download the repository because outbound DNS/network access was unavailable. Do not treat tests as passing.
+Latest observed state on 2026-10-13: PR #8 is draft/open/unmerged. The most recent CI run inspected after queue mitigation was run `38445126620` (#1129), and both `python-tests` and `rust-tests` were queued. Of the latest 50 branch workflow runs inspected, 49 were queued and one was cancelled. This suggests jobs are not being dispatched promptly, but the available run metadata does not identify the cause. **No green CI result has been observed.** Local test execution was attempted from the assistant environment but repository download failed because outbound DNS/network access was unavailable. Do not treat tests as passing. Each new commit can create a newer PR run; always check the live [Actions page](https://github.com/deathkernel/TARA/actions) for the latest head.
 
-**CI queue mitigation just applied:**
-- Commit `8364a9b` updates `.github/workflows/tests.yml` to run CI on pull requests and manual dispatch, rather than duplicate push + pull-request events for each feature-branch commit.
-- Adds workflow concurrency keyed by PR number (or ref for manual runs) with `cancel-in-progress: true`, so superseded runs for the same PR do not keep consuming queue capacity.
-- This reduces avoidable duplicate runs but does **not** prove that GitHub-hosted runners are healthy or that the current run will start. Recheck run #1128 and its jobs.
+**CI queue mitigation applied in commit `8364a9b`:**
+- `.github/workflows/tests.yml` now uses pull-request and manual-dispatch triggers instead of running duplicate push + pull-request events for every feature-branch commit.
+- Workflow concurrency is keyed by PR number (or ref for manual runs) with `cancel-in-progress: true`, so superseded runs for the same PR can be cancelled.
+- This reduces avoidable duplicate runs but has **not** resolved the queue yet. Older queued runs from the previous workflow definition remain visible; no runner-health diagnosis is available through the returned run/job metadata.
 
 **Implemented on this branch (tests still require execution):**
-- Patch validation: rejects unsafe/traversal/absolute/protected paths, dependency and workflow edits, nested `.git` metadata, mismatched diff headers/markers, rename/copy/binary metadata, unsafe file modes, and Windows-invalid names (reserved device names, ADS colons, invalid characters/control characters, trailing dots/spaces); permits normal new-file mode `100644` patches.
+- Patch validation rejects unsafe/traversal/absolute/protected paths, dependency and workflow edits, nested `.git` metadata, mismatched diff headers/markers, rename/copy/binary metadata, unsafe file modes, and Windows-invalid names (reserved device names, ADS colons, invalid characters/control characters, trailing dots/spaces); ordinary new-file mode `100644` patches remain allowed.
 - Isolation: planning context is built from committed `HEAD`; run-task context comes from the candidate worktree, not dirty user checkout files.
-- Validation selection: always compiles `src`; source changes run full `pytest -q`; test-only changes run the changed test files; docs-only changes compile source.
-- Lifecycle and reporting: bounded retries/timeouts, candidate-only rollback/cleanup, retained failure reports, cleanup warnings, and successful candidate retention for human review.
+- Validation selection: always compiles `src`; source changes run full `pytest -q`; test-only changes run changed test files; docs-only changes compile source.
+- Lifecycle/reporting: bounded retries/timeouts, candidate-only rollback/cleanup, retained failure reports, cleanup warnings, and successful candidate retention for human review.
 - Teacher dataset audit: read-only JSONL schema/provenance/fingerprint/duplicate/UTF-8 checks, with `ready_for_training: false` regardless of structural success.
 - Regression tests were added for the behaviors above. **Code and test additions are not passing-test claims.**
 
-**Remaining blockers:** obtain actual CI results; run focused and full tests on a real Windows checkout; fix any failures; inspect the final PR diff and candidate report behavior. Integration remains a separate human-approved step.
+**Still blocked:** obtain actual CI results; run focused and full tests on a real Windows checkout; fix any failures; inspect the final PR diff and candidate report behavior. Integration remains a separate human-approved step.
 
 ### Teacher dataset audit — read-only
 
