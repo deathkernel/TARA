@@ -89,7 +89,7 @@ flowchart TD
 
 ### 5. Validation status — do not guess
 
-Latest CI evidence checked on 2026-10-13: run `38440822794` (run 1050) for test commit `34c837f4756d6a29699b8a2c42031e5bf70ac860` and run `38440777932` (run 1048) for validator commit `0e2ce86c8bd18ae3168b2dd670c8adb5a5e26a58` both had `python-tests` and `rust-tests` **queued**. The latest test corrections (`5639e5b` and `ff95418`) have no associated run in the connector lookup response. The current branch is **not CI-verified**. No local tests have been run by the assistant.
+Latest CI evidence checked on 2026-10-13: run `38440822794` (run 1050) for test commit `34c837f4756d6a29699b8a2c42031e5bf70ac860` and run `38440777932` (run 1048) for validator commit `0e2ce86c8bd18ae3168b2dd670c8adb5a5e26a58` both had `python-tests` and `rust-tests` **queued**. The latest test corrections (`5639e5b` and `ff95418`) and parser follow-up (`479a9a0`) have no associated run in the connector lookup response. The current branch is **not CI-verified**. No local tests have been run by the assistant.
 
 **Latest batched changes:**
 - `ec9112f` + `789b6e2`: fix report consistency; persist `report_path` in the JSON and test returned/saved values.
@@ -97,6 +97,7 @@ Latest CI evidence checked on 2026-10-13: run `38440822794` (run 1050) for test 
 - `c66a797`: added command-runner regression tests for `shell=False`, timeout propagation, and bounded failure output.
 - `c7efb00`: failed Self-Developer runs now attempt to remove only their own generated candidate worktree and `tara-selfdev-*` branch while retaining the JSON report; cleanup warnings are recorded rather than silently discarded.
 - `0e2ce86`: validator now checks that `diff --git` paths agree with the corresponding `---`/`+++` markers and blocks the exact `.git` metadata path.
+- `479a9a0`: diff marker path parsing now strips tab-separated timestamps correctly before comparing header paths.
 - `34c837f` + `5639e5b` + `ff95418`: added regression coverage for mismatched diff paths, exact `.git` path rejection, and retaining successful candidates for human review; corrected newline escaping in the new test fixtures.
 - `518dc65` + `fec9651` + `f32e370`: added failure-path tests for command startup errors, worktree creation failure, bounded retries, provider exceptions, failed candidate cleanup, and unchanged base repository state.
 - `f338912` + `862ce83`: added teacher-data checks for reproducible SHA-256 provenance, candidate review labels, short-answer filtering, and preserving an existing dataset when generation fails.
