@@ -331,9 +331,9 @@ class SelfDeveloper:
                 if candidate.startswith("diff --git "):
                     break
                 section.append(candidate)
-            old_markers = [item[4:].split("\\t", 1)[0] for item in section
+            old_markers = [item[4:].split("\t", 1)[0] for item in section
                            if item.startswith("--- ")]
-            new_markers = [item[4:].split("\\t", 1)[0] for item in section
+            new_markers = [item[4:].split("\t", 1)[0] for item in section
                            if item.startswith("+++ ")]
             if len(old_markers) != 1 or len(new_markers) != 1:
                 raise SelfDeveloperError("Git diff headers require one matching old/new file marker pair")
