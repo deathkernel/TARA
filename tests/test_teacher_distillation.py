@@ -185,3 +185,19 @@ def test_audit_cli_returns_nonzero_for_invalid_dataset(monkeypatch, tmp_path, ca
     assert exit_info.value.code == 1
     report = json.loads(capsys.readouterr().out)
     assert report["invalid_records"] == 1
+
+
+
+def test_audit_reports_invalid_utf8_without_crashing(tmp_path):
+    output = tmp_path / "invalid-utf8.jsonl"
+    output.write_bytes(b'{"valid": false}\\n' + b'\\xff\\xfe\\n')
+
+    report = audit_teacher_dataset(output)
+
+    assert report["records"] == 2
+    assert report["invalid_records"] == 2
+    assert any(
+        "line is not valid UTF-8" in error
+        for issue in report["issues"]
+        for error in issue["errors"]
+    )
