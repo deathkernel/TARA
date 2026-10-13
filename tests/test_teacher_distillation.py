@@ -176,7 +176,7 @@ def test_audit_cli_runs_without_configuring_or_calling_teacher(monkeypatch, tmp_
 
 def test_audit_cli_returns_nonzero_for_invalid_dataset(monkeypatch, tmp_path, capsys):
     output = tmp_path / "bad.jsonl"
-    output.write_text("not-json\\n", encoding="utf-8")
+    output.write_text("not-json\n", encoding="utf-8")
     monkeypatch.setattr("sys.argv", ["teacher_distillation.py", "--audit", str(output)])
 
     with pytest.raises(SystemExit) as exit_info:
