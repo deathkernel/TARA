@@ -71,9 +71,13 @@ flowchart TD
     PV -- Yes --> AP[Apply patch in candidate worktree]
     AP --> TS[Run targeted tests or compile check]
     TS --> OK{Checks pass?}
-    OK -- No --> RT[Bounded retry and report]
-    RT --> PG
-    OK -- Yes --> RV[Human reviews diff, tests and report]
+    OK -- No --> RT{Attempts remain?}
+    RT -- Yes --> RB[Rollback inside candidate worktree]
+    RB --> PG
+    RT -- No --> CL[Remove failed candidate worktree/branch]
+    CL --> RP[Retain failure report]
+    OK -- Yes --> KEEP[Retain candidate branch/worktree]
+    KEEP --> RV[Human reviews diff, tests and report]
     RV -->|Approval required| IN[Integrate separately]
 ```
 
@@ -85,13 +89,15 @@ flowchart TD
 
 ### 5. Validation status — do not guess
 
-Latest verified API snapshot on 2026-10-13: GitHub Actions run `38440500902` for test commit `f32e37073a87406477526ae69c59282045ccfe67` was **queued**; both `python-tests` and `rust-tests` were queued when checked. The later README update does not have a confirmed run in the lookup response. Current changes are **not CI-verified**. No local tests have been run by the assistant.
+Latest CI evidence checked on 2026-10-13: run `38440822794` (run 1050) for test commit `34c837f4756d6a29699b8a2c42031e5bf70ac860` and run `38440777932` (run 1048) for validator commit `0e2ce86c8bd18ae3168b2dd670c8adb5a5e26a58` both had `python-tests` and `rust-tests` **queued**. The latest test corrections (`5639e5b` and `ff95418`) have no associated run in the connector lookup response. The current branch is **not CI-verified**. No local tests have been run by the assistant.
 
 **Latest batched changes:**
 - `ec9112f` + `789b6e2`: fix report consistency; persist `report_path` in the JSON and test returned/saved values.
 - `5df5f62` + `fef8e30`: validate `diff --git` header paths, reject file-mode/rename/copy/binary patches, and add regression cases for traversal, symlink-mode, and binary patch attempts.
 - `c66a797`: added command-runner regression tests for `shell=False`, timeout propagation, and bounded failure output.
 - `c7efb00`: failed Self-Developer runs now attempt to remove only their own generated candidate worktree and `tara-selfdev-*` branch while retaining the JSON report; cleanup warnings are recorded rather than silently discarded.
+- `0e2ce86`: validator now checks that `diff --git` paths agree with the corresponding `---`/`+++` markers and blocks the exact `.git` metadata path.
+- `34c837f` + `5639e5b` + `ff95418`: added regression coverage for mismatched diff paths, exact `.git` path rejection, and retaining successful candidates for human review; corrected newline escaping in the new test fixtures.
 - `518dc65` + `fec9651` + `f32e370`: added failure-path tests for command startup errors, worktree creation failure, bounded retries, provider exceptions, failed candidate cleanup, and unchanged base repository state.
 - `f338912` + `862ce83`: added teacher-data checks for reproducible SHA-256 provenance, candidate review labels, short-answer filtering, and preserving an existing dataset when generation fails.
 - `71a497d` + `3819ef1` + `f19fd66` + `6c2927d`: added a read-only candidate JSONL audit that checks schema, domains, source/model provenance, review labels, text consistency, SHA-256 fingerprints, duplicate fingerprints, malformed JSON, and blank lines. It always reports `ready_for_training: false`; structural validation cannot prove semantic correctness.
@@ -124,11 +130,11 @@ Exit code is `0` when every record passes structural/provenance checks, `1` when
 
 ```mermaid
 flowchart TD
-    N1[1. Check PR #8 CI] --> N2[2. Fetch feature branch]
-    N2 --> N3[3. Inspect git status]
-    N3 --> N4[4. Run focused tests]
-    N4 --> N5[5. Fix failures on feature branch]
-    N5 --> N6[6. Review diff and report]
+    N1[1. Recheck CI for latest head] --> N2[2. Run focused tests locally]
+    N2 --> N3[3. Fix any failures on feature branch]
+    N3 --> N4[4. Verify cleanup and candidate retention]
+    N4 --> N5[5. Review full diff and report]
+    N5 --> N6[6. Confirm PR #7 dependency]
     N6 --> N7[7. Ask before integration]
     N7 --> N8[8. Update this README handoff]
 ```
