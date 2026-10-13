@@ -100,3 +100,58 @@ def test_task_validation_rejects_empty_and_oversized_tasks():
         SelfDeveloper._validate_task(" ")
     with pytest.raises(ValueError):
         SelfDeveloper._validate_task("x" * 2001)
+
+
+def test_command_runner_converts_os_error_to_controlled_error(tmp_path):
+    from src.self_developer import _run
+
+    def missing_command(args, **kwargs):
+        raise FileNotFoundError("git executable missing")
+
+    with pytest.raises(SelfDeveloperError, match="Could not start git"):
+        _run(["git", "status"], cwd=tmp_path, runner=missing_command)
+
+
+def test_worktree_creation_failure_is_reported_without_provider_call(tmp_path):
+    import subprocess
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    def git(*args):
+        subprocess.run(
+            ["git", *args], cwd=repo, check=True,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        )
+
+    git("init")
+    git("config", "user.email", "tara-tests@example.invalid")
+    git("config", "user.name", "TARA test")
+    (repo / "README.md").write_text("baseline\\n", encoding="utf-8")
+    git("add", "README.md")
+    git("commit", "-m", "test baseline")
+
+    class NeverCalledProvider:
+        def complete(self, *args, **kwargs):
+            raise AssertionError("provider must not run when worktree creation fails")
+
+    def fail_worktree_add(args, **kwargs):
+        if args[:3] == ["git", "worktree", "add"]:
+            raise OSError("simulated worktree creation failure")
+        return subprocess.run(args, **kwargs)
+
+    engine = SelfDeveloper(
+        repo, provider=NeverCalledProvider(), state_root=tmp_path / "state",
+        command_runner=fail_worktree_add,
+    )
+    report = engine.run_task("Add a focused regression test")
+
+    assert report["status"] == "failed"
+    assert "simulated worktree creation failure" in report["error"]
+    assert report["attempts"] == []
+    assert Path(report["report_path"]).is_file()
+    assert not Path(report["candidate_worktree"]).exists()
+    assert subprocess.run(
+        ["git", "status", "--porcelain"], cwd=repo, check=True,
+        capture_output=True, text=True,
+    ).stdout == ""
