@@ -89,7 +89,7 @@ flowchart TD
 
 ### 5. Validation status — do not guess
 
-Latest observed state on 2026-10-13: PR #8 is draft/open/unmerged. The most recent CI run inspected after queue mitigation was run `38445126620` (#1129), and both `python-tests` and `rust-tests` were queued. Of the latest 50 branch workflow runs inspected, 49 were queued and one was cancelled. This suggests jobs are not being dispatched promptly, but the available run metadata does not identify the cause. **No green CI result has been observed.** Local test execution was attempted from the assistant environment but repository download failed because outbound DNS/network access was unavailable. Do not treat tests as passing. Each new commit can create a newer PR run; always check the live [Actions page](https://github.com/deathkernel/TARA/actions) for the latest head.
+Latest observed state on 2026-10-13: PR #8 is draft/open/unmerged. The latest run inspected before the current batch was run `38445202626` (#1130); its Python and Rust jobs were queued and had no assigned runner. Across the latest 50 branch workflow runs inspected, 49 were queued and one was cancelled. This indicates a dispatch/queue problem, but the available metadata does not identify its root cause. **No green CI result has been observed.** The assistant has not executed the local test suite: a local checkout and its dependencies are not available in this execution environment. Do not treat tests as passing. Every commit may trigger a newer PR run; check the live [Actions page](https://github.com/deathkernel/TARA/actions) for the current head.
 
 **CI queue mitigation applied in commit `8364a9b`:**
 - `.github/workflows/tests.yml` now uses pull-request and manual-dispatch triggers instead of running duplicate push + pull-request events for every feature-branch commit.
@@ -98,7 +98,7 @@ Latest observed state on 2026-10-13: PR #8 is draft/open/unmerged. The most rece
 
 **Implemented on this branch (tests still require execution):**
 - Patch validation rejects unsafe/traversal/absolute/protected paths, dependency and workflow edits, nested `.git` metadata, mismatched diff headers/markers, rename/copy/binary metadata, unsafe file modes, and Windows-invalid names (reserved device names, ADS colons, invalid characters/control characters, trailing dots/spaces); ordinary new-file mode `100644` patches remain allowed.
-- Isolation: planning context is built from committed `HEAD`; run-task context comes from the candidate worktree, not dirty user checkout files.
+- Isolation: planning context is built from committed `HEAD`; run-task context comes from the candidate worktree, not dirty user checkout files. Candidate context now resolves each file and skips paths resolving outside the worktree, preventing tracked symlinks or symlinked parents from exposing external file contents to the configured provider (`2fe38ce`). A regression test for an external symlink was added (`fc10f46`). This is code/test coverage added, not yet a passing-test claim.
 - Validation selection: always compiles `src`; source changes run full `pytest -q`; test-only changes run changed test files; docs-only changes compile source.
 - Lifecycle/reporting: bounded retries/timeouts, candidate-only rollback/cleanup, retained failure reports, cleanup warnings, and successful candidate retention for human review.
 - Teacher dataset audit: read-only JSONL schema/provenance/fingerprint/duplicate/UTF-8 checks, with `ready_for_training: false` regardless of structural success.
@@ -130,7 +130,7 @@ Exit code is `0` when every record passes structural/provenance checks, `1` when
 
 ```mermaid
 flowchart TD
-    N1[1. Recheck latest CI run and job queue] --> N2[2. Run focused tests on Windows]
+    N1[1. Recheck latest CI run and job queue] --> N2[2. Run symlink boundary and focused tests on Windows]
     N2 --> N3[3. Fix any reproducible failures]
     N3 --> N4[4. Run full pytest and static repository audit]
     N4 --> N5[5. Review CLI lifecycle, reports, and final diff]
