@@ -13,6 +13,9 @@ from src.self_developer import SelfDeveloper, SelfDeveloperError
     "--- a/checkpoints/model.pt\n+++ b/checkpoints/model.pt\n@@ -1 +1 @@\n-a\n+b\n",
     "--- a/.github/workflows/tests.yml\n+++ b/.github/workflows/tests.yml\n@@ -1 +1 @@\n-a\n+b\n",
     "--- a/requirements.txt\n+++ b/requirements.txt\n@@ -1 +1 @@\n-a\n+b\n",
+    "diff --git a/../../outside.txt b/src/example.py\n--- a/src/example.py\n+++ b/src/example.py\n@@ -1 +1 @@\n-a\n+b\n",
+    "--- a/src/link\n+++ b/src/link\nnew file mode 120000\n@@ -0,0 +1 @@\n+target\n",
+    "--- a/src/blob.bin\n+++ b/src/blob.bin\nGIT binary patch\n@@ -0,0 +1 @@\n+binary\n",
 ])
 def test_patch_guard_rejects_unsafe_or_invalid_patch(patch):
     with pytest.raises(SelfDeveloperError):
