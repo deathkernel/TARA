@@ -176,10 +176,10 @@ def audit_teacher_dataset(path: str | Path) -> dict[str, object]:
 
     with source_path.open("r", encoding="utf-8") as stream:
         for line_number, raw_line in enumerate(stream, start=1):
+            records += 1
             if not raw_line.strip():
                 issues.append({"line": line_number, "errors": ["blank line is not valid JSONL data"]})
                 continue
-            records += 1
             errors: list[str] = []
             try:
                 row = json.loads(raw_line)
@@ -194,7 +194,7 @@ def audit_teacher_dataset(path: str | Path) -> dict[str, object]:
             instruction = row.get("instruction")
             answer = row.get("answer")
             fingerprint = row.get("fingerprint")
-            if domain not in DOMAIN_TASKS:
+            if not isinstance(domain, str) or domain not in DOMAIN_TASKS:
                 errors.append("unknown or missing domain")
             if not isinstance(instruction, str) or not instruction.strip():
                 errors.append("instruction must be a non-empty string")
@@ -215,8 +215,8 @@ def audit_teacher_dataset(path: str | Path) -> dict[str, object]:
                 ).hexdigest()
                 if fingerprint != expected_fingerprint:
                     errors.append("fingerprint mismatch")
-            if not isinstance(fingerprint, str) or len(fingerprint) != 64:
-                errors.append("fingerprint must be a SHA-256 hex digest")
+            if not isinstance(fingerprint, str) or not re.fullmatch(r"[0-9a-f]{64}", fingerprint):
+                errors.append("fingerprint must be a lowercase SHA-256 hex digest")
             elif fingerprint in seen_fingerprints:
                 duplicate_fingerprints += 1
                 errors.append("duplicate fingerprint")
