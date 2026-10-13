@@ -85,7 +85,9 @@ flowchart TD
 
 ### 5. Validation status — do not guess
 
-Latest check on 2026-10-13: GitHub Actions run `38436916513` (run #976) for README handoff commit `0fcdbb9defeb0372ff22b9298a072de989c20ffe` is still **queued**, with `python-tests` and `rust-tests` jobs queued. The earlier Self-Developer implementation run `38436465295` was also queued at its last check. Local focused tests have not yet been run by the assistant. Re-check [PR #8](https://github.com/deathkernel/TARA/pull/8) before reporting a pass/fail result.
+Latest check on 2026-10-13: GitHub Actions run `38436916513` (run #976) was **queued** for README handoff commit `0fcdbb9defeb0372ff22b9298a072de989c20ffe`; its `python-tests` and `rust-tests` jobs were queued. Run `38437038886` (run #978) was also queued for docs commit `3d0e58fe9251e4d03851e031a9c303f3e539562c`. The Self-Developer implementation run `38436465295` was queued at its last check. These are historical snapshots: re-check [PR #8](https://github.com/deathkernel/TARA/pull/8) for the live status. No local tests have been run by the assistant.
+
+**Latest batched code change:** commits `ec9112f` and `789b6e2` fix a report consistency bug: `report_path` is now persisted inside the JSON report, and a regression test checks both returned and saved report data. These commits have not been locally tested by the assistant; do not mark them as passing until CI or local test output confirms it.
 
 ### 6. Next actions — follow in order
 
