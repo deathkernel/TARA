@@ -73,7 +73,8 @@ flowchart TD
     TS --> OK{Checks pass?}
     OK -- No --> RT{Attempts remain?}
     RT -- Yes --> RB[Rollback inside candidate worktree]
-    RB --> PG
+    RB --> CLN[Clean untracked and ignored candidate artifacts]
+    CLN --> PG
     RT -- No --> CL[Remove failed candidate worktree/branch]
     CL --> RP[Retain failure report]
     OK -- Yes --> KEEP[Retain candidate branch/worktree]
@@ -89,7 +90,7 @@ flowchart TD
 
 ### 5. Validation status — do not guess
 
-Latest observed state on 2026-10-13: PR #8 is draft/open/unmerged. Run `38445698389` (#1133), for head `641fece`, was queued when checked. The previously inspected Python and Rust jobs were both queued with no assigned runner; across the latest 50 branch runs, 49 were queued and one was cancelled. This indicates a dispatch/queue problem, but the available metadata does not identify its root cause. **No green CI result has been observed.** The assistant has not executed the local test suite: a local checkout and its dependencies are not available in this execution environment, and a direct clone attempt failed because `github.com` could not be resolved. Do not treat tests as passing. This README change may trigger a newer run; check the live [Actions page](https://github.com/deathkernel/TARA/actions) for the current head.
+Latest observed state on 2026-10-13: PR #8 is draft/open/unmerged. Run `38445782813` (#1134), for head `204e932`, was queued when checked; both Python and Rust jobs were queued without runner metadata. That run predates the newest candidate-rollback and ignored-file changes, so recheck Actions for the current branch head. Earlier runs were repeatedly cancelled by concurrency as new commits superseded them; older push-triggered queued runs also remain visible. This supports a queue/dispatch concern, but the available metadata does not identify its root cause. **No green CI result has been observed.** The assistant has not executed the local test suite: a local checkout and its dependencies are not available in this execution environment, and a direct clone attempt failed because `github.com` could not be resolved. Do not treat tests as passing.
 
 **CI queue mitigation applied in commit `8364a9b`:**
 - `.github/workflows/tests.yml` now uses pull-request and manual-dispatch triggers instead of running duplicate push + pull-request events for every feature-branch commit.
@@ -98,7 +99,7 @@ Latest observed state on 2026-10-13: PR #8 is draft/open/unmerged. Run `38445698
 
 **Implemented on this branch (tests still require execution):**
 - Patch validation rejects unsafe/traversal/absolute/protected paths, dependency and workflow edits, nested `.git` metadata, mismatched diff headers/markers, rename/copy/binary metadata, unsafe file modes, and Windows-invalid names (reserved device names, ADS colons, invalid characters/control characters, trailing dots/spaces); ordinary new-file mode `100644` patches remain allowed.
-- Isolation: planning context is built from committed `HEAD`; run-task context comes from the candidate worktree, not dirty user checkout files. Candidate context now resolves each file and skips paths resolving outside the worktree, preventing tracked symlinks or symlinked parents from exposing external file contents to the configured provider (`2fe38ce`). A regression test for an external symlink was added (`fc10f46`). These are code/test changes, not passing-test claims.
+- Isolation: planning context is built from committed `HEAD`; run-task context comes from the candidate worktree, not dirty user checkout files. Candidate context resolves each file and skips paths resolving outside the worktree, preventing tracked symlinks or symlinked parents from exposing external file contents to the configured provider (`2fe38ce`, regression test `fc10f46`). During validation, intent-to-add now uses `git add -N -f -- .` so candidate-generated tests are still discovered even if an LLM-generated `.gitignore` accidentally ignores them (`af12d7e`, regression test `6dd6bd7`). Failed attempts now remove untracked and ignored generated artifacts using `git clean -fdx` **only inside the disposable candidate worktree**; if that cleanup fails, retries stop and the failure is reported. These are code/test changes, not passing-test claims.
 - Validation selection: always compiles `src`; source changes run full `pytest -q`; test-only changes run changed test files; docs-only changes compile source.
 - Lifecycle/reporting: bounded retries/timeouts, candidate-only rollback/cleanup, retained failure reports, cleanup warnings, and successful candidate retention for human review.
 - Teacher dataset audit: read-only JSONL schema/provenance/fingerprint/duplicate/UTF-8 checks, with `ready_for_training: false` regardless of structural success.
@@ -130,8 +131,8 @@ Exit code is `0` when every record passes structural/provenance checks, `1` when
 
 ```mermaid
 flowchart TD
-    N1[1. Recheck latest CI run and job queue] --> N2[2. Run symlink boundary and focused tests on Windows]
-    N2 --> N3[3. Fix any reproducible failures]
+    N1[1. Recheck CI on newest branch head] --> N2[2. Run self-developer focused tests on Windows]
+    N2 --> N3[3. Verify ignored-file discovery and rollback cleanup]
     N3 --> N4[4. Run full pytest and static repository audit]
     N4 --> N5[5. Review CLI lifecycle, reports, and final diff]
     N5 --> N6[6. Confirm PR #7 base/dependency]
