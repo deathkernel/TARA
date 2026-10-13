@@ -31,6 +31,34 @@ def test_patch_guard_accepts_small_repository_relative_diff():
     SelfDeveloper._validate_patch(patch)
 
 
+@pytest.mark.parametrize("path", [
+    "src/CON",
+    "src/nul.txt",
+    "src/AUX.log",
+    "src/COM1.py",
+    "src/LPT9.data",
+    "src/COM¹.txt",
+    "src/file:stream.py",
+    "src/trailing.",
+    "src/trailing ",
+])
+def test_patch_guard_rejects_windows_special_paths(path):
+    patch = f"--- a/{path}\n+++ b/{path}\n@@ -1 +1 @@\n-old\n+new\n"
+    with pytest.raises(SelfDeveloperError):
+        SelfDeveloper._validate_patch(patch)
+
+
+@pytest.mark.parametrize("path", [
+    "src/console.py",
+    "src/auxiliary.py",
+    "src/com10.py",
+    "src/lpt0.py",
+])
+def test_patch_guard_allows_non_reserved_windows_lookalikes(path):
+    patch = f"--- a/{path}\n+++ b/{path}\n@@ -1 +1 @@\n-old\n+new\n"
+    SelfDeveloper._validate_patch(patch)
+
+
 def test_provider_is_required_for_planning(tmp_path):
     repo = tmp_path / "repo"
     repo.mkdir()
