@@ -87,7 +87,10 @@ flowchart TD
 
 Latest check on 2026-10-13: GitHub Actions run `38436916513` (run #976) was **queued** for README handoff commit `0fcdbb9defeb0372ff22b9298a072de989c20ffe`; its `python-tests` and `rust-tests` jobs were queued. Run `38437038886` (run #978) was also queued for docs commit `3d0e58fe9251e4d03851e031a9c303f3e539562c`. The Self-Developer implementation run `38436465295` was queued at its last check. These are historical snapshots: re-check [PR #8](https://github.com/deathkernel/TARA/pull/8) for the live status. No local tests have been run by the assistant.
 
-**Latest batched code change:** commits `ec9112f` and `789b6e2` fix a report consistency bug: `report_path` is now persisted inside the JSON report, and a regression test checks both returned and saved report data. These commits have not been locally tested by the assistant; do not mark them as passing until CI or local test output confirms it.
+**Latest batched changes:**
+- `ec9112f` + `789b6e2`: fix report consistency; persist `report_path` in the JSON and test returned/saved values.
+- `5df5f62` + `fef8e30`: validate `diff --git` header paths, reject file-mode/rename/copy/binary patches, and add regression cases for traversal, symlink-mode, and binary patch attempts.
+- These changes were authored on the PR #8 feature branch but have **not been locally tested by the assistant**. Check current CI before treating them as passing.
 
 ### 6. Next actions — follow in order
 
