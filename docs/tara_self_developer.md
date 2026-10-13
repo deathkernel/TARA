@@ -7,10 +7,7 @@ TARA repository. It does not merge, push, publish releases, install packages,
 or edit the original working tree. A user must inspect the report and diff and
 manually integrate any accepted change.
 
-The runner uses argument-vector subprocess calls with shell disabled. Its test
-command is fixed to the current Python interpreter running pytest against
-changed test files, or compileall when no test file changed. Commands have a
-five-minute timeout and captured output is bounded in reports.
+The runner uses argument-vector subprocess calls with shell disabled. Every candidate runs `compileall` against `src`. If a Python source file under `src/` changes, the runner also runs the full `pytest -q` suite because regressions may be outside the changed file. If only test files change, it runs pytest against those changed test files. Commands have a five-minute timeout and captured output is bounded in reports.
 
 The patch gate rejects absolute paths, traversal, protected user artifacts,
 dependency files, and workflow files. The protected paths include
