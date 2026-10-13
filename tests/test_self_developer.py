@@ -39,6 +39,12 @@ def test_patch_guard_accepts_small_repository_relative_diff():
     "src/LPT9.data",
     "src/COM¹.txt",
     "src/file:stream.py",
+    "src/bad<name.py",
+    "src/bad>name.py",
+    "src/bad|name.py",
+    "src/bad?name.py",
+    "src/bad*name.py",
+    "src/bad\u0001name.py",
     "src/trailing.",
     "src/trailing ",
 ])
