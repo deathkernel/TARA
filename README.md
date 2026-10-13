@@ -89,14 +89,15 @@ flowchart TD
 
 ### 5. Validation status — do not guess
 
-Latest CI evidence checked on 2026-10-13: runs `38441158044` (run 1067) and `38441158193` (run 1068), associated with rollback test commits `87d4687` and `07a0893`, were **queued**; both reported `python-tests` and `rust-tests` queued. Run `38441003150` (run 1058) for validator follow-up `479a9a0` was also queued. The latest reliability batch `88ba6db` adds apply-check retry and cleanup-warning/report-retention regressions. Its CI run `38441408859` (run 1074) currently reports both `python-tests` and `rust-tests` as **queued**. The current branch head has not been confirmed green, and the branch is **not CI-verified**. No local tests have been run by the assistant.
+Latest CI evidence checked on 2026-10-13: runs `38441158044` (run 1067) and `38441158193` (run 1068), associated with rollback test commits `87d4687` and `07a0893`, were **queued**; both reported `python-tests` and `rust-tests` queued. Run `38441003150` (run 1058) for validator follow-up `479a9a0` was also queued. The latest reliability batch `88ba6db` adds apply-check retry and cleanup-warning/report-retention regressions; run `38441408859` (run 1074) still reports both `python-tests` and `rust-tests` as **queued**. The newest patch-guard hardening commits `f3a8c4d` and `7ec2dd6` reject nested `.git` metadata paths; no workflow run or status check was returned for the latest test commit at the time of this update. The current branch head has not been confirmed green, and the branch is **not CI-verified**. No local tests have been run by the assistant.
 
 **Latest batched changes:**
 - `ec9112f` + `789b6e2`: fix report consistency; persist `report_path` in the JSON and test returned/saved values.
 - `5df5f62` + `fef8e30`: validate `diff --git` header paths, reject file-mode/rename/copy/binary patches, and add regression cases for traversal, symlink-mode, and binary patch attempts.
 - `c66a797`: added command-runner regression tests for `shell=False`, timeout propagation, and bounded failure output.
 - `c7efb00`: failed Self-Developer runs now attempt to remove only their own generated candidate worktree and `tara-selfdev-*` branch while retaining the JSON report; cleanup warnings are recorded rather than silently discarded.
-- `0e2ce86`: validator now checks that `diff --git` paths agree with the corresponding `---`/`+++` markers and blocks the exact `.git` metadata path.
+- `0e2ce86`: validator now checks that `diff --git` paths agree with the corresponding `---`/`+++` markers and blocks Git metadata paths.
+- `f3a8c4d` + `7ec2dd6`: hardened the patch gate to reject `.git` metadata in any path component, including nested paths such as `src/.git/config`, with a regression fixture.
 - `479a9a0`: diff marker path parsing now strips tab-separated timestamps correctly before comparing header paths.
 - `34c837f` + `5639e5b` + `ff95418`: added regression coverage for mismatched diff paths, exact `.git` path rejection, and retaining successful candidates for human review; corrected newline escaping in the new test fixtures.
 - `87d4687` + `07a0893`: added a retry regression where a newly added failing test must be rolled back before a second, successful candidate patch; corrected the fixture newline escapes.
