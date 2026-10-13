@@ -304,10 +304,11 @@ class SelfDeveloper:
         self.runs_root.mkdir(parents=True, exist_ok=True)
         run_id = record.get("run_id") or datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
         destination = self.runs_root / f"{run_id}.json"
+        # Persist the same report path that the caller sees in the returned record.
+        record["report_path"] = str(destination)
         temporary = destination.with_suffix(".json.tmp")
         temporary.write_text(json.dumps(record, indent=2, ensure_ascii=False), encoding="utf-8")
         temporary.replace(destination)
-        record["report_path"] = str(destination)
         return record
 
     def latest_report(self) -> dict[str, Any]:
