@@ -318,6 +318,29 @@ class SelfDeveloper:
                                 "rename from ", "rename to ", "copy from ", "copy to ",
                                 "GIT binary patch", "Binary files ")):
                 raise SelfDeveloperError("File mode, rename/copy, and binary patches are not allowed")
+        # When Git file headers are present, require them to agree with the
+        # unified-diff file markers. This prevents ambiguous/mismatched path pairs.
+        for index, line in enumerate(lines):
+            if not line.startswith("diff --git "):
+                continue
+            match = re.match(r"^diff --git a/(.*?) b/(.*?)$", line)
+            if not match:
+                raise SelfDeveloperError("Malformed or unsupported git diff header")
+            section = []
+            for candidate in lines[index + 1:]:
+                if candidate.startswith("diff --git "):
+                    break
+                section.append(candidate)
+            old_markers = [item[4:].split("\\t", 1)[0] for item in section
+                           if item.startswith("--- ")]
+            new_markers = [item[4:].split("\\t", 1)[0] for item in section
+                           if item.startswith("+++ ")]
+            if len(old_markers) != 1 or len(new_markers) != 1:
+                raise SelfDeveloperError("Git diff headers require one matching old/new file marker pair")
+            if old_markers[0] not in {f"a/{match.group(1)}", "/dev/null"}:
+                raise SelfDeveloperError("Git diff header does not match its old file marker")
+            if new_markers[0] not in {f"b/{match.group(2)}", "/dev/null"}:
+                raise SelfDeveloperError("Git diff header does not match its new file marker")
         if not paths or not any(line.startswith("@@") for line in lines):
             raise SelfDeveloperError("Output is not a recognizable unified diff")
         protected = [item.lower() for item in PROTECTED_PATHS]
@@ -331,7 +354,7 @@ class SelfDeveloper:
             normalized = path.lower()
             if any(normalized == item.rstrip("/") or normalized.startswith(item) for item in protected):
                 raise SelfDeveloperError(f"Patch targets a protected path: {path}")
-            if normalized.startswith((".git/", ".github/workflows/")) or normalized in {
+            if normalized == ".git" or normalized.startswith((".git/", ".github/workflows/")) or normalized in {
                 ".env", ".env.example", "requirements.txt", "pyproject.toml", "setup.py",
             }:
                 raise SelfDeveloperError(f"Patch targets a restricted path: {path}")
