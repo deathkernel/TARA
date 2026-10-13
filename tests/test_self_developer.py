@@ -615,3 +615,37 @@ def test_default_context_uses_committed_head_and_excludes_staged_files(tmp_path)
     assert "staged_private.py" not in context
     assert "PRIVATE_STAGED_CONTENT" not in context
     assert source.read_text(encoding="utf-8") == "SECRET_UNCOMMITTED_VALUE = 'do-not-send'\n"
+
+
+def test_candidate_context_does_not_follow_symlinks_outside_worktree(tmp_path):
+    import subprocess
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    def git(*args, cwd=repo):
+        return subprocess.run(
+            ["git", *args], cwd=cwd, check=True,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        )
+
+    git("init")
+    git("config", "user.email", "tara-tests@example.invalid")
+    git("config", "user.name", "TARA test")
+    (repo / "src").mkdir()
+    (repo / "src" / "module.py").write_text("VALUE = 1\\n", encoding="utf-8")
+    outside_secret = tmp_path / "private-outside-worktree.py"
+    outside_secret.write_text("PRIVATE_EXTERNAL_SECRET = 'must-not-enter-context'\\n", encoding="utf-8")
+    (repo / "src" / "external.py").symlink_to(outside_secret)
+    git("add", "src/module.py", "src/external.py")
+    git("commit", "-m", "test symlink context boundary")
+
+    candidate = tmp_path / "candidate"
+    git("worktree", "add", "--detach", str(candidate), "HEAD")
+    engine = SelfDeveloper(repo, state_root=tmp_path / "state")
+    context = engine._tracked_context(candidate)
+
+    assert "VALUE = 1" in context
+    assert "PRIVATE_EXTERNAL_SECRET" not in context
+    assert "must-not-enter-context" not in context
+    git("worktree", "remove", "--force", str(candidate))
