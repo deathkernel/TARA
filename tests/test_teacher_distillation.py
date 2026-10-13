@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from src.teacher_distillation import DOMAIN_TASKS, audit_teacher_dataset, generate_teacher_dataset
+from src import teacher_distillation\nfrom src.teacher_distillation import DOMAIN_TASKS, audit_teacher_dataset, generate_teacher_dataset
 
 
 class FakeProvider:
@@ -156,3 +156,31 @@ def test_audit_reports_invalid_json_and_malformed_domain_without_crashing(tmp_pa
 def test_audit_missing_file_fails_clearly(tmp_path):
     with pytest.raises(FileNotFoundError, match="Dataset file not found"):
         audit_teacher_dataset(tmp_path / "missing.jsonl")
+
+
+
+def test_audit_cli_runs_without_configuring_or_calling_teacher(monkeypatch, tmp_path, capsys):
+    output = tmp_path / "teacher.jsonl"
+    generate_teacher_dataset(FakeProvider(), output, per_domain=1)
+    monkeypatch.setattr("sys.argv", ["teacher_distillation.py", "--audit", str(output)])
+
+    with pytest.raises(SystemExit) as exit_info:
+        teacher_distillation.main()
+
+    assert exit_info.value.code == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["invalid_records"] == 0
+    assert report["ready_for_training"] is False
+
+
+def test_audit_cli_returns_nonzero_for_invalid_dataset(monkeypatch, tmp_path, capsys):
+    output = tmp_path / "bad.jsonl"
+    output.write_text("not-json\\n", encoding="utf-8")
+    monkeypatch.setattr("sys.argv", ["teacher_distillation.py", "--audit", str(output)])
+
+    with pytest.raises(SystemExit) as exit_info:
+        teacher_distillation.main()
+
+    assert exit_info.value.code == 1
+    report = json.loads(capsys.readouterr().out)
+    assert report["invalid_records"] == 1
