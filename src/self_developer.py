@@ -383,8 +383,8 @@ class SelfDeveloper:
             # Reject these cross-platform so a candidate cannot behave differently
             # when reviewed or applied on the Windows-first TARA setup.
             for part in parts:
-                if ":" in part:
-                    raise SelfDeveloperError(f"Windows alternate data streams are not allowed: {path}")
+                if any(ord(char) < 32 or char in '<>:"|?*' for char in part):
+                    raise SelfDeveloperError(f"Windows-invalid filename characters are not allowed: {path}")
                 if part.endswith((" ", ".")):
                     raise SelfDeveloperError(f"Windows paths may not end in a space or dot: {path}")
                 device_stem = part.split(".", 1)[0].upper()
