@@ -15,7 +15,7 @@ from src.self_developer import SelfDeveloper, SelfDeveloperError
     "--- a/requirements.txt\n+++ b/requirements.txt\n@@ -1 +1 @@\n-a\n+b\n",
     "diff --git a/../../outside.txt b/src/example.py\n--- a/src/example.py\n+++ b/src/example.py\n@@ -1 +1 @@\n-a\n+b\n",
     "diff --git a/src/one.py b/src/one.py\n--- a/src/two.py\n+++ b/src/one.py\n@@ -1 +1 @@\n-a\n+b\n",
-    "--- a/.git\\n+++ b/.git\\n@@ -1 +1 @@\\n-a\\n+b\\n",
+    "--- a/.git\n+++ b/.git\n@@ -1 +1 @@\n-a\n+b\n",
     "--- a/src/link\n+++ b/src/link\nnew file mode 120000\n@@ -0,0 +1 @@\n+target\n",
     "--- a/src/blob.bin\n+++ b/src/blob.bin\nGIT binary patch\n@@ -0,0 +1 @@\n+binary\n",
 ])
