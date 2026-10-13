@@ -161,6 +161,85 @@ def generate_teacher_dataset(
     return counts
 
 
+
+def audit_teacher_dataset(path: str | Path) -> dict[str, object]:
+    """Audit candidate JSONL structure and provenance; never certify semantic correctness."""
+    source_path = Path(path)
+    issues: list[dict[str, object]] = []
+    seen_fingerprints: set[str] = set()
+    duplicate_fingerprints = 0
+    records = 0
+    valid_records = 0
+
+    if not source_path.is_file():
+        raise FileNotFoundError(f"Dataset file not found: {source_path}")
+
+    with source_path.open("r", encoding="utf-8") as stream:
+        for line_number, raw_line in enumerate(stream, start=1):
+            if not raw_line.strip():
+                issues.append({"line": line_number, "errors": ["blank line is not valid JSONL data"]})
+                continue
+            records += 1
+            errors: list[str] = []
+            try:
+                row = json.loads(raw_line)
+            except json.JSONDecodeError as exc:
+                issues.append({"line": line_number, "errors": [f"invalid JSON: {exc.msg}"]})
+                continue
+            if not isinstance(row, dict):
+                issues.append({"line": line_number, "errors": ["record must be a JSON object"]})
+                continue
+
+            domain = row.get("domain")
+            instruction = row.get("instruction")
+            answer = row.get("answer")
+            fingerprint = row.get("fingerprint")
+            if domain not in DOMAIN_TASKS:
+                errors.append("unknown or missing domain")
+            if not isinstance(instruction, str) or not instruction.strip():
+                errors.append("instruction must be a non-empty string")
+            if not isinstance(answer, str) or len(answer.strip()) < 12:
+                errors.append("answer must contain at least 12 non-whitespace characters")
+            if row.get("source") != "ollama_teacher_generated":
+                errors.append("unexpected or missing source provenance")
+            if not isinstance(row.get("teacher_model"), str) or not row["teacher_model"].strip():
+                errors.append("teacher_model must be a non-empty string")
+            if row.get("review_status") != "unverified_candidate":
+                errors.append("review_status must remain unverified_candidate")
+            if isinstance(domain, str) and isinstance(instruction, str) and isinstance(answer, str):
+                expected_text = f"Domain: {domain}\\nInstruction: {instruction}\\nAnswer: {answer}"
+                if row.get("text") != expected_text:
+                    errors.append("text field does not match domain/instruction/answer")
+                expected_fingerprint = hashlib.sha256(
+                    f"{domain}\\n{instruction}\\n{answer}".encode("utf-8")
+                ).hexdigest()
+                if fingerprint != expected_fingerprint:
+                    errors.append("fingerprint mismatch")
+            if not isinstance(fingerprint, str) or len(fingerprint) != 64:
+                errors.append("fingerprint must be a SHA-256 hex digest")
+            elif fingerprint in seen_fingerprints:
+                duplicate_fingerprints += 1
+                errors.append("duplicate fingerprint")
+            else:
+                seen_fingerprints.add(fingerprint)
+
+            if errors:
+                issues.append({"line": line_number, "errors": errors})
+            else:
+                valid_records += 1
+
+    return {
+        "path": str(source_path),
+        "records": records,
+        "valid_records": valid_records,
+        "invalid_records": records - valid_records,
+        "duplicate_fingerprints": duplicate_fingerprints,
+        "issues": issues,
+        "candidate_only": True,
+        "semantic_review_required": True,
+        "ready_for_training": False,
+    }
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Generate multi-domain candidate data from local Llama via Ollama")
     parser.add_argument("--output", default="data/llama_teacher_v1.jsonl")
@@ -168,7 +247,14 @@ def main() -> None:
     parser.add_argument("--max-tokens", type=int, default=512)
     parser.add_argument("--temperature", type=float, default=0.2)
     parser.add_argument("--overwrite", action="store_true")
+    parser.add_argument("--audit", metavar="JSONL", help="Audit an existing candidate dataset without generating data")
     args = parser.parse_args()
+    if args.audit:
+        report = audit_teacher_dataset(args.audit)
+        print(json.dumps(report, indent=2, ensure_ascii=False))
+        if report["invalid_records"]:
+            raise SystemExit(1)
+        raise SystemExit(0)
     os.environ.setdefault("TARA_LLM_BACKEND", "ollama")
     from src.llm_provider_factory import provider_from_env
     provider = provider_from_env()
