@@ -135,3 +135,39 @@ def test_phase37_gradient_accumulation_scheduler_and_tracker(tmp_path):
     assert payload["hardening_config"]["gradient_accumulation_steps"] == 2
     assert payload["scheduler"]["optimizer_steps"] == 3
     assert payload["metrics_fingerprint"]
+
+
+def test_training_preserves_best_validation_checkpoint(tmp_path, monkeypatch):
+    import src.training_pipeline as training_pipeline_module
+
+    data = tmp_path / "data.jsonl"
+    checkpoint = tmp_path / "model.pt"
+    write_algorithm_dataset(data, count=8)
+    validation_losses = iter([1.0, 0.5, 0.7, 0.9])
+    monkeypatch.setattr(
+        training_pipeline_module,
+        "evaluate",
+        lambda *args, **kwargs: next(validation_losses),
+    )
+    config = TrainingConfig(
+        steps=4,
+        batch_size=2,
+        context=16,
+        embedding_dim=8,
+        ff_dim=16,
+        heads=2,
+        lr=1e-3,
+        validation_split=0.25,
+        seed=11,
+        log_every=1,
+        early_stopping_patience=10,
+    )
+
+    summary = TrainingPipeline(config).train(data, checkpoint)
+    payload = torch.load(checkpoint, map_location="cpu", weights_only=True)
+
+    assert summary.final_step == 4
+    assert payload["step"] == 2
+    assert payload["metrics"]["validation_loss"] == pytest.approx(0.5)
+    assert not checkpoint.with_name(checkpoint.name + ".best").exists()
+
