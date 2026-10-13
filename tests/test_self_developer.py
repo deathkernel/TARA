@@ -649,3 +649,53 @@ def test_candidate_context_does_not_follow_symlinks_outside_worktree(tmp_path):
     assert "PRIVATE_EXTERNAL_SECRET" not in context
     assert "must-not-enter-context" not in context
     git("worktree", "remove", "--force", str(candidate))
+
+def test_ignored_generated_test_is_still_discovered_for_validation(tmp_path):
+    import subprocess
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    def git(*args):
+        subprocess.run(
+            ["git", *args], cwd=repo, check=True,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        )
+
+    git("init")
+    git("config", "user.email", "tara-tests@example.invalid")
+    git("config", "user.name", "TARA test")
+    (repo / "src").mkdir()
+    (repo / "src" / "module.py").write_text("VALUE = 1\\n", encoding="utf-8")
+    git("add", "src/module.py")
+    git("commit", "-m", "test baseline")
+
+    patch = (
+        "diff --git a/.gitignore b/.gitignore\\n"
+        "new file mode 100644\\n"
+        "--- /dev/null\\n"
+        "+++ b/.gitignore\\n"
+        "@@ -0,0 +1 @@\\n"
+        "+tests/test_generated.py\\n"
+        "diff --git a/tests/test_generated.py b/tests/test_generated.py\\n"
+        "new file mode 100644\\n"
+        "--- /dev/null\\n"
+        "+++ b/tests/test_generated.py\\n"
+        "@@ -0,0 +1,2 @@\\n"
+        "+def test_generated_file_is_validated():\\n"
+        "+    assert True\\n"
+    )
+
+    class IgnoredTestProvider:
+        def complete(self, *args, **kwargs):
+            return patch
+
+    engine = SelfDeveloper(repo, provider=IgnoredTestProvider(), state_root=tmp_path / "state")
+    report = engine.run_task("Add a test that is accidentally ignored", max_attempts=1)
+
+    candidate = Path(report["candidate_worktree"])
+    assert report["status"] == "candidate_ready_for_review"
+    assert "tests/test_generated.py" in report["changed_files"]
+    assert report["attempts"][0]["tests_passed"] is True
+    assert (candidate / "tests" / "test_generated.py").is_file()
+    assert not (repo / "tests" / "test_generated.py").exists()
