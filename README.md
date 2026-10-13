@@ -4,6 +4,71 @@
 
 TARA is a research-first neural-network project built from mathematical and implementation fundamentals. The goal is a highly capable, inspectable artificial reasoning system that connects a neural language core with perception, memory, structured reasoning, advanced planning, intelligent tools, algorithm discovery, self-improvement, continual learning, reflection, autonomous tasks, scheduling, temporal context and an explicit world model.
 
+## Cross-chat project handoff (update this section after each meaningful task)
+
+> **Last updated:** 2026-10-13  
+> **Purpose:** This is the continuity note for future ChatGPT conversations. Read this section first, then inspect the linked PRs/branches and current CI before making changes. Keep it accurate as work progresses; never mark work complete without evidence.
+
+### Project direction and non-negotiable constraints
+- TARA is the user-facing assistant and owns the cognitive/orchestration layer. Ollama/Llama is a local background language/reasoning provider, not a replacement for TARA.
+- Current local model: Ollama `llama3.2:3b`; select it with `TARA_LLM_BACKEND=ollama`.
+- Platform/workflow: Windows, CMD-first, Python 3.14 environment.
+- **Preserve local user data.** Do not delete, clean, overwrite, or reset the original working tree's untracked/personal files, checkpoints, outputs, or conversation data. In particular, prior local status reported:
+  ```
+  ?? checkpoints/
+  ?? data/conversation_v1.jsonl
+  ?? data/conversation_v1.jsonl.manifest.json
+  ?? outputs/
+  ?? test_voice.py
+  ```
+- Controlled autonomy is the agreed policy: TARA may generate candidate code and run tests in an isolated candidate worktree; human approval is required before integration. Do not automatically commit, push, merge, or promote generated changes.
+- A worktree is isolation from the main working tree, **not** a security sandbox for hostile generated code. Review generated changes.
+
+### Current work and pull requests
+- **PR #6 — conversation learning/memory:** [feature/tara-conversation-learning](https://github.com/deathkernel/TARA/tree/feature/tara-conversation-learning), draft/open as last reported, not merged. Adds user-approved persistent memory commands; memory is separate from model-weight training.
+- **PR #7 — Llama teacher distillation:** [feature/tara-llama-distillation](https://github.com/deathkernel/TARA/tree/feature/tara-llama-distillation), draft/open as last reported, not merged. Generates candidate multi-domain teacher examples via local Ollama. Generated examples are unverified until reviewed; this does not itself train a TARA checkpoint.
+- **PR #8 — Self-Developer v1:** [review PR #8](https://github.com/deathkernel/TARA/pull/8), branch [feature/tara-self-developer-v1](https://github.com/deathkernel/TARA/tree/feature/tara-self-developer-v1), based on PR #7's branch. Draft/open, not merged. Head at last recorded check: `198c2050c5b689c976b4edeec35a00a028347f07`.
+- PR #8 adds `src/self_developer.py`, `src/self_developer_cli.py`, tests, and `docs/tara_self_developer.md`. The CLI supports `status`, `plan`, `run`, and `report`. Task runs use a candidate Git worktree, validate patch paths, run targeted tests (or compile checks), save reports outside the repo, and do not integrate changes.
+- Self-Developer explicitly protects `checkpoints/`, `outputs/`, `data/conversation_v1.jsonl`, `data/conversation_v1.jsonl.manifest.json`, and `test_voice.py`.
+- **Validation status:** the GitHub Actions run for PR #8 commit above was still `queued` at the last check (run ID `38436465295`; jobs `python-tests` and `rust-tests` queued). Do not claim CI or local tests passed until results are checked. Local tests had not yet been run by the assistant.
+
+### Next actions (do these in order)
+1. Check [PR #8](https://github.com/deathkernel/TARA/pull/8) and its latest GitHub Actions result; inspect job logs and fix failures on the feature branch.
+2. On Windows, fetch/switch to the branch without touching the existing working tree's user files:
+   ```bat
+   git fetch origin
+   git switch --track origin/feature/tara-self-developer-v1
+   git status --short
+   ```
+   If the local branch already exists, use `git switch feature/tara-self-developer-v1`. Review `git status --short` before doing anything else.
+3. Run focused tests first:
+   ```bat
+   python -m pytest -q tests/test_self_developer.py tests/test_self_developer_cli.py
+   python -m src.self_developer_cli status
+   ```
+4. For local Ollama-backed planning/runs in the current CMD window:
+   ```bat
+   set TARA_LLM_BACKEND=ollama
+   set TARA_LLAMA_MODEL=llama3.2:3b
+   python -m src.self_developer_cli plan "Add a regression test for memory retrieval"
+   ```
+   Only run a code-generation task after reviewing the plan and confirming the target branch/status. Example run:
+   ```bat
+   python -m src.self_developer_cli run "Add a regression test for memory retrieval"
+   python -m src.self_developer_cli report
+   ```
+5. Inspect generated diffs/reports and tests; request user approval before any integration. Keep PRs in dependency order and do not merge PR #8 ahead of its base work.
+6. **Update this handoff section and the relevant feature docs after every meaningful task**: date, what changed, branch/commit/PR, test/CI evidence, remaining blockers, and the next concrete action. Distinguish planned, implemented, tested, and merged work.
+
+### Important interpretation notes
+- Persistent conversation memory is not model-weight training.
+- Teacher-generated data is not automatically correct and is not TARA's raw pretraining corpus. Curate and independently evaluate it before training.
+- A training script, benchmark suite, or provider integration in source code is not proof that a checkpoint was trained, an API authenticated, or a capability was achieved. Report only measured results.
+- Previously, commands for `src.self_developer_cli` were suggested before the module existed and failed with `No module named src.self_developer_cli`. The module is now included on the PR #8 branch; use that branch before running these commands.
+
+---
+
+
 ## Pre-training readiness — complete
 
 The repository now has an explicit readiness gate before the first real training run:
