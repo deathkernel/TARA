@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from src.self_developer import SelfDeveloper, SelfDeveloperError
+from src.self_developer import SelfDeveloper, SelfDeveloperError, _validation_commands
 
 
 @pytest.mark.parametrize("patch", [
@@ -126,6 +126,33 @@ def test_command_runner_bounds_failure_output(tmp_path):
     with pytest.raises(SelfDeveloperError) as exc:
         _run(["pytest"], cwd=tmp_path, runner=failed_runner)
     assert len(str(exc.value)) < _OUTPUT_LIMIT + 200
+
+def test_validation_commands_run_full_suite_for_source_changes():
+    commands = _validation_commands(["src/brain.py"])
+
+    assert commands[0][1:] == ["-m", "compileall", "-q", "src"]
+    assert commands[1][1:] == ["-m", "pytest", "-q"]
+
+
+def test_validation_commands_target_changed_tests_when_only_tests_change():
+    commands = _validation_commands(["tests/test_memory.py"])
+
+    assert commands[0][1:] == ["-m", "compileall", "-q", "src"]
+    assert commands[1][1:] == ["-m", "pytest", "-q", "tests/test_memory.py"]
+
+
+def test_validation_commands_run_full_suite_for_mixed_source_and_test_changes():
+    commands = _validation_commands(["src/memory.py", "tests/test_memory.py"])
+
+    assert commands[1][1:] == ["-m", "pytest", "-q"]
+
+
+def test_validation_commands_compile_source_when_no_python_source_or_tests_change():
+    commands = _validation_commands(["README.md", "docs/guide.md"])
+
+    assert len(commands) == 1
+    assert commands[0][1:] == ["-m", "compileall", "-q", "src"]
+
 
 def test_task_validation_rejects_empty_and_oversized_tasks():
     with pytest.raises(ValueError):
