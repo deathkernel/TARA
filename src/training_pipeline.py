@@ -283,6 +283,10 @@ class TrainingPipeline:
             early_stopping = EarlyStopping(self.config.early_stopping_patience, self.config.early_stopping_min_delta)
             early_stopping.best = state.get("best")
             early_stopping.bad_steps = int(state.get("bad_steps", 0))
+            if validation_tokens is not None:
+                # A resumed checkpoint is the incumbent best until validation disproves it.
+                import shutil
+                shutil.copy2(Path(resume), best_checkpoint_path)
         total_steps = start_step + self.config.steps
         scheduler = WarmupCosineScheduler(total_steps=max(1, total_steps), warmup_steps=min(self.config.warmup_steps, max(1, total_steps)), min_lr_ratio=self.config.min_lr_ratio)
         if resume is None:
