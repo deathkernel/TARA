@@ -85,7 +85,7 @@ flowchart TD
 
 ### 5. Validation status — do not guess
 
-Latest verified API snapshot on 2026-10-13: GitHub Actions run `38439757987` (TARA CI) for earlier test commit `e91f06924582050834b226a8d2065b3b8b9b2e0b` remained **queued** at last check (`python-tests` and `rust-tests`). The later test commit `11f5dcdb55db779dbaa350f418d189867a4a5909` and README update `ef59f333abfd65b142d9fc7e2b3678962fb68951` returned no associated run from the workflow lookup. Current changes are therefore **not CI-verified**. Later invalid-UTF-8 commits may not have their own run reported by the workflow lookup. No local tests have been run by the assistant.
+Latest verified API snapshot on 2026-10-13: GitHub Actions run `38440263707` for test commit `7c0540e996dc40db8ba73c08580aaed69773a219` was **queued**. Its `python-tests` and `rust-tests` jobs were both queued at last check. The later README commit `ab75d6942c74941e1f801d1af4888da38bd8c73a` returned no associated run from the workflow lookup. Current changes are therefore **not CI-verified**. No local tests have been run by the assistant.
 
 **Latest batched changes:**
 - `ec9112f` + `789b6e2`: fix report consistency; persist `report_path` in the JSON and test returned/saved values.
