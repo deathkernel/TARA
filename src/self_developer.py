@@ -264,7 +264,7 @@ class SelfDeveloper:
                     self._git("apply", str(patch_file), cwd=worktree)
                     applied = True
                     # Include newly-created files in diff/test discovery without staging content.
-                    self._git("add", "-N", "--", ".", cwd=worktree)
+                    self._git("add", "-N", "-f", "--", ".", cwd=worktree)
                     self._git("diff", "--check", cwd=worktree)
                     changed = self._git("diff", "--name-only", cwd=worktree).stdout.splitlines()
                     validation_outputs = []
@@ -302,6 +302,21 @@ class SelfDeveloper:
                         self._git("reset", "--hard", base_head, cwd=worktree)
                     except SelfDeveloperError:
                         pass
+                    # A failed reverse-apply/reset can leave generated untracked files.
+                    # Clean ignored and untracked artifacts only inside this disposable
+                    # candidate worktree before another attempt sees the filesystem.
+                    try:
+                        self._git("clean", "-fdx", cwd=worktree)
+                    except SelfDeveloperError as cleanup_exc:
+                        attempt_record["rollback_error"] = str(cleanup_exc)
+                        record["status"] = "failed"
+                        record["error"] = "Candidate rollback cleanup failed; stopped to avoid a contaminated retry."
+                        cleanup_warnings = self._cleanup_failed_candidate(worktree, branch)
+                        if cleanup_warnings:
+                            record["cleanup_warnings"] = cleanup_warnings
+                        if patch_file is not None:
+                            patch_file.unlink(missing_ok=True)
+                        return self._write_report(record)
                     if patch_file is not None:
                         patch_file.unlink(missing_ok=True)
             record["status"] = "failed"
