@@ -56,6 +56,25 @@ def _run(args: list[str], *, cwd: Path, timeout: int = COMMAND_TIMEOUT_SECONDS,
     return result
 
 
+def _validation_commands(changed: list[str]) -> list[list[str]]:
+    """Choose fixed checks based on the candidate's changed paths."""
+    commands = [[sys.executable, "-m", "compileall", "-q", "src"]]
+    changed_tests = [
+        path for path in changed
+        if path.startswith("tests/") and path.endswith(".py")
+    ]
+    changed_sources = [
+        path for path in changed
+        if path.startswith("src/") and path.endswith(".py")
+    ]
+    if changed_sources:
+        # Source changes can regress tests outside the changed files.
+        commands.append([sys.executable, "-m", "pytest", "-q"])
+    elif changed_tests:
+        commands.append([sys.executable, "-m", "pytest", "-q", *changed_tests])
+    return commands
+
+
 class SelfDeveloper:
     """Prepare, test, and report candidate changes without integrating them."""
 
@@ -238,24 +257,20 @@ class SelfDeveloper:
                     self._git("add", "-N", "--", ".", cwd=worktree)
                     self._git("diff", "--check", cwd=worktree)
                     changed = self._git("diff", "--name-only", cwd=worktree).stdout.splitlines()
-                    tests = [p for p in changed if p.startswith("tests/") and p.endswith(".py")]
-                    if tests:
-                        test_result = _run(
-                            [sys.executable, "-m", "pytest", "-q", *tests],
-                            cwd=worktree, timeout=COMMAND_TIMEOUT_SECONDS,
+                    validation_outputs = []
+                    for command in _validation_commands(changed):
+                        result = _run(
+                            command, cwd=worktree, timeout=COMMAND_TIMEOUT_SECONDS,
                             runner=self._command_runner,
                         )
-                    else:
-                        test_result = _run(
-                            [sys.executable, "-m", "compileall", "-q", "src"],
-                            cwd=worktree, timeout=COMMAND_TIMEOUT_SECONDS,
-                            runner=self._command_runner,
+                        validation_outputs.append(
+                            "$ " + " ".join(command) + "\\n" + (result.stdout or "")
                         )
                     attempt_record.update({
                         "changed_files": changed,
                         "tests_passed": True,
-                        "test_output": (test_result.stdout or "")[-_OUTPUT_LIMIT:],
-                        "result": "validation and selected checks passed",
+                        "test_output": "\\n".join(validation_outputs)[-_OUTPUT_LIMIT:],
+                        "result": "all selected validation commands passed",
                     })
                     if patch_file is not None:
                         patch_file.unlink(missing_ok=True)
