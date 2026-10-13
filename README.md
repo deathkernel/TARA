@@ -89,13 +89,14 @@ flowchart TD
 
 ### 5. Validation status — do not guess
 
-Latest CI evidence checked on 2026-10-13: PR #8 remains draft/open/unmerged. Workflow run `38443867699` (1113) for validation-command code `82e9384` and run `38443896178` (1115) for its regression tests `6545463` were both still queued; the current head has no reported combined status checks. No green CI result has been observed. The branch remains **not CI-verified**, and no local tests have been run by the assistant.
+Latest CI evidence checked on 2026-10-13: PR #8 remains draft/open/unmerged. Workflow run `38444659377` (1121), associated with Windows filename validation commit `f104343`, is still queued; no workflow run was returned for the latest test fixture commit `42f7f14`, and the latest head has no reported combined status checks. No green CI result has been observed. The branch remains **not CI-verified**, and no local tests have been run by the assistant.
 
 **Latest batched changes:**
 - `d4decb1` + `d834996`: normalize tab-separated timestamps in diff markers before restricted-path checks; permit ordinary `new file mode 100644` patches while rejecting executable/symlink/submodule/rename/copy/binary metadata; add regression coverage for timestamp-suffixed dependency paths and adding a new test file.
 - `05d7165` + `dcd8e6e`: build generated-code prompt context from the isolated candidate worktree, not the original checkout; add a regression test for a dirty original working tree.
 - `95e3bd6` + `5a544cf`: planning context now reads the committed `HEAD` tree via Git, excluding dirty edits and staged-only files from provider prompts; add a regression test that checks both file contents and staged file names stay out of the prompt context.
 - `e05ef93` + `adc029d`: reject Windows-special patch paths, including reserved device names (`CON`, `NUL`, `COM1`/`LPT1` families), alternate data streams (`:`), and trailing spaces/dots; add rejection tests plus lookalike filename acceptance tests.
+- `f104343` + `42f7f14`: extend Windows path rejection to invalid filename characters (`<`, `>`, `|`, `?`, `*`, and control characters); add regression fixtures. CI for the code change remains queued.
 - `97079e9` + `6545463` + `4c0d943`: every candidate now runs `compileall src`; Python source changes trigger the full pytest suite, while test-only changes run the changed tests. Add command-selection regression tests and update the Self-Developer usage guide. The full-suite policy is code-defined but remains CI-unverified.
  `d4decb1` + `d834996`: normalize tab-separated timestamps in diff markers before restricted-path checks; permit ordinary `new file mode 100644` patches while rejecting executable/symlink/submodule/rename/copy/binary metadata; add regression coverage for timestamp-suffixed dependency paths and adding a new test file.
 - `05d7165` + `dcd8e6e`: build the LLM prompt context from the isolated candidate worktree rather than the original checkout, preventing uncommitted user edits from being silently mixed into the candidate's HEAD context; add a regression test for a dirty original working tree.
