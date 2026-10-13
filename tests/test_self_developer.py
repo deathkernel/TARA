@@ -519,3 +519,38 @@ def test_context_uses_candidate_snapshot_not_dirty_original_checkout(tmp_path):
     assert source.read_text(encoding="utf-8") == "VALUE = 99\n"
     assert (candidate / "src" / "module.py").read_text(encoding="utf-8") == "VALUE = 1\n"
     git("worktree", "remove", "--force", str(candidate))
+
+
+def test_default_context_uses_committed_head_and_excludes_staged_files(tmp_path):
+    import subprocess
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    def git(*args):
+        return subprocess.run(
+            ["git", *args], cwd=repo, check=True,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        )
+
+    git("init")
+    git("config", "user.email", "tara-tests@example.invalid")
+    git("config", "user.name", "TARA test")
+    (repo / "src").mkdir()
+    source = repo / "src" / "module.py"
+    source.write_text("VALUE = 1\n", encoding="utf-8")
+    git("add", "src/module.py")
+    git("commit", "-m", "test baseline")
+
+    source.write_text("SECRET_UNCOMMITTED_VALUE = 'do-not-send'\n", encoding="utf-8")
+    (repo / "staged_private.py").write_text("PRIVATE_STAGED_CONTENT = True\n", encoding="utf-8")
+    git("add", "staged_private.py")
+
+    engine = SelfDeveloper(repo, state_root=tmp_path / "state")
+    context = engine._tracked_context()
+
+    assert "VALUE = 1" in context
+    assert "SECRET_UNCOMMITTED_VALUE" not in context
+    assert "staged_private.py" not in context
+    assert "PRIVATE_STAGED_CONTENT" not in context
+    assert source.read_text(encoding="utf-8") == "SECRET_UNCOMMITTED_VALUE = 'do-not-send'\n"
