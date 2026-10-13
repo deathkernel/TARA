@@ -51,6 +51,50 @@ def test_report_is_written_and_can_be_read(tmp_path):
     assert persisted["report_path"] == written["report_path"]
 
 
+
+def test_command_runner_disables_shell_and_uses_timeout(tmp_path):
+    from types import SimpleNamespace
+
+    from src.self_developer import _run
+
+    observed = {}
+
+    def fake_runner(args, **kwargs):
+        observed["args"] = args
+        observed.update(kwargs)
+        return SimpleNamespace(returncode=0, stdout="ok", stderr="")
+
+    result = _run(["git", "status"], cwd=tmp_path, timeout=17, runner=fake_runner)
+    assert result.stdout == "ok"
+    assert observed["shell"] is False
+    assert observed["timeout"] == 17
+    assert observed["args"] == ["git", "status"]
+
+
+def test_command_runner_converts_timeout_to_controlled_error(tmp_path):
+    import subprocess
+
+    from src.self_developer import _run
+
+    def timeout_runner(args, **kwargs):
+        raise subprocess.TimeoutExpired(args=args, timeout=kwargs["timeout"])
+
+    with pytest.raises(SelfDeveloperError, match="timed out after 9s"):
+        _run(["pytest"], cwd=tmp_path, timeout=9, runner=timeout_runner)
+
+
+def test_command_runner_bounds_failure_output(tmp_path):
+    from types import SimpleNamespace
+
+    from src.self_developer import _OUTPUT_LIMIT, _run
+
+    def failed_runner(args, **kwargs):
+        return SimpleNamespace(returncode=2, stdout="", stderr="x" * (_OUTPUT_LIMIT + 100))
+
+    with pytest.raises(SelfDeveloperError) as exc:
+        _run(["pytest"], cwd=tmp_path, runner=failed_runner)
+    assert len(str(exc.value)) < _OUTPUT_LIMIT + 200
+
 def test_task_validation_rejects_empty_and_oversized_tasks():
     with pytest.raises(ValueError):
         SelfDeveloper._validate_task(" ")
