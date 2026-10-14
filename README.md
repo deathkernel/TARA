@@ -44,6 +44,10 @@ flowchart LR
 
 The ten-project comparison and prioritized adoption plan now live in [`docs/AI_ECOSYSTEM_RESEARCH.md`](docs/AI_ECOSYSTEM_RESEARCH.md). Core decision: **learn from these projects; do not replace TARA with a bundle of competing frameworks.** Keep Ollama + `llama3.2:3b` as the chosen local inference path; benchmark llama.cpp only as an optional future runtime. Priorities are (1) finish and record current validation, (2) harden provider-contract tests, (3) standardize default-deny tool permissions/audits, (4) strengthen real execution isolation, (5) consolidate scoped memory/retrieval and evaluations, and only then (6) add optional MCP/UI/workflow adapters. The report links all ten official projects and documents the decision boundaries.
 
+### 2.2 Llama-era file cleanup audit
+
+A dependency/reference audit is documented in [`docs/LLAMA_FILE_CLEANUP_AUDIT.md`](docs/LLAMA_FILE_CLEANUP_AUDIT.md). **No files were deleted.** The current Ollama chat path uses the provider adapter, but custom TARA model/training files remain referenced by training, checkpoint, benchmark and Polyglot workflows. Conditional cleanup candidates are the unintegrated Groq provider group (only if Groq support is intentionally dropped), the test-only alternate `basic_brain.py` baseline (after compatibility review), and the unreferenced duplicate `requirements-accelerated.txt`. The report distinguishes chat-only irrelevance from repository-wide obsolescence and records the tests required before any removal.
+
 ### 3. Current pull-request map
 
 ```mermaid
