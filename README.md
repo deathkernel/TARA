@@ -90,12 +90,13 @@ flowchart TD
 
 ### 5. Validation status — do not guess
 
-The ignored-file hardening is in commit `b49344c3` (`fix: scope self-developer intent-to-add paths`). A follow-up test audit found over-escaped newline sequences in `tests/test_self_developer.py` fixtures; these were normalized so generated patch fixtures and temporary source files contain actual line breaks. The current branch includes that fixture correction and this handoff refresh. The previous CI run #1140 remains queued on parent SHA `722d68d6`; both Python and Rust jobs report no assigned runner and no logs. No newer PR run has appeared for the hardening changes in the Actions run list, so verify that a fresh run starts. GitHub Status recorded Actions/Issues/Pull Request degradation on October 12, 2026, but that is not proof of the cause of this specific queue. See the [Actions page](https://github.com/deathkernel/TARA/actions) for current status. **No green CI result has been observed.** The assistant has not executed the local test suite because a working checkout and dependencies are not available in this execution environment; do not treat tests as passing.
+The Self-Developer ignored-file hardening and fixture corrections remain in this branch. The latest branch head at this handoff is `6907c39d`. A prior full Python run on the stacked Llama/self-developer line reported **18 failed, 403 passed** in about 87 minutes; the failures exposed existing contract/test mismatches plus a real cognitive-loop bug. Follow-up commits now fix the selected-tool string access, JSON-safe learning-memory candidate serialization, lazy model-adapter seams, scalar numeric inference support, malformed multimodal fixtures, scheduler retry budgeting, regression/evaluation test contracts, near-zero gradient-check tolerance, and other mismatched test fixtures. **These fixes are not yet validated by a fresh completed full suite.** The latest TARA CI run is queued: [run #38590950265](https://github.com/deathkernel/TARA/actions/runs/38590950265). No local full test run has been executed in this authoring environment; do not treat the fixes as passing-test claims.
 
 **CI queue mitigation applied in commit `8364a9b`:**
 - `.github/workflows/tests.yml` now uses pull-request and manual-dispatch triggers instead of running duplicate push + pull-request events for every feature-branch commit.
-- Workflow concurrency is keyed by PR number (or ref for manual runs) with `cancel-in-progress: true`, so superseded runs for the same PR can be cancelled.
-- This reduces avoidable duplicate runs but has **not** resolved the queue yet. Older queued runs from the previous workflow definition remain visible; no runner-health diagnosis is available through the returned run/job metadata.
+- Workflow concurrency is keyed by PR number (or ref for manual runs) with `cancel-in-progress: true`, so superseded CI runs for the same PR can be cancelled.
+- `.github/workflows/experiments.yml` now triggers the expensive three-seed Tiny-vs-Scaled experiment only when its experiment scripts or relevant model/data/training files change, rather than on every `src/**` edit.
+- The queue is still pending as of run #38590950265; narrowing future experiment triggers does not cancel already-running historical jobs.
 
 **Implemented on this branch (tests still require execution):**
 - Patch validation rejects unsafe/traversal/absolute/protected paths, dependency and workflow edits, nested `.git` metadata, mismatched diff headers/markers, rename/copy/binary metadata, unsafe file modes, and Windows-invalid names (reserved device names, ADS colons, invalid characters/control characters, trailing dots/spaces); ordinary new-file mode `100644` patches remain allowed.
@@ -105,7 +106,7 @@ The ignored-file hardening is in commit `b49344c3` (`fix: scope self-developer i
 - Teacher dataset audit: read-only JSONL schema/provenance/fingerprint/duplicate/UTF-8 checks, with `ready_for_training: false` regardless of structural success.
 - Regression tests were added for the behaviors above. **Code and test additions are not passing-test claims.**
 
-**Still blocked:** obtain actual CI results; run focused and full tests on a real Windows checkout; fix any failures; inspect the final PR diff and candidate report behavior. Integration remains a separate human-approved step.
+**Still blocked:** wait for a completed CI run on the latest head, inspect any remaining failures, then run focused and full tests on the real Windows checkout. Review the final PR diff and candidate report behavior before integration. Integration remains a separate human-approved step.
 
 ### Teacher dataset audit — read-only
 
