@@ -46,7 +46,7 @@ The ten-project comparison and prioritized adoption plan now live in [`docs/AI_E
 
 ### 2.2 Llama-era file cleanup audit
 
-A dependency/reference audit is documented in [`docs/LLAMA_FILE_CLEANUP_AUDIT.md`](docs/LLAMA_FILE_CLEANUP_AUDIT.md). **No files were deleted.** The current Ollama chat path uses the provider adapter, but custom TARA model/training files remain referenced by training, checkpoint, benchmark and Polyglot workflows. Conditional cleanup candidates are the unintegrated Groq provider group (only if Groq support is intentionally dropped), the test-only alternate `basic_brain.py` baseline (after compatibility review), and the unreferenced duplicate `requirements-accelerated.txt`. The report distinguishes chat-only irrelevance from repository-wide obsolescence and records the tests required before any removal.
+The dependency/reference audit and cleanup record is in [`docs/LLAMA_FILE_CLEANUP_AUDIT.md`](docs/LLAMA_FILE_CLEANUP_AUDIT.md). The isolated cleanup branch removes the unreferenced alternate `basic_brain.py` baseline and its test, the unintegrated Groq provider/test/import/dependency group, and the duplicate `requirements-accelerated.txt`. The custom model/training/checkpoint/benchmark/Polyglot stack remains because it is still referenced. Cleanup is proposed for review; no active branch was merged, and CI must validate the change before integration.
 
 ### 3. Current pull-request map
 
