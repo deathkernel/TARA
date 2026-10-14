@@ -10,6 +10,7 @@ import hashlib
 import json
 import os
 import re
+import tempfile
 from pathlib import Path
 from typing import Protocol
 
@@ -115,11 +116,22 @@ def generate_teacher_dataset(
     if destination.exists() and not overwrite:
         raise FileExistsError(f"{destination} exists; choose another path or pass --overwrite")
     destination.parent.mkdir(parents=True, exist_ok=True)
-    temporary = destination.with_name(destination.name + ".tmp")
     counts = {domain: 0 for domain in DOMAIN_TASKS}
     seen: set[str] = set()
+    temporary_path: Path | None = None
     try:
-        with temporary.open("w", encoding="utf-8", newline="\n") as stream:
+        # Create a unique sibling temp file so an existing user-owned
+        # "<output>.tmp" file is never truncated or removed by this run.
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            newline="\\n",
+            dir=destination.parent,
+            prefix=f".{destination.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as stream:
+            temporary_path = Path(stream.name)
             for domain, tasks in DOMAIN_TASKS.items():
                 for index in range(per_domain):
                     question = build_prompt(domain, tasks[index % len(tasks)], index)
@@ -154,9 +166,10 @@ def generate_teacher_dataset(
                     }
                     stream.write(json.dumps(record, ensure_ascii=False) + "\n")
                     counts[domain] += 1
-        temporary.replace(destination)
+        temporary_path.replace(destination)
     except Exception:
-        temporary.unlink(missing_ok=True)
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
         raise
     counts["total"] = sum(counts.values())
     return counts

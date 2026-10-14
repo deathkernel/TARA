@@ -186,6 +186,14 @@ flowchart TD
 - Report only results supported by actual test/CI output or measured evaluation.
 - Previous commands for `src.self_developer_cli` failed before the module existed. The module is now on the PR #8 branch; switch to that branch before using the commands above.
 
+### Additional audit — teacher dataset atomic-write safety (2026-10-14)
+
+- **Finding:** the generator used a predictable sibling path named `<output>.tmp`. If that path already belonged to the user, generation could truncate it and a failed provider call could delete it.
+- **Fix:** use a uniquely created temporary file in the destination directory, then atomically replace the destination only after successful generation. Failure cleanup removes only the temporary file created by that invocation.
+- **Regression coverage:** added tests for successful generation and provider failure with a pre-existing `<output>.tmp` neighbor.
+- **Validation status:** code and tests are committed for CI verification; no passing-test claim until CI completes.
+- **Next:** inspect the fresh CI run, continue queue diagnosis, then audit Self-Developer, persistent memory and teacher-data workflow.
+
 ### 8. Update protocol for every meaningful task
 
 After a meaningful change, update this section with:

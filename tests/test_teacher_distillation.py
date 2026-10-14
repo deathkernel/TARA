@@ -201,3 +201,33 @@ def test_audit_reports_invalid_utf8_without_crashing(tmp_path):
         for issue in report["issues"]
         for error in issue["errors"]
     )
+
+
+def test_generation_preserves_preexisting_temporary_neighbor_file(tmp_path):
+    output = tmp_path / "teacher.jsonl"
+    neighbor = tmp_path / "teacher.jsonl.tmp"
+    neighbor.write_text("user-owned temporary neighbor\\n", encoding="utf-8")
+
+    counts = generate_teacher_dataset(FakeProvider(), output, per_domain=1)
+
+    assert counts["total"] == len(DOMAIN_TASKS)
+    assert output.is_file()
+    assert neighbor.read_text(encoding="utf-8") == "user-owned temporary neighbor\\n"
+    assert list(tmp_path.glob(".teacher.jsonl.*.tmp")) == []
+
+
+def test_generation_failure_preserves_preexisting_temporary_neighbor_file(tmp_path):
+    output = tmp_path / "teacher.jsonl"
+    neighbor = tmp_path / "teacher.jsonl.tmp"
+    neighbor.write_text("user-owned temporary neighbor\\n", encoding="utf-8")
+
+    class FailingProvider:
+        def complete(self, prompt, **kwargs):
+            raise RuntimeError("teacher unavailable")
+
+    with pytest.raises(RuntimeError, match="teacher unavailable"):
+        generate_teacher_dataset(FailingProvider(), output, per_domain=1, overwrite=True)
+
+    assert not output.exists()
+    assert neighbor.read_text(encoding="utf-8") == "user-owned temporary neighbor\\n"
+    assert list(tmp_path.glob(".teacher.jsonl.*.tmp")) == []
