@@ -6,7 +6,7 @@ TARA is a research-first neural-network project built from mathematical and impl
 
 ## Cross-chat project handoff (update this section after each meaningful task)
 
-> **Last updated:** 2026-10-14  
+> **Last updated:** 2026-10-14 (cleanup audit + CI snapshot)  
 > **Purpose:** Future ChatGPT chats should read this section first, verify the current GitHub state, and continue from the next action. Keep this section and its diagrams updated after meaningful work.
 
 ### 1. TARA at a glance
@@ -47,6 +47,14 @@ The ten-project comparison and prioritized adoption plan now live in [`docs/AI_E
 ### 2.2 Llama-era file cleanup audit
 
 The dependency/reference audit and cleanup record is in [`docs/LLAMA_FILE_CLEANUP_AUDIT.md`](docs/LLAMA_FILE_CLEANUP_AUDIT.md). The isolated cleanup branch removes the unreferenced alternate `basic_brain.py` baseline and its test, the unintegrated Groq provider/test/import/dependency group, and the duplicate `requirements-accelerated.txt`. The custom model/training/checkpoint/benchmark/Polyglot stack remains because it is still referenced. Cleanup is proposed for review; no active branch was merged, and CI must validate the change before integration.
+
+### 2.3 Verified validation snapshot — 2026-10-14
+
+- PR #8 Self-Developer head `42691d05dd1a8aeb889d936225abdb5c174a7396`: [CI run #38598370679](https://github.com/deathkernel/TARA/actions/runs/38598370679) completed successfully — static repository audit passed, focused regressions **121 passed**, full Python suite **499 passed**, XOR and Tiny-LM smoke experiments passed, and Rust `cargo test --all-targets` passed.
+- PR #9 research branch: [run #38585922048](https://github.com/deathkernel/TARA/actions/runs/38585922048) failed Python validation (**22 failed, 468 passed**); Rust passed.
+- PR #10 cleanup branch: [run #38586960158](https://github.com/deathkernel/TARA/actions/runs/38586960158) failed Python validation (**22 failed, 461 passed**); Rust passed.
+- These run results belong to their recorded commits. PR #8's success does **not** prove PR #9 or PR #10 passes. Refresh the stacked branches and rerun their checks before integration.
+- This is hosted Ubuntu CI, not Windows-local validation. PRs remain draft/open; do not merge without explicit approval.
 
 ### 3. Current pull-request map
 
@@ -819,40 +827,6 @@ At a high level, the current TARA design is:
                          measured evidence
 ```
 
-## Optional Groq language backend
-
-TARA now includes an optional Groq provider. Groq is an **inference backend**, not the owner of TARA's cognitive architecture.
-
-The intended boundary is:
-
-```text
-User
-  ↓
-TARA perception / memory / planning / context
-  ↓
-Groq (optional language/reasoning backend)
-  ↓
-TARA verification / tool execution
-  ↓
-memory / reflection / learning evidence
-```
-
-The provider supports TARA-side daily request/token budgets and reads the API key from `GROQ_API_KEY`. The real API key must remain local and must never be committed to Git.
-
-Example local configuration:
-
-```env
-GROQ_API_KEY=gsk_...
-TARA_GROQ_MODEL=openai/gpt-oss-20b
-TARA_GROQ_MAX_DAILY_REQUESTS=20
-TARA_GROQ_MAX_DAILY_TOKENS=50000
-TARA_GROQ_MAX_COMPLETION_TOKENS=1024
-```
-
-**Important:** an API integration being present in source code does not mean an API call has been successfully authenticated or that a trained TARA checkpoint exists. Those are execution-time facts and should be reported only after testing.
-
----
-
 # Training and evaluation map
 
 ## Preflight
@@ -895,7 +869,7 @@ python run_learning_experiment.py checkpoints/baseline.pt data/algorithm_tasks.j
 4. **Deterministic provenance** — datasets, experiments and benchmark reports receive stable fingerprints where supported.
 5. **Bounded tools** — generated text does not automatically receive permissions.
 6. **Verification before learning** — unverified model output is not silently promoted into durable knowledge.
-7. **Separation of concerns** — TARA owns cognition/orchestration; optional providers such as Groq supply inference.
+7. **Separation of concerns** — TARA owns cognition/orchestration; the optional Ollama/Llama provider supplies local inference.
 8. **Reproducibility** — seeds, configuration, dataset identity, checkpoints and metrics are treated as first-class experiment data.
 9. **No invented capability claims** — a capability is reported only when the relevant code path and measurement have actually executed.
 10. **Inspectable architecture** — major cognitive functions remain represented as explicit modules instead of being hidden behind one opaque call.
@@ -911,7 +885,7 @@ Implemented in the repository:
 - benchmark/evaluation infrastructure;
 - evidence-gated learning workflows;
 - repository audit/CI;
-- optional Groq provider.
+- optional Ollama/Llama provider.
 
 Still dependent on actual runtime experiments:
 - successful authentication to any external LLM provider;
