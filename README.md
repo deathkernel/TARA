@@ -31,7 +31,7 @@ flowchart TD
 flowchart LR
     P[Previous: audit existing TARA modules] --> D[Designed controlled Self-Developer]
     D --> I[Implemented on feature branch]
-    I --> C[Current: diagnose queued CI and harden ignored-file discovery]
+    I --> C[Current: diagnose queued CI and harden report persistence]
     C --> H{CI starts and focused tests pass?}
     H -- No --> F[Investigate runner or fix verified failures]
     F --> C
@@ -199,7 +199,26 @@ flowchart TD
 - **Fix:** use a uniquely created temporary file in the destination directory, then atomically replace the destination only after successful generation. Failure cleanup removes only the temporary file created by that invocation.
 - **Regression coverage:** added tests for successful generation and provider failure with a pre-existing `<output>.tmp` neighbor.
 - **Validation status:** code and tests are committed for CI verification; no passing-test claim until CI completes.
-- **Next:** inspect the fresh CI run, continue queue diagnosis, then audit Self-Developer, persistent memory and teacher-data workflow.
+- **Next:** inspect the fresh CI run, continue queue diagnosis, then audit persistent memory and teacher-data workflow.
+
+### Additional audit — Self-Developer report persistence (2026-10-14)
+
+- **Finding:** Self-Developer wrote every JSON report through a predictable `.json.tmp` sibling. A pre-existing file with that name could be truncated, and a failed serialization/write could leave an incomplete staging file behind.
+- **Fix:** create a unique temporary file in the report directory, serialize fully there, atomically replace the final report only after success, and clean up only the unique temporary file owned by the current write.
+- **Regression coverage:** added tests that preserve a pre-existing `report-safety.json.tmp` neighbor on success and preserve both a known-good existing report and the neighbor when JSON serialization fails.
+- **Commits:** source hardening `8526069a8f86019ba16632a1d849ec988e78a750`; regression tests `807d09257a5b184224b53f6b72024d168cae447d`.
+- **Validation status:** committed for CI; not locally executed in this authoring environment. The latest PR #8 run is queued; do not infer that these new tests passed.
+- **Write lifecycle:**
+
+```mermaid
+flowchart TD
+    R[Build report payload] --> T[Create unique sibling temp file]
+    T --> S[Serialize and write complete JSON]
+    S -->|Success| A[Atomic replace final report]
+    S -->|Failure| C[Delete only this run's temp file]
+    A --> D[Return report path]
+    C --> F[Propagate failure; preserve prior report]
+```
 
 ### 8. Update protocol for every meaningful task
 
