@@ -1049,3 +1049,22 @@ flowchart TD
 
 The next CI run must verify the scheduler fix and the previous Self-Developer/model-evaluation changes together. Candidate retry/report failures are not yet considered resolved until their detailed report errors and CI assertions are checked.
 
+
+### CI follow-up — Git worktree branch marker (2026-10-14)
+
+- Latest run [#1168](https://github.com/deathkernel/TARA/actions/runs/38597619110) completed with the repository static audit passing, **120 focused regression tests passing and 1 failing**, and Rust tests passing. The full Python suite and smoke experiments were skipped because the focused step failed.
+- The sole failure was in `test_successful_candidate_is_retained_for_manual_review`: Git prints a `+ ` marker before a branch checked out in a linked worktree. The test compared raw `git branch --list` output to the bare branch name, so it rejected valid Git output; candidate retention itself had succeeded.
+- The assertion now normalizes Git's `*` (current branch) and `+` (linked-worktree branch) display markers before comparing the branch name. It still checks that the candidate branch exists and does not weaken candidate isolation assertions.
+- Validation status: this is a test correction based on the actual CI traceback. The fix has **not yet been validated by a new CI run**. Wait for focused tests, full Python suite, smoke experiments, and Rust tests to finish before describing PR #8 as passing.
+
+```mermaid
+flowchart TD
+    A[git branch --list] --> B{Display marker?}
+    B -- "* current" --> C[Strip marker]
+    B -- "+ linked worktree" --> C
+    B -- None --> C
+    C --> D[Compare exact branch name]
+    D --> E[Keep candidate retention checks]
+```
+
+Resume next: inspect the newest CI run; if focused tests pass, verify the full Python suite and smoke experiments. Do not merge any PR without explicit approval.

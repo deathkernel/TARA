@@ -362,10 +362,15 @@ def test_successful_candidate_is_retained_for_manual_review(tmp_path):
     assert candidate.is_dir()
     assert (candidate / "src" / "module.py").read_text(encoding="utf-8") == "VALUE = 2\n"
     assert (repo / "src" / "module.py").read_text(encoding="utf-8") == "VALUE = 1\n"
-    assert subprocess.run(
+    branch_listing = subprocess.run(
         ["git", "branch", "--list", report["candidate_branch"]], cwd=repo, check=True,
         capture_output=True, text=True,
-    ).stdout.strip() == report["candidate_branch"]
+    ).stdout.splitlines()
+    # Git prefixes branches checked out in linked worktrees with "+ ".
+    assert any(
+        line.strip().lstrip("*+").strip() == report["candidate_branch"]
+        for line in branch_listing
+    )
     assert subprocess.run(
         ["git", "status", "--porcelain"], cwd=repo, check=True,
         capture_output=True, text=True,
