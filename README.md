@@ -981,4 +981,53 @@ audio = core.speak(response.text)
 
 The API key is never stored in the repository. The ElevenLabs voice ID is also configuration-driven, so you can change TARA's voice without changing code.
 
-ElevenLabs' current Python SDK supports `text_to_speech.convert(...)` with a selected `voice_id`, model and output format. See the official API documentation for the current parameters. 
+ElevenLabs' current Python SDK supports `text_to_speech.convert(...)` with a selected `voice_id`, model and output format. See the official API documentation for the current parameters.
+
+---
+
+## Current engineering handoff — 2026-10-14
+
+### Latest CI diagnosis: Self-Developer / model evaluation
+
+The latest reviewed Python CI run reported **7 failures and 112 passes**. The Rust test job passed. The Python full-suite and optional smoke experiments were skipped after the focused regression stage failed. The failure report is evidence for what to investigate, not proof that the current branch is validated.
+
+The first audit isolated these causes:
+
+1. **Model benchmark lookup mismatch.** `ModelCapabilityRunner` stores generated observations by benchmark case ID, but `IntelligenceBenchmark.run()` calls the solver with the case prompt. The previous lookup therefore raised a `KeyError` for a prompt such as `x`. The runner now adapts case-ID observations to prompt-keyed solver lookup, with a regression test.
+2. **Empty-suite handling in Self-Developer.** Source changes normally trigger the full pytest suite. In a minimal candidate worktree with no test files, pytest exits with code 5 (“no tests collected”), which incorrectly marked an otherwise valid candidate as failed. Validation now detects whether test files exist before scheduling pytest; Python source compilation still runs. A regression test covers this branch.
+3. **Timeout fixture construction.** The timeout test itself used `TimeoutExpired(args=...)`, which is not the Python API; it now constructs `TimeoutExpired(cmd=...)` so the intended timeout handling can actually be tested.
+
+### Validation flow after the fix
+
+```mermaid
+flowchart TD
+    A[Candidate patch applied in disposable worktree] --> B[Compile src]
+    B --> C{Any Python tests in candidate?}
+    C -- Yes --> D[Run full suite for source changes]
+    C -- No --> E[Skip empty pytest invocation]
+    D --> F{All selected checks pass?}
+    E --> F
+    F -- Yes --> G[Retain candidate for manual review]
+    F -- No --> H[Rollback only candidate worktree]
+    H --> I[Retry within configured limit]
+    G --> J[No merge or push]
+```
+
+### Current status and next actions
+
+- Fixes for the three findings above are committed to `feature/tara-self-developer-v1`.
+- Regression coverage was added for prompt-based benchmark scoring and for source validation when no test suite exists.
+- **CI after these commits is the next acceptance gate.** Do not describe the branch as passing until the new GitHub Actions run completes successfully.
+- Two cognitive-loop/core end-to-end tests also failed in the previous run. Their underlying cause is not yet established; inspect the new CI output and trace report/step status before changing runtime behavior.
+- Keep the Self-Developer timeout, rollback, protected-path and atomic-report tests enabled.
+- Preserve `checkpoints/`, `outputs/`, conversation JSONL/manifest files, and `test_voice.py`.
+- Keep all PRs unmerged unless the user explicitly approves integration.
+
+### Resume checklist for the next session
+
+1. Check the newest workflow run for PR #8 and inspect all job results.
+2. If the Python suite still fails, fetch the complete traceback and the report/trace state for each remaining cognitive-loop/core failure; fix the cause and add a focused regression test.
+3. Confirm the benchmark test reports a passing case and the Self-Developer retry tests reach `candidate_ready_for_review`.
+4. Wait for the complete Python suite and Rust job; report only the checks that actually ran.
+5. Update this handoff section with the new run URL, counts, and remaining blockers before moving to the next PR.
+
