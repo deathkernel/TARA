@@ -24,7 +24,6 @@ from .structured_reasoning import ReasoningState, StructuredReasoner
 from .temporal_perception import TemporalContext, TemporalPerception
 from .tool_intelligence import ToolAttempt, ToolCapability, ToolIntelligence
 from .world_state import WorldContext, WorldModel
-from .groq_provider import GroqProvider
 from .elevenlabs_tts import ElevenLabsTTS
 
 @dataclass(frozen=True)

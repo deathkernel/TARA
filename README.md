@@ -46,8 +46,7 @@ The ten-project comparison and prioritized adoption plan now live in [`docs/AI_E
 
 ### 2.2 Llama-era file cleanup audit
 
-A dependency/reference audit is documented in [`docs/LLAMA_FILE_CLEANUP_AUDIT.md`](docs/LLAMA_FILE_CLEANUP_AUDIT.md). **No files were deleted.** The current Ollama chat path uses the provider adapter, but custom TARA model/training files remain referenced by training, checkpoint, benchmark and Polyglot workflows. Conditional cleanup candidates are the unintegrated Groq provider group (only if Groq support is intentionally dropped), the test-only alternate `basic_brain.py` baseline (after compatibility review), and the unreferenced duplicate `requirements-accelerated.txt`. The report distinguishes chat-only irrelevance from repository-wide obsolescence and records the tests required before any removal.
-
+The dependency/reference audit and cleanup record is in [`docs/LLAMA_FILE_CLEANUP_AUDIT.md`](docs/LLAMA_FILE_CLEANUP_AUDIT.md). The isolated cleanup branch removes the unreferenced alternate `basic_brain.py` baseline and its test, the unintegrated Groq provider/test/import/dependency group, and the duplicate `requirements-accelerated.txt`. The custom model/training/checkpoint/benchmark/Polyglot stack remains because it is still referenced. Cleanup is proposed for review; no active branch was merged, and CI must validate the change before integration.
 
 ### 3. Current pull-request map
 
@@ -105,7 +104,7 @@ flowchart TD
 - PR #8 code head `42691d05dd1a8aeb889d936225abdb5c174a7396`: [run #38598370679](https://github.com/deathkernel/TARA/actions/runs/38598370679) passed static audit, **121 focused tests**, **499 full Python tests**, XOR and Tiny-LM smoke experiments, and Rust tests.
 - PR #8 latest README handoff head `19fc99df7d73584d98be9b549a15ce95fb08a94b`: run [#38615254519](https://github.com/deathkernel/TARA/actions/runs/38615254519) is in progress; the preceding success does not validate this newer commit.
 - PR #9 previous run [#38585922048](https://github.com/deathkernel/TARA/actions/runs/38585922048) failed Python (**22 failed, 468 passed**) while Rust passed. That run predates the latest PR #8 fixes and must be refreshed.
-- PR #10 latest cleanup README head `560403f972e6648ee6bc9dcc0ff8c4b6f227ebef`: run [#38615338885](https://github.com/deathkernel/TARA/actions/runs/38615338885) was running before this stack sync; its replacement run should validate the synchronized tree.
+- PR #10's previous head `560403f972e6648ee6bc9dcc0ff8c4b6f227ebef` was validated by a run that predates this stack sync. A fresh run on the synchronized cleanup head is required; no passing claim is made yet.
 - PR #11 head `d5dd719374cda63bb23fead3cd833a2d4b20e194`: [run #38615869611](https://github.com/deathkernel/TARA/actions/runs/38615869611) is in progress; Rust passed and Python was installing dependencies at last check.
 - Results above are hosted Ubuntu CI, not Windows-local validation. Do not merge any draft PR automatically.
 
@@ -129,7 +128,8 @@ flowchart TD
 - Teacher dataset audit: read-only JSONL schema/provenance/fingerprint/duplicate/UTF-8 checks, with `ready_for_training: false` regardless of structural success.
 - Regression tests were added for the behaviors above. **Code and test additions are not passing-test claims.**
 
-**Still blocked:** refresh PR #9 CI against the current PR #8 base; synchronize the stacked PR #10 branch; run focused and full tests on a real Windows checkout; inspect the final Self-Developer diff and report behavior. Integration remains a separate human-approved step.
+**Still blocked:** review fresh CI on the synchronized PR #9/#10 heads; run focused and full tests on a real Windows checkout; inspect the Self-Developer safety boundaries and cleanup diff. Integration remains a separate human-approved step.
+
 
 
 ### Teacher dataset audit — read-only
@@ -870,40 +870,6 @@ At a high level, the current TARA design is:
                                  ▼
                          measured evidence
 ```
-
-## Optional Groq language backend
-
-TARA now includes an optional Groq provider. Groq is an **inference backend**, not the owner of TARA's cognitive architecture.
-
-The intended boundary is:
-
-```text
-User
-  ↓
-TARA perception / memory / planning / context
-  ↓
-Groq (optional language/reasoning backend)
-  ↓
-TARA verification / tool execution
-  ↓
-memory / reflection / learning evidence
-```
-
-The provider supports TARA-side daily request/token budgets and reads the API key from `GROQ_API_KEY`. The real API key must remain local and must never be committed to Git.
-
-Example local configuration:
-
-```env
-GROQ_API_KEY=gsk_...
-TARA_GROQ_MODEL=openai/gpt-oss-20b
-TARA_GROQ_MAX_DAILY_REQUESTS=20
-TARA_GROQ_MAX_DAILY_TOKENS=50000
-TARA_GROQ_MAX_COMPLETION_TOKENS=1024
-```
-
-**Important:** an API integration being present in source code does not mean an API call has been successfully authenticated or that a trained TARA checkpoint exists. Those are execution-time facts and should be reported only after testing.
-
----
 
 # Training and evaluation map
 
