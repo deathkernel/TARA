@@ -57,8 +57,8 @@ def _run(args: list[str], *, cwd: Path, timeout: int = COMMAND_TIMEOUT_SECONDS,
     return result
 
 
-def _validation_commands(changed: list[str]) -> list[list[str]]:
-    """Choose fixed checks based on the candidate's changed paths."""
+def _validation_commands(changed: list[str], *, available_tests: bool = True) -> list[list[str]]:
+    """Choose fixed checks based on changed paths and the candidate test suite."""
     commands = [[sys.executable, "-m", "compileall", "-q", "src"]]
     changed_tests = [
         path for path in changed
@@ -72,8 +72,10 @@ def _validation_commands(changed: list[str]) -> list[list[str]]:
         path for path in changed
         if path.endswith(".py") and not path.startswith(("src/", "tests/"))
     ]
-    if changed_sources:
-        # Source changes can regress tests outside the changed files.
+    if changed_sources and available_tests:
+        # Source changes can regress tests outside the changed files. A minimal
+        # candidate repository with no test files must not fail merely because
+        # pytest uses exit code 5 for "no tests collected".
         commands.append([sys.executable, "-m", "pytest", "-q"])
     elif changed_tests:
         commands.append([sys.executable, "-m", "pytest", "-q", *changed_tests])
@@ -282,7 +284,14 @@ class SelfDeveloper:
                     self._git("diff", "--check", cwd=worktree)
                     changed = self._git("diff", "--name-only", cwd=worktree).stdout.splitlines()
                     validation_outputs = []
-                    for command in _validation_commands(changed):
+                    tracked_paths = self._git("ls-files", cwd=worktree).stdout.splitlines()
+                    available_tests = any(
+                        path.endswith(".py") and (
+                            path.startswith("tests/") or Path(path).name.startswith("test_")
+                        )
+                        for path in tracked_paths
+                    )
+                    for command in _validation_commands(changed, available_tests=available_tests):
                         result = _run(
                             command, cwd=worktree, timeout=COMMAND_TIMEOUT_SECONDS,
                             runner=self._command_runner,
