@@ -50,12 +50,23 @@ class ModelCapabilityRunner:
         self.max_new_tokens = max_new_tokens
 
     def generate(self, prompt: str) -> str:
-        import torch
-
         prompt_ids = self.tokenizer.encode(prompt)
         if not prompt_ids:
             raise ValueError("prompt must encode to at least one token")
         token_ids = list(prompt_ids)
+
+        # The inspectable scalar TARA model exposes numeric inference without
+        # being a torch.nn.Module. Support it directly, keeping evaluation
+        # usable on CPU-only/dev installs and in deterministic unit tests.
+        forward_numeric = getattr(self.model, "forward_numeric", None)
+        if callable(forward_numeric) and not callable(getattr(self.model, "__call__", None)):
+            max_context = max(1, int(getattr(self.model, "max_context", len(token_ids))))
+            for _ in range(self.max_new_tokens):
+                logits = forward_numeric(token_ids[-max_context:])[-1]
+                token_ids.append(max(range(len(logits)), key=lambda index: float(getattr(logits[index], "data", logits[index]))))
+            return self.tokenizer.decode(token_ids[len(prompt_ids):])
+
+        import torch
         self.model.eval()
         with torch.no_grad():
             for _ in range(self.max_new_tokens):
