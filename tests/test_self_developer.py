@@ -650,7 +650,7 @@ def test_candidate_context_does_not_follow_symlinks_outside_worktree(tmp_path):
     assert "must-not-enter-context" not in context
     git("worktree", "remove", "--force", str(candidate))
 
-def test_ignored_generated_test_is_still_discovered_for_validation(tmp_path):
+def test_ignored_generated_test_is_discovered_without_sweeping_other_ignored_files(tmp_path):
     import subprocess
 
     repo = tmp_path / "repo"
@@ -675,8 +675,9 @@ def test_ignored_generated_test_is_still_discovered_for_validation(tmp_path):
         "new file mode 100644\\n"
         "--- /dev/null\\n"
         "+++ b/.gitignore\\n"
-        "@@ -0,0 +1 @@\\n"
+        "@@ -0,0 +1,2 @@\\n"
         "+tests/test_generated.py\\n"
+        "+outputs/\\n"
         "diff --git a/tests/test_generated.py b/tests/test_generated.py\\n"
         "new file mode 100644\\n"
         "--- /dev/null\\n"
@@ -690,16 +691,31 @@ def test_ignored_generated_test_is_still_discovered_for_validation(tmp_path):
         def complete(self, *args, **kwargs):
             return patch
 
-    engine = SelfDeveloper(repo, provider=IgnoredTestProvider(), state_root=tmp_path / "state")
+    def add_unrelated_ignored_artifact(args, **kwargs):
+        result = subprocess.run(args, **kwargs)
+        # Simulate a tool creating an unrelated ignored artifact after the
+        # patch is applied but before the candidate's change list is collected.
+        if args[:2] == ["git", "apply"] and "--check" not in args and result.returncode == 0:
+            artifact = Path(kwargs["cwd"]) / "outputs" / "unrelated.txt"
+            artifact.parent.mkdir(parents=True, exist_ok=True)
+            artifact.write_text("MUST_NOT_APPEAR_IN_CANDIDATE_DIFF", encoding="utf-8")
+        return result
+
+    engine = SelfDeveloper(
+        repo, provider=IgnoredTestProvider(), state_root=tmp_path / "state",
+        command_runner=add_unrelated_ignored_artifact,
+    )
     report = engine.run_task("Add a test that is accidentally ignored", max_attempts=1)
 
     candidate = Path(report["candidate_worktree"])
     assert report["status"] == "candidate_ready_for_review"
     assert "tests/test_generated.py" in report["changed_files"]
+    assert "outputs/unrelated.txt" not in report["changed_files"]
+    assert "MUST_NOT_APPEAR_IN_CANDIDATE_DIFF" not in report["diff"]
     assert report["attempts"][0]["tests_passed"] is True
     assert (candidate / "tests" / "test_generated.py").is_file()
+    assert (candidate / "outputs" / "unrelated.txt").is_file()
     assert not (repo / "tests" / "test_generated.py").exists()
-
 def test_reset_failure_stops_retries_and_removes_candidate(tmp_path):
     import subprocess
 

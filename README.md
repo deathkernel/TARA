@@ -6,7 +6,7 @@ TARA is a research-first neural-network project built from mathematical and impl
 
 ## Cross-chat project handoff (update this section after each meaningful task)
 
-> **Last updated:** 2026-10-13  
+> **Last updated:** 2026-10-14  
 > **Purpose:** Future ChatGPT chats should read this section first, verify the current GitHub state, and continue from the next action. Keep this section and its diagrams updated after meaningful work.
 
 ### 1. TARA at a glance
@@ -31,11 +31,11 @@ flowchart TD
 flowchart LR
     P[Previous: audit existing TARA modules] --> D[Designed controlled Self-Developer]
     D --> I[Implemented on feature branch]
-    I --> C[Current: check CI and run focused tests]
-    C --> H{Tests and review clean?}
-    H -- No --> F[Fix on feature branch]
+    I --> C[Current: diagnose queued CI and harden ignored-file discovery]
+    C --> H{CI starts and focused tests pass?}
+    H -- No --> F[Investigate runner or fix verified failures]
     F --> C
-    H -- Yes --> R[Review diff and reports]
+    H -- Yes --> R[Run full suite and review reports]
     R --> A[Ask user approval]
     A --> G[Integrate only after approval]
 ```
@@ -90,7 +90,7 @@ flowchart TD
 
 ### 5. Validation status — do not guess
 
-Latest observed branch head is `b7d00eb` (`test: stop retries after candidate reset failure`). The latest run inspected, #1138 (`4974b70`), was cancelled as newer commits superseded it; check the [Actions page](https://github.com/deathkernel/TARA/actions) for a run matching `b7d00eb` and the eventual README commit. Runs have repeatedly been cancelled by concurrency as new commits arrive, while older push-triggered queued runs remain visible. This supports a queue/dispatch concern, but the available metadata does not identify its root cause. **No green CI result has been observed.** The assistant has not executed the local test suite: a local checkout and its dependencies are not available in this execution environment, and a direct clone attempt failed because `github.com` could not be resolved. Do not treat tests as passing.
+Before this handoff update, the observed branch head was `722d68d6` (`docs: update TARA rollback hardening handoff`). CI run #1140 on that SHA remains queued, with both Python and Rust jobs reporting no assigned runner and no logs; the jobs have not produced test results. GitHub Status recorded Actions/Issues/Pull Request degradation on October 12, 2026, but that is not proof of the cause of this specific queue. See the [Actions page](https://github.com/deathkernel/TARA/actions) for the new commit's run and current status. **No green CI result has been observed.** The assistant has not executed the local test suite because a working checkout and dependencies are not available in this execution environment; do not treat tests as passing.
 
 **CI queue mitigation applied in commit `8364a9b`:**
 - `.github/workflows/tests.yml` now uses pull-request and manual-dispatch triggers instead of running duplicate push + pull-request events for every feature-branch commit.
@@ -99,7 +99,7 @@ Latest observed branch head is `b7d00eb` (`test: stop retries after candidate re
 
 **Implemented on this branch (tests still require execution):**
 - Patch validation rejects unsafe/traversal/absolute/protected paths, dependency and workflow edits, nested `.git` metadata, mismatched diff headers/markers, rename/copy/binary metadata, unsafe file modes, and Windows-invalid names (reserved device names, ADS colons, invalid characters/control characters, trailing dots/spaces); ordinary new-file mode `100644` patches remain allowed.
-- Isolation: planning context is built from committed `HEAD`; run-task context comes from the candidate worktree, not dirty user checkout files. Candidate context resolves each file and skips paths resolving outside the worktree, preventing tracked symlinks or symlinked parents from exposing external file contents to the configured provider (`2fe38ce`, regression test `fc10f46`). During validation, intent-to-add now uses `git add -N -f -- .` so candidate-generated tests are still discovered even if an LLM-generated `.gitignore` accidentally ignores them (`af12d7e`, regression test `6dd6bd7`). Failed attempts clean untracked/ignored generated artifacts using `git clean -fdx` **only inside the disposable candidate worktree**. If either candidate reset or cleanup fails, retries stop and the failure is reported rather than continuing in a contaminated worktree (`4974b70`, regression test `b7d00eb`). These are code/test changes, not passing-test claims.
+- Isolation: planning context is built from committed `HEAD`; run-task context comes from the candidate worktree, not dirty user checkout files. Candidate context resolves each file and skips paths resolving outside the worktree, preventing tracked symlinks or symlinked parents from exposing external file contents to the configured provider (`2fe38ce`, regression test `fc10f46`). During validation, intent-to-add is restricted to new file paths declared by the already-validated patch, so ignored candidate-generated tests remain discoverable without sweeping unrelated ignored files into the diff. A focused regression simulates an unrelated ignored artifact under `outputs/` and asserts it is excluded from changed-file reporting and the candidate diff. Failed attempts clean untracked/ignored generated artifacts using `git clean -fdx` **only inside the disposable candidate worktree**. If either candidate reset or cleanup fails, retries stop and the failure is reported rather than continuing in a contaminated worktree (`4974b70`, regression test `b7d00eb`). These are code/test changes, not passing-test claims.
 - Validation selection: always compiles `src`; source changes run full `pytest -q`; test-only changes run changed test files; docs-only changes compile source.
 - Lifecycle/reporting: bounded retries/timeouts, candidate-only rollback/cleanup, retained failure reports, cleanup warnings, and successful candidate retention for human review.
 - Teacher dataset audit: read-only JSONL schema/provenance/fingerprint/duplicate/UTF-8 checks, with `ready_for_training: false` regardless of structural success.
@@ -131,8 +131,8 @@ Exit code is `0` when every record passes structural/provenance checks, `1` when
 
 ```mermaid
 flowchart TD
-    N1[1. Recheck CI on newest branch head] --> N2[2. Run self-developer focused tests on Windows]
-    N2 --> N3[3. Verify ignored-file discovery and rollback cleanup]
+    N1[1. Inspect CI run for current branch head] --> N2[2. Diagnose runner queue if still stuck]
+    N2 --> N3[3. Run focused Self-Developer regression tests on Windows]
     N3 --> N4[4. Run full pytest and static repository audit]
     N4 --> N5[5. Review CLI lifecycle, reports, and final diff]
     N5 --> N6[6. Confirm PR #7 base/dependency]

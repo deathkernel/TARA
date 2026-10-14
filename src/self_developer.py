@@ -263,8 +263,12 @@ class SelfDeveloper:
                     self._git("apply", "--check", str(patch_file), cwd=worktree)
                     self._git("apply", str(patch_file), cwd=worktree)
                     applied = True
-                    # Include newly-created files in diff/test discovery without staging content.
-                    self._git("add", "-N", "-f", "--", ".", cwd=worktree)
+                    # Mark only newly-created paths from this validated patch as intent-to-add.
+                    # This keeps ignored generated tests discoverable without pulling unrelated
+                    # ignored artifacts (for example outputs/) into the candidate diff.
+                    new_paths = self._new_file_paths(patch)
+                    if new_paths:
+                        self._git("add", "-N", "-f", "--", *new_paths, cwd=worktree)
                     self._git("diff", "--check", cwd=worktree)
                     changed = self._git("diff", "--name-only", cwd=worktree).stdout.splitlines()
                     validation_outputs = []
@@ -430,6 +434,24 @@ class SelfDeveloper:
                 ".env", ".env.example", "requirements.txt", "pyproject.toml", "setup.py",
             }:
                 raise SelfDeveloperError(f"Patch targets a restricted path: {path}")
+
+    @staticmethod
+    def _new_file_paths(patch: str) -> list[str]:
+        """Return only paths added as new files in an already-validated patch."""
+        lines = patch.splitlines()
+        paths: list[str] = []
+        for index, line in enumerate(lines[:-1]):
+            if not line.startswith("--- "):
+                continue
+            next_line = lines[index + 1]
+            if not next_line.startswith("+++ "):
+                continue
+            old_path = line[4:].split("\t", 1)[0]
+            new_path = next_line[4:].split("\t", 1)[0]
+            if old_path == "/dev/null" and new_path.startswith("b/"):
+                paths.append(new_path[2:])
+        # Preserve patch order while avoiding duplicate path arguments.
+        return list(dict.fromkeys(paths))
 
     def _write_report(self, record: dict[str, Any]) -> dict[str, Any]:
         self.runs_root.mkdir(parents=True, exist_ok=True)
