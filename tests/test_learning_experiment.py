@@ -33,7 +33,7 @@ def test_learning_experiment_reports_category_delta(tmp_path: Path):
         outputs = {"base": {"a": "ok", "b": "bad"}, "candidate": {"a": "ok", "b": "ok"}}[value]
         report = IntelligenceBenchmark("tara-capability-v1", cases).run(lambda prompt: outputs[prompt])
         return ModelEvaluation(value, report, value, value)
-    experiment.evaluator.evaluate = evaluation
+    experiment.evaluator.evaluate = lambda path: evaluation("base" if str(path) == "base" else "candidate")
     candidate_path = tmp_path / "candidate.pt"
     candidate_path.write_bytes(b"checkpoint")
     result = experiment.run("base", train_candidate=lambda _: candidate_path)
