@@ -159,6 +159,19 @@ def test_validation_commands_compile_source_when_no_python_source_or_tests_chang
     assert len(commands) == 1
     assert commands[0][1:] == ["-m", "compileall", "-q", "src"]
 
+def test_validation_commands_compile_changed_root_python_scripts():
+    commands = _validation_commands(["train_tiny_lm.py"])
+
+    assert commands[0][1:] == ["-m", "compileall", "-q", "src"]
+    assert commands[1][1:] == ["-m", "py_compile", "train_tiny_lm.py"]
+
+
+def test_validation_commands_compile_root_python_scripts_alongside_changed_tests():
+    commands = _validation_commands(["tests/test_memory.py", "prepare_tara_dataset.py"])
+
+    assert commands[1][1:] == ["-m", "pytest", "-q", "tests/test_memory.py"]
+    assert commands[2][1:] == ["-m", "py_compile", "prepare_tara_dataset.py"]
+
 
 def test_task_validation_rejects_empty_and_oversized_tasks():
     with pytest.raises(ValueError):

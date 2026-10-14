@@ -67,11 +67,20 @@ def _validation_commands(changed: list[str]) -> list[list[str]]:
         path for path in changed
         if path.startswith("src/") and path.endswith(".py")
     ]
+    changed_python = [
+        path for path in changed
+        if path.endswith(".py") and not path.startswith(("src/", "tests/"))
+    ]
     if changed_sources:
         # Source changes can regress tests outside the changed files.
         commands.append([sys.executable, "-m", "pytest", "-q"])
     elif changed_tests:
         commands.append([sys.executable, "-m", "pytest", "-q", *changed_tests])
+    # Root-level scripts and Python packages outside src/ are valid candidate
+    # targets too. Compile each changed file so syntax errors cannot slip
+    # through a src-only compileall run.
+    for path in changed_python:
+        commands.append([sys.executable, "-m", "py_compile", path])
     return commands
 
 

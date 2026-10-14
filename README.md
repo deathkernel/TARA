@@ -186,6 +186,13 @@ flowchart TD
 - Report only results supported by actual test/CI output or measured evaluation.
 - Previous commands for `src.self_developer_cli` failed before the module existed. The module is now on the PR #8 branch; switch to that branch before using the commands above.
 
+### Additional audit — Self-Developer validation coverage (2026-10-14)
+
+- **Finding:** changed Python files outside `src/` and `tests/` (for example root-level training/data CLIs) were not explicitly compiled by the candidate validator.
+- **Fix:** append a fixed `python -m py_compile <changed-file>` command for each changed Python file outside those two directories. Existing source changes still trigger the full test suite; test-only changes still run the changed test files.
+- **Regression coverage:** added tests for root-level script-only changes and mixed test/script changes.
+- **Validation status:** committed for CI verification; not locally executed in this environment.
+
 ### Additional audit — teacher dataset atomic-write safety (2026-10-14)
 
 - **Finding:** the generator used a predictable sibling path named `<output>.tmp`. If that path already belonged to the user, generation could truncate it and a failed provider call could delete it.
