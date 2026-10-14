@@ -1031,3 +1031,21 @@ flowchart TD
 4. Wait for the complete Python suite and Rust job; report only the checks that actually ran.
 5. Update this handoff section with the new run URL, counts, and remaining blockers before moving to the next PR.
 
+### Follow-up audit — dependency-aware scheduler (2026-10-14)
+
+The earlier end-to-end failures in both `UnifiedCognitiveLoop` and `TARACore` shared a planner bug: `AdaptivePlan.ready_steps()` changed a pending step to `READY`, but later calls only selected `PENDING` steps. After completing the first step, the next scheduler query therefore found no ready step and the run stopped after one cycle. The scheduler now returns dependency-satisfied steps in either `PENDING` or `READY` state; a regression test verifies repeated discovery before execution. This preserves the existing state model and fixes the shared root cause instead of weakening the end-to-end assertions.
+
+```mermaid
+flowchart TD
+    A[Query ready steps] --> B{Status pending or ready?}
+    B -- No --> C[Skip step]
+    B -- Yes --> D{Dependencies completed?}
+    D -- No --> C
+    D -- Yes --> E[Return eligible step]
+    E --> F[Execute and verify]
+    F --> G[Mark completed]
+    G --> A
+```
+
+The next CI run must verify the scheduler fix and the previous Self-Developer/model-evaluation changes together. Candidate retry/report failures are not yet considered resolved until their detailed report errors and CI assertions are checked.
+
