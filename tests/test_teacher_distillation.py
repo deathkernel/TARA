@@ -218,6 +218,7 @@ def test_generation_preserves_preexisting_temporary_neighbor_file(tmp_path):
 
 def test_generation_failure_preserves_preexisting_temporary_neighbor_file(tmp_path):
     output = tmp_path / "teacher.jsonl"
+    output.write_text("known-good dataset\n", encoding="utf-8")
     neighbor = tmp_path / "teacher.jsonl.tmp"
     neighbor.write_text("user-owned temporary neighbor\n", encoding="utf-8")
 
@@ -228,6 +229,6 @@ def test_generation_failure_preserves_preexisting_temporary_neighbor_file(tmp_pa
     with pytest.raises(RuntimeError, match="teacher unavailable"):
         generate_teacher_dataset(FailingProvider(), output, per_domain=1, overwrite=True)
 
-    assert not output.exists()
+    assert output.read_text(encoding="utf-8") == "known-good dataset\n"
     assert neighbor.read_text(encoding="utf-8") == "user-owned temporary neighbor\n"
     assert list(tmp_path.glob(".teacher.jsonl.*.tmp")) == []
