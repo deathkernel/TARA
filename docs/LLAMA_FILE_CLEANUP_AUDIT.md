@@ -3,7 +3,7 @@
 **Audit date:** 2026-10-14  
 **Audit target:** TARA's Llama/Ollama-enabled chat architecture and its surrounding training/research repository.  
 **Baseline inspected:** `feature/tara-self-developer-v1`, reported head `804798f25a35c2c907ed6a9bbeeace5637739de2`; cross-checked against the current branch's source files, tests, README and repository searches.  
-**Status:** Static dependency/reference audit. No files deleted. No local full test suite was run as part of this audit.
+**Status:** Cleanup implemented on the isolated branch `cleanup/llama-unused-components`; changes are proposed for review and are not merged. Static reference inspection supports the selected removals. The full local test suite has not been run; CI validation is pending.
 
 ## Executive result
 
