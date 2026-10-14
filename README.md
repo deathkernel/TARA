@@ -6,7 +6,7 @@ TARA is a research-first neural-network project built from mathematical and impl
 
 ## Cross-chat project handoff (update this section after each meaningful task)
 
-> **Last updated:** 2026-10-14  
+> **Last updated:** 2026-10-14 (parallel CI + speed audit)  
 > **Purpose:** Future ChatGPT chats should read this section first, verify the current GitHub state, and continue from the next action. Keep this section and its diagrams updated after meaningful work.
 
 ### 1. TARA at a glance
@@ -98,7 +98,19 @@ flowchart TD
 
 ### 5. Validation status — do not guess
 
-The ignored-file hardening is in commit `b49344c3` (`fix: scope self-developer intent-to-add paths`). A follow-up test audit found over-escaped newline sequences in `tests/test_self_developer.py` fixtures; these were normalized in the current branch. **Latest observed CI snapshot (2026-10-14):** PR run [#1142](https://github.com/deathkernel/TARA/actions/runs/38582137779) for head `804798f25a35c2c907ed6a9bbeeace5637739de2` has passed the static repository audit and Rust `cargo test --all-targets`; its Python test suite is still in progress. Therefore the complete CI run is **not yet green**; the XOR and tiny-LM smoke steps have not yet reported results. A separate push run [#361](https://github.com/deathkernel/TARA/actions/runs/38582721159) for `b49344c3` is also in progress on a trained-profile comparison. Re-check live run links before making decisions because this snapshot may age. GitHub run metadata has not established why earlier runs queued/cancelled; do not claim a specific runner incident caused it. The assistant has not executed the local test suite in this execution environment; do not treat source review as test success.
+**Verified CI snapshot (2026-10-14; refresh links before acting):**
+- PR #8 code head `42691d05dd1a8aeb889d936225abdb5c174a7396`: [run #38598370679](https://github.com/deathkernel/TARA/actions/runs/38598370679) passed static audit, **121 focused tests**, **499 full Python tests**, XOR and Tiny-LM smoke experiments, and Rust tests.
+- PR #8 latest README handoff head `19fc99df7d73584d98be9b549a15ce95fb08a94b`: run [#38615254519](https://github.com/deathkernel/TARA/actions/runs/38615254519) is in progress; the preceding success does not validate this newer commit.
+- PR #9 previous run [#38585922048](https://github.com/deathkernel/TARA/actions/runs/38585922048) failed Python (**22 failed, 468 passed**) while Rust passed. That run predates the latest PR #8 fixes and must be refreshed.
+- PR #10 latest cleanup README head `560403f972e6648ee6bc9dcc0ff8c4b6f227ebef`: run [#38615338885](https://github.com/deathkernel/TARA/actions/runs/38615338885) is in progress. Its current base branch still needs stack synchronization with the newest PR #8 head before its result can be treated as final for the complete stack.
+- Results above are hosted Ubuntu CI, not Windows-local validation. Do not merge any draft PR automatically.
+
+**CI runtime reduction — research only, no workflow behavior changed here:**
+1. Add `--durations=20` to the full-suite pytest command so the next run identifies actual bottlenecks before optimization.
+2. Benchmark `pytest-xdist` on a disposable branch; use a bounded worker count and `--dist=loadfile` initially to keep each test module in one worker. Audit tests that share global state, ports, checkpoints or fixed paths before enabling it broadly.
+3. Keep a complete full-suite gate. Do not use dependency-based test selection as the only CI gate; affected-test tools can miss untracked dependencies.
+4. Review GitHub's official [stacked-PR CI optimization](https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/optimizing-ci-for-stacked-pull-requests) before skipping duplicate expensive jobs. Preserve at least a full-stack validation gate.
+5. Do not install a new CI dependency or modify workflows as part of this documentation-only PR; make the performance change separately and measure it.
 
 **CI queue mitigation applied in commit `8364a9b`:**
 - `.github/workflows/tests.yml` now uses pull-request and manual-dispatch triggers instead of running duplicate push + pull-request events for every feature-branch commit.
@@ -113,7 +125,7 @@ The ignored-file hardening is in commit `b49344c3` (`fix: scope self-developer i
 - Teacher dataset audit: read-only JSONL schema/provenance/fingerprint/duplicate/UTF-8 checks, with `ready_for_training: false` regardless of structural success.
 - Regression tests were added for the behaviors above. **Code and test additions are not passing-test claims.**
 
-**Still blocked:** obtain actual CI results; run focused and full tests on a real Windows checkout; fix any failures; inspect the final PR diff and candidate report behavior. Integration remains a separate human-approved step.
+**Still blocked:** refresh PR #9 CI against the current PR #8 base; synchronize the stacked PR #10 branch; run focused and full tests on a real Windows checkout; inspect the final Self-Developer diff and report behavior. Integration remains a separate human-approved step.
 
 ### Teacher dataset audit — read-only
 
@@ -139,12 +151,13 @@ Exit code is `0` when every record passes structural/provenance checks, `1` when
 
 ```mermaid
 flowchart TD
-    N1[1. Inspect CI run for current branch head] --> N2[2. Diagnose runner queue if still stuck]
-    N2 --> N3[3. Run focused Self-Developer regression tests on Windows]
-    N3 --> N4[4. Run full pytest and static repository audit]
-    N4 --> N5[5. Review CLI lifecycle, reports, and final diff]
-    N5 --> N6[6. Confirm PR #7 base/dependency]
-    N6 --> N7[7. Ask before integration]
+    A[PR #8 latest CI completes] --> B[Refresh PR #9 CI on current base]
+    B --> C[Sync PR #10 with updated PR #9]
+    C --> D[Refresh PR #10 CI]
+    D --> E[Measure slow tests with --durations=20]
+    E --> F[Prototype bounded xdist in isolated branch]
+    F --> G[Windows validation and safety review]
+    G --> H[Human approval before integration]
 ```
 
 **Windows CMD — preserve local data**
