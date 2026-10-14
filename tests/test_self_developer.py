@@ -192,7 +192,7 @@ def test_worktree_creation_failure_is_reported_without_provider_call(tmp_path):
     git("init")
     git("config", "user.email", "tara-tests@example.invalid")
     git("config", "user.name", "TARA test")
-    (repo / "README.md").write_text("baseline\\n", encoding="utf-8")
+    (repo / "README.md").write_text("baseline\n", encoding="utf-8")
     git("add", "README.md")
     git("commit", "-m", "test baseline")
 
@@ -237,7 +237,7 @@ def test_invalid_patch_retries_are_bounded_and_leave_base_unchanged(tmp_path):
     git("init")
     git("config", "user.email", "tara-tests@example.invalid")
     git("config", "user.name", "TARA test")
-    (repo / "baseline.py").write_text("VALUE = 1\\n", encoding="utf-8")
+    (repo / "baseline.py").write_text("VALUE = 1\n", encoding="utf-8")
     git("add", "baseline.py")
     git("commit", "-m", "test baseline")
 
@@ -258,7 +258,7 @@ def test_invalid_patch_retries_are_bounded_and_leave_base_unchanged(tmp_path):
     assert len(report["attempts"]) == 2
     assert all(not attempt["tests_passed"] for attempt in report["attempts"])
     assert "All bounded attempts failed" in report["error"]
-    assert (repo / "baseline.py").read_text(encoding="utf-8") == "VALUE = 1\\n"
+    assert (repo / "baseline.py").read_text(encoding="utf-8") == "VALUE = 1\n"
     assert not Path(report["candidate_worktree"]).exists()
     assert subprocess.run(
         ["git", "branch", "--list", report["candidate_branch"]], cwd=repo, check=True,
@@ -285,7 +285,7 @@ def test_provider_exception_cleans_failed_candidate_and_keeps_report(tmp_path):
     git("init")
     git("config", "user.email", "tara-tests@example.invalid")
     git("config", "user.name", "TARA test")
-    (repo / "baseline.py").write_text("VALUE = 1\\n", encoding="utf-8")
+    (repo / "baseline.py").write_text("VALUE = 1\n", encoding="utf-8")
     git("add", "baseline.py")
     git("commit", "-m", "test baseline")
 
@@ -633,9 +633,9 @@ def test_candidate_context_does_not_follow_symlinks_outside_worktree(tmp_path):
     git("config", "user.email", "tara-tests@example.invalid")
     git("config", "user.name", "TARA test")
     (repo / "src").mkdir()
-    (repo / "src" / "module.py").write_text("VALUE = 1\\n", encoding="utf-8")
+    (repo / "src" / "module.py").write_text("VALUE = 1\n", encoding="utf-8")
     outside_secret = tmp_path / "private-outside-worktree.py"
-    outside_secret.write_text("PRIVATE_EXTERNAL_SECRET = 'must-not-enter-context'\\n", encoding="utf-8")
+    outside_secret.write_text("PRIVATE_EXTERNAL_SECRET = 'must-not-enter-context'\n", encoding="utf-8")
     (repo / "src" / "external.py").symlink_to(outside_secret)
     git("add", "src/module.py", "src/external.py")
     git("commit", "-m", "test symlink context boundary")
@@ -666,25 +666,25 @@ def test_ignored_generated_test_is_discovered_without_sweeping_other_ignored_fil
     git("config", "user.email", "tara-tests@example.invalid")
     git("config", "user.name", "TARA test")
     (repo / "src").mkdir()
-    (repo / "src" / "module.py").write_text("VALUE = 1\\n", encoding="utf-8")
+    (repo / "src" / "module.py").write_text("VALUE = 1\n", encoding="utf-8")
     git("add", "src/module.py")
     git("commit", "-m", "test baseline")
 
     patch = (
-        "diff --git a/.gitignore b/.gitignore\\n"
-        "new file mode 100644\\n"
-        "--- /dev/null\\n"
-        "+++ b/.gitignore\\n"
-        "@@ -0,0 +1,2 @@\\n"
-        "+tests/test_generated.py\\n"
-        "+outputs/\\n"
-        "diff --git a/tests/test_generated.py b/tests/test_generated.py\\n"
-        "new file mode 100644\\n"
-        "--- /dev/null\\n"
-        "+++ b/tests/test_generated.py\\n"
-        "@@ -0,0 +1,2 @@\\n"
-        "+def test_generated_file_is_validated():\\n"
-        "+    assert True\\n"
+        "diff --git a/.gitignore b/.gitignore\n"
+        "new file mode 100644\n"
+        "--- /dev/null\n"
+        "+++ b/.gitignore\n"
+        "@@ -0,0 +1,2 @@\n"
+        "+tests/test_generated.py\n"
+        "+outputs/\n"
+        "diff --git a/tests/test_generated.py b/tests/test_generated.py\n"
+        "new file mode 100644\n"
+        "--- /dev/null\n"
+        "+++ b/tests/test_generated.py\n"
+        "@@ -0,0 +1,2 @@\n"
+        "+def test_generated_file_is_validated():\n"
+        "+    assert True\n"
     )
 
     class IgnoredTestProvider:
@@ -733,7 +733,7 @@ def test_reset_failure_stops_retries_and_removes_candidate(tmp_path):
     git("config", "user.name", "TARA test")
     (repo / "src").mkdir()
     source = repo / "src" / "module.py"
-    source.write_text("VALUE = 1\\n", encoding="utf-8")
+    source.write_text("VALUE = 1\n", encoding="utf-8")
     git("add", "src/module.py")
     git("commit", "-m", "test baseline")
 
@@ -744,11 +744,11 @@ def test_reset_failure_stops_retries_and_removes_candidate(tmp_path):
         def complete(self, *args, **kwargs):
             self.calls += 1
             return (
-                "--- /dev/null\\n"
-                "+++ b/tests/test_failure.py\\n"
-                "@@ -0,0 +1,2 @@\\n"
-                "+def test_intentionally_fails():\\n"
-                "+    assert False\\n"
+                "--- /dev/null\n"
+                "+++ b/tests/test_failure.py\n"
+                "@@ -0,0 +1,2 @@\n"
+                "+def test_intentionally_fails():\n"
+                "+    assert False\n"
             )
 
     def reset_failure_runner(args, **kwargs):
@@ -769,7 +769,7 @@ def test_reset_failure_stops_retries_and_removes_candidate(tmp_path):
     assert "Candidate reset failed" in report["error"]
     assert "simulated candidate reset failure" in report["attempts"][0]["rollback_error"]
     assert not Path(report["candidate_worktree"]).exists()
-    assert source.read_text(encoding="utf-8") == "VALUE = 1\\n"
+    assert source.read_text(encoding="utf-8") == "VALUE = 1\n"
     assert subprocess.run(
         ["git", "status", "--porcelain"], cwd=repo, check=True,
         capture_output=True, text=True,
