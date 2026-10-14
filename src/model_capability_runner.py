@@ -85,7 +85,12 @@ class ModelCapabilityRunner:
             except Exception as exc:
                 observations[case.case_id] = f"<execution-error:{type(exc).__name__}: {exc}>"
 
-        report = benchmark.run(observations.__getitem__)
+        # IntelligenceBenchmark calls its solver with each case prompt, not the
+        # case ID. Keep public observations keyed by case ID, but adapt lookup here.
+        observations_by_prompt = {
+            case.prompt: observations[case.case_id] for case in cases
+        }
+        report = benchmark.run(observations_by_prompt.__getitem__)
         model_id = model_fingerprint(self.model, self.tokenizer)
         fingerprint = hashlib.sha256(
             json.dumps(
