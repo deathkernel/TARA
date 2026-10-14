@@ -115,7 +115,7 @@ def test_command_runner_converts_timeout_to_controlled_error(tmp_path):
     from src.self_developer import _run
 
     def timeout_runner(args, **kwargs):
-        raise subprocess.TimeoutExpired(args=args, timeout=kwargs["timeout"])
+        raise subprocess.TimeoutExpired(cmd=args, timeout=kwargs["timeout"])
 
     with pytest.raises(SelfDeveloperError, match="timed out after 9s"):
         _run(["pytest"], cwd=tmp_path, timeout=9, runner=timeout_runner)
@@ -138,6 +138,13 @@ def test_validation_commands_run_full_suite_for_source_changes():
 
     assert commands[0][1:] == ["-m", "compileall", "-q", "src"]
     assert commands[1][1:] == ["-m", "pytest", "-q"]
+
+
+def test_validation_commands_skip_pytest_when_no_test_files_exist():
+    import sys
+    commands = _validation_commands(["src/brain.py"], available_tests=False)
+
+    assert commands == [[sys.executable, "-m", "compileall", "-q", "src"]]
 
 
 def test_validation_commands_target_changed_tests_when_only_tests_change():
