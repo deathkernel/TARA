@@ -40,6 +40,10 @@ flowchart LR
     A --> G[Integrate only after approval]
 ```
 
+### 2.1 External AI ecosystem: research decision
+
+The ten-project comparison and prioritized adoption plan now live in [`docs/AI_ECOSYSTEM_RESEARCH.md`](docs/AI_ECOSYSTEM_RESEARCH.md). Core decision: **learn from these projects; do not replace TARA with a bundle of competing frameworks.** Keep Ollama + `llama3.2:3b` as the chosen local inference path; benchmark llama.cpp only as an optional future runtime. Priorities are (1) finish and record current validation, (2) harden provider-contract tests, (3) standardize default-deny tool permissions/audits, (4) strengthen real execution isolation, (5) consolidate scoped memory/retrieval and evaluations, and only then (6) add optional MCP/UI/workflow adapters. The report links all ten official projects and documents the decision boundaries.
+
 ### 3. Current pull-request map
 
 ```mermaid
@@ -90,7 +94,7 @@ flowchart TD
 
 ### 5. Validation status — do not guess
 
-The ignored-file hardening is in commit `b49344c3` (`fix: scope self-developer intent-to-add paths`). A follow-up test audit found over-escaped newline sequences in `tests/test_self_developer.py` fixtures; these were normalized so generated patch fixtures and temporary source files contain actual line breaks. The current branch includes that fixture correction and this handoff refresh. The previous CI run #1140 remains queued on parent SHA `722d68d6`; both Python and Rust jobs report no assigned runner and no logs. No newer PR run has appeared for the hardening changes in the Actions run list, so verify that a fresh run starts. GitHub Status recorded Actions/Issues/Pull Request degradation on October 12, 2026, but that is not proof of the cause of this specific queue. See the [Actions page](https://github.com/deathkernel/TARA/actions) for current status. **No green CI result has been observed.** The assistant has not executed the local test suite because a working checkout and dependencies are not available in this execution environment; do not treat tests as passing.
+The ignored-file hardening is in commit `b49344c3` (`fix: scope self-developer intent-to-add paths`). A follow-up test audit found over-escaped newline sequences in `tests/test_self_developer.py` fixtures; these were normalized in the current branch. **Latest observed CI snapshot (2026-10-14):** PR run [#1142](https://github.com/deathkernel/TARA/actions/runs/38582137779) for head `804798f25a35c2c907ed6a9bbeeace5637739de2` has passed the static repository audit and Rust `cargo test --all-targets`; its Python test suite is still in progress. Therefore the complete CI run is **not yet green**; the XOR and tiny-LM smoke steps have not yet reported results. A separate push run [#361](https://github.com/deathkernel/TARA/actions/runs/38582721159) for `b49344c3` is also in progress on a trained-profile comparison. Re-check live run links before making decisions because this snapshot may age. GitHub run metadata has not established why earlier runs queued/cancelled; do not claim a specific runner incident caused it. The assistant has not executed the local test suite in this execution environment; do not treat source review as test success.
 
 **CI queue mitigation applied in commit `8364a9b`:**
 - `.github/workflows/tests.yml` now uses pull-request and manual-dispatch triggers instead of running duplicate push + pull-request events for every feature-branch commit.
