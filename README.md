@@ -6,7 +6,7 @@ TARA is a research-first neural-network project built from mathematical and impl
 
 ## Cross-chat project handoff (update this section after each meaningful task)
 
-> **Last updated:** 2026-10-14  
+> **Last updated:** 2026-10-14 (CI re-verified)  
 > **Purpose:** Future ChatGPT chats should read this section first, verify the current GitHub state, and continue from the next action. Keep this section and its diagrams updated after meaningful work.
 
 ### 1. TARA at a glance
@@ -90,7 +90,15 @@ flowchart TD
 
 ### 5. Validation status — do not guess
 
-The Self-Developer ignored-file hardening and fixture corrections remain in this branch. A prior full Python run on the stacked Llama/self-developer line reported **18 failed, 403 passed** in about 87 minutes; the failures exposed existing contract/test mismatches plus a real cognitive-loop bug. Follow-up commits now fix the selected-tool string access, JSON-safe learning-memory candidate serialization, lazy model-adapter seams, scalar numeric inference support, malformed multimodal fixtures, scheduler retry budgeting, regression/evaluation test contracts, near-zero gradient-check tolerance, and other mismatched test fixtures. The CI workflow now runs focused regression tests before attempting the full Python suite. **These fixes are not yet validated by a fresh completed suite.** Check the [TARA Actions page](https://github.com/deathkernel/TARA/actions) for the latest run; previous runs were cancelled as newer commits superseded them. No local full test run has been executed in this authoring environment; do not treat the fixes as passing-test claims.
+**Latest verified PR #8 CI snapshot (2026-10-14):** [run #38598370679](https://github.com/deathkernel/TARA/actions/runs/38598370679), head commit `42691d05dd1a8aeb889d936225abdb5c174a7396), completed successfully. Evidence from the run:
+- Static repository audit: passed.
+- Focused regression tests: **121 passed** in 6.79 seconds.
+- Full Python suite: **499 passed** in 5,349.12 seconds (about 89 minutes).
+- XOR smoke experiment: passed.
+- Tiny language-model smoke experiment: passed.
+- Rust `cargo test --all-targets`: passed.
+
+This is a GitHub-hosted Ubuntu CI result for the recorded head commit; it is **not** a Windows-local test result. A README-only follow-up commit still needs its own CI result before claiming that newer commit is validated. Do not imply that the full suite ran locally.
 
 **CI queue mitigation applied in commit `8364a9b`:**
 - `.github/workflows/tests.yml` now uses pull-request and manual-dispatch triggers instead of running duplicate push + pull-request events for every feature-branch commit.
@@ -107,7 +115,11 @@ The Self-Developer ignored-file hardening and fixture corrections remain in this
 - Teacher dataset audit: read-only JSONL schema/provenance/fingerprint/duplicate/UTF-8 checks, with `ready_for_training: false` regardless of structural success.
 - Regression tests were added for the behaviors above. **Code and test additions are not passing-test claims.**
 
-**Still blocked:** wait for a completed CI run on the latest head, inspect any remaining failures, then run focused and full tests on the real Windows checkout. Review the final PR diff and candidate report behavior before integration. Integration remains a separate human-approved step.
+**Current gates after the successful PR #8 run:**
+- PR #8: inspect the final diff and perform the focused + full validation on the real Windows checkout; preserve the user's existing branch, untracked data, checkpoints, outputs, conversation files, and `test_voice.py`.
+- PR #9 (head `26078f1`): its older CI run [#38585922048](https://github.com/deathkernel/TARA/actions/runs/38585922048) failed in Python (22 failed, 468 passed); Rust passed. This run predates the latest PR #8 head and must be refreshed after the stacked branch is synchronized.
+- PR #10 (head `6064bc3`): its older CI run [#38586960158](https://github.com/deathkernel/TARA/actions/runs/38586960158) failed in Python (22 failed, 461 passed); Rust passed. This run also predates the latest PR #8 head and must be refreshed after the branch stack is synchronized.
+- Keep PRs draft/open and unmerged. No checkpoint promotion, training run, or NVIDIA/CUDA setup is authorized by this validation result.
 
 ### Teacher dataset audit — read-only
 
@@ -133,12 +145,13 @@ Exit code is `0` when every record passes structural/provenance checks, `1` when
 
 ```mermaid
 flowchart TD
-    N1[1. Inspect CI run for current branch head] --> N2[2. Diagnose runner queue if still stuck]
-    N2 --> N3[3. Run focused Self-Developer regression tests on Windows]
-    N3 --> N4[4. Run full pytest and static repository audit]
-    N4 --> N5[5. Review CLI lifecycle, reports, and final diff]
-    N5 --> N6[6. Confirm PR #7 base/dependency]
-    N6 --> N7[7. Ask before integration]
+    A[PR #8 CI: 499 Python tests + Rust passed] --> B[Run focused and full tests on Windows]
+    B --> C[Review Self-Developer safety, reports, and final diff]
+    C --> D[Sync stacked PR #9 with updated PR #8 base]
+    D --> E[Re-run PR #9 CI and review research docs]
+    E --> F[Sync PR #10 with updated PR #9 base]
+    F --> G[Re-run PR #10 CI and review cleanup diff]
+    G --> H[Human approval required before integration]
 ```
 
 **Windows CMD — preserve local data**
