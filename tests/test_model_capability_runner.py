@@ -19,6 +19,16 @@ class FakeModel:
         return [logits]
 
 
+def test_evaluate_scores_observations_using_case_prompts():
+    runner = ModelCapabilityRunner(FakeModel(), FakeTokenizer(), max_new_tokens=2)
+    cases = (BenchmarkCase("echo", "coding", "x", "!!", normalized_text_score),)
+
+    report = runner.evaluate(cases).benchmark
+
+    assert report.passed
+    assert report.results[0].error is None
+
+
 def test_runner_is_deterministic_and_returns_generated_suffix():
     runner = ModelCapabilityRunner(FakeModel(), FakeTokenizer(), max_new_tokens=2)
     assert runner.generate("x") == "!!"
