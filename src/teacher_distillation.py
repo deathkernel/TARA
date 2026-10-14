@@ -125,7 +125,7 @@ def generate_teacher_dataset(
         with tempfile.NamedTemporaryFile(
             mode="w",
             encoding="utf-8",
-            newline="\\n",
+            newline="\n",
             dir=destination.parent,
             prefix=f".{destination.name}.",
             suffix=".tmp",
