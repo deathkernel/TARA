@@ -28,7 +28,7 @@ def relative_error(analytic, numerical, floor=1e-12):
     return abs(analytic - numerical) / max(floor, abs(analytic) + abs(numerical))
 
 
-def check_parameter_gradients(loss_fn, parameters, epsilon=1e-6, tolerance=1e-5):
+def check_parameter_gradients(loss_fn, parameters, epsilon=1e-6, tolerance=1e-5, absolute_tolerance=1e-8):
     """Compare autodiff gradients against finite differences.
 
     Returns a list of diagnostic dictionaries; raises AssertionError on failure.
@@ -38,16 +38,22 @@ def check_parameter_gradients(loss_fn, parameters, epsilon=1e-6, tolerance=1e-5)
         numerical = numerical_gradient(loss_fn, parameter, epsilon)
         analytic = parameter.grad
         error = relative_error(analytic, numerical)
+        absolute_error = abs(analytic - numerical)
+        allowed_error = absolute_tolerance + tolerance * max(abs(analytic), abs(numerical))
         diagnostics.append({
             "index": index,
             "analytic": analytic,
             "numerical": numerical,
+            "absolute_error": absolute_error,
             "relative_error": error,
         })
-        if error > tolerance:
+        # Relative error is unstable when both gradients are near zero. Use the
+        # standard mixed absolute/relative criterion for a meaningful check.
+        if absolute_error > allowed_error:
             raise AssertionError(
                 f"gradient check failed at parameter {index}: "
                 f"analytic={analytic:.8e}, numerical={numerical:.8e}, "
-                f"relative_error={error:.8e} > {tolerance:.8e}"
+                f"absolute_error={absolute_error:.8e} > allowed={allowed_error:.8e} "
+                f"(relative_error={error:.8e})"
             )
     return diagnostics
