@@ -5,5 +5,4 @@ datasets
 pytest
 torch
 pyarrow
-groq
 elevenlabs

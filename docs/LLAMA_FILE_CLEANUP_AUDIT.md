@@ -2,19 +2,21 @@
 
 **Audit date:** 2026-10-14  
 **Audit target:** TARA's Llama/Ollama-enabled chat architecture and its surrounding training/research repository.  
-**Baseline inspected:** `feature/tara-self-developer-v1`, reported head `804798f25a35c2c907ed6a9bbeeace5637739de2`; cross-checked against the current branch's source files, tests, README and repository searches.  
-**Status:** Static dependency/reference audit. No files deleted. No local full test suite was run as part of this audit.
+**Original audit baseline:** `feature/tara-self-developer-v1`, head `804798f25a35c2c907ed6a9bbeeace5637739de2`. The cleanup branch was subsequently synchronized with the latest Self-Developer and AI-ecosystem roadmap heads in merge commit `059062a091663d556657e7c893a3e5ab7f7c28a6`; repeat the static repository audit and full CI on this synchronized tree before integration.  
+**Status:** Cleanup implemented on the isolated branch `cleanup/llama-unused-components`; changes are proposed for review and are not merged. Static reference inspection supports the selected removals. The full local test suite has not been run; CI validation is pending.
 
 ## Executive result
 
-**Do not bulk-delete TARA's custom language-model files just because Ollama/Llama now answers chat messages.** Llama replaces the *default language-generation engine for the Ollama-enabled chat entry point*; it does not replace TARA's model-training research, algorithm checkpoint runtime, teacher-distillation pipeline, tests, benchmarks, or all of TARA's cognitive modules.
+**Cleanup has been applied on the isolated branch `cleanup/llama-unused-components`; this is a proposed change, not an integration into TARA's active branch.** The repository reference search found no production imports for the alternate `BasicTARABrain` baseline, no provider-factory path for Groq, and no references to the duplicate accelerated requirements file. The Groq import in `src/brain.py` was unused.
 
-The safest immediate cleanup candidates are small and conditional:
-1. **Review-only candidate:** `src/basic_brain.py` and `tests/test_basic_brain.py` — repository search found the class referenced by its own test, with no production import found. It appears to be an alternate baseline architecture. Remove only if that baseline/public compatibility surface is no longer wanted.
-2. **Optional backend candidate:** `src/groq_provider.py`, `tests/test_groq_provider.py`, the `groq` dependency, and the unused `GroqProvider` import in `src/brain.py` — current `src/llm_provider_factory.py` selects Ollama or no provider; it does not select Groq. Keep these if a Groq/cloud backend is still a desired option; otherwise remove them as one tested change, not piecemeal.
-3. **Independent housekeeping candidate:** `requirements-accelerated.txt` — it contains only `torch`, already listed in `requirements.txt`; no workflow/docs reference was found in the inspected source search. Confirm there is no personal setup workflow depending on it before removing.
+Removed as one cleanup change:
+- `src/basic_brain.py` and `tests/test_basic_brain.py` — alternate baseline only referenced by its own tests; it was not part of the active CLI/provider path.
+- `src/groq_provider.py`, `tests/test_groq_provider.py`, the unused `GroqProvider` import in `src/brain.py`, and `groq` from `requirements.txt` — current provider factory supports Ollama/Llama or no provider, not Groq.
+- `requirements-accelerated.txt` — contained only `torch`, already listed in `requirements.txt`, and had no repository workflow/documentation references found in the audit.
 
-**Files safe to delete solely because Llama was connected: none confirmed.** The three candidates above need product/compatibility confirmation and tests before deletion.
+**Not removed:** the custom TARA model, tokenizer, checkpoint, training, distillation, benchmark, Polyglot, cognitive, safety, tool, memory, and voice modules. They remain relevant to the research-first scope and/or are still referenced.
+
+**Validation status:** changes were prepared from repository source/reference inspection. The full Python suite has not been run in this environment; CI must be checked on the cleanup PR before the change can be considered validated. No files in the user's local checkout or protected data/output paths were touched.
 
 ## What the live chat actually uses
 
@@ -70,29 +72,19 @@ These files may be unnecessary **for a minimal chat-only distribution**, but rep
 | Root `train_*.py`, `prepare_*.py`, `build_targeted_dataset.py`, `run_*experiment.py`, `experiments/*.py`, `rust-tokenizer/` | Training, evaluation, dataset and tokenizer experiments. The repository CI runs at least some of these paths; deleting them would change TARA's research scope. |
 | `tests/test_language_model.py`, `tests/test_torch_language_model.py`, `tests/test_tokenizer.py`, training/benchmark/checkpoint tests | These tests protect the custom-model and experiment path, not the Ollama chat path. Do not remove tests merely to make a deletion pass. |
 
-### C. Conditional cleanup candidates
+### C. Cleanup performed on the isolated branch
 
-#### C1. `src/basic_brain.py` + `tests/test_basic_brain.py`
+#### C1. Alternate baseline retired
 
-**Observed:** The module defines a complete dependency-light alternative cognitive baseline. Search results found `BasicTARABrain` in the module and its own test; no production import was found in the inspected search.
+Removed `src/basic_brain.py` and `tests/test_basic_brain.py` together. Repository search showed the class was referenced by its own test and no production import was found. This removes an unconnected alternate baseline, not TARA's active `src/brain.py` or cognitive modules.
 
-**Recommendation:** Mark as *possibly legacy*, not confirmed dead. Before removal:
-- decide whether this baseline is still useful for education, comparison or backwards compatibility;
-- inspect exports/documented public API and branch history;
-- if retired, remove the module and its test together and update docs/imports;
-- run the full suite and a clean-install smoke test.
+#### C2. Unintegrated Groq backend retired
 
-#### C2. `src/groq_provider.py` + `tests/test_groq_provider.py` + `groq` dependency
+Removed `src/groq_provider.py`, `tests/test_groq_provider.py`, the unused `from .groq_provider import GroqProvider` import in `src/brain.py`, and the `groq` dependency from `requirements.txt`. The current `src/llm_provider_factory.py` supports `ollama`/`llama` (both resolve to Ollama) or `none`; it did not expose Groq selection. This cleanup intentionally drops Groq support rather than leaving an unreachable backend implementation.
 
-**Observed:** `GroqProvider` is defined and unit-tested, and `src/brain.py` imports it. The inspected `TARABrain` response path uses the injected `llm_provider`; the provider factory supports `ollama`/`llama` (both resolve to Ollama) or `none`, not Groq. The `GroqProvider` import appears unused in `src/brain.py`.
+#### C3. Duplicate accelerated requirements removed
 
-**Recommendation:** If TARA is intentionally local-only, a future cleanup can remove the unused import, provider module, its test, and `groq` dependency together. If cloud fallback/provider choice is planned, do not remove the module; wire it through an explicit factory option and test it. Never remove only the test to hide the unused status.
-
-#### C3. `requirements-accelerated.txt`
-
-**Observed:** It contains only `torch`, also present in `requirements.txt`; no usage was found in the inspected workflow/docs searches.
-
-**Recommendation:** Low-risk housekeeping candidate after confirming no local setup instructions or personal scripts use it. This is unrelated to Llama integration.
+Removed `requirements-accelerated.txt`, which contained only `torch`, already declared in `requirements.txt`. No workflow or documentation reference was found during the inspected search.
 
 ### D. Do not remove on the basis of “Llama can answer now”
 
@@ -104,17 +96,17 @@ These files may be unnecessary **for a minimal chat-only distribution**, but rep
 
 These modules still need runtime-wiring and capability tests; their presence alone does not prove that each is active in every turn.
 
-## Dependency/behavior checks still required before any deletion
+## Validation checks required after cleanup
 
-1. Run AST-based imports and repository-wide symbol/path searches on the exact candidate branch; include dynamic imports, CLI entry points, docs, workflows, packaging and external usage risk.
-2. Capture a clean baseline: full `pytest -q`, `python -m src` chat smoke test with fake provider, teacher-data generation test, and model-checkpoint/polyglot smoke tests. Record real output, not assumptions.
-3. Remove only one candidate group per commit. Re-run relevant tests and the full suite; compare import-time dependencies and cold-start behavior.
-4. Check `requirements.txt` dependency necessity with import analysis and a clean install; do not drop `torch` while custom model/training/checkpoint paths remain.
-5. Update README, setup docs, CI, and handoff only after the tests support the change.
-6. Never delete user-local artifacts or model/checkpoint/data outputs as part of a source cleanup.
+1. Confirm the cleanup PR diff contains only the intended source/test/dependency/documentation changes.
+2. Run the full `python -m pytest -q` suite in CI and inspect actual failures/results; do not infer test success from static review.
+3. Run the CI static repository audit and existing XOR, tiny-LM, and Rust smoke tests.
+4. Confirm a clean dependency install from `requirements.txt` succeeds and the active Ollama provider/factory tests still pass.
+5. Smoke-test the CLI with a fake provider where available; no live Ollama model pull is needed for fake-transport unit tests.
+6. Never delete user-local artifacts or model/checkpoint/data outputs as part of source cleanup.
 
 ## Final verdict
 
-**Immediate deletion list: empty.**  
-**First candidates for a human-approved cleanup PR:** (1) Groq provider group if Groq is no longer supported, (2) basic-brain baseline if it is officially retired, (3) unused accelerated requirements file after checking local workflows.  
-**Keep the custom model/training stack** unless the project owner explicitly changes TARA from a research-first architecture into a chat-only Ollama wrapper.
+**Removed on the cleanup branch:** `src/basic_brain.py`, `tests/test_basic_brain.py`, `src/groq_provider.py`, `tests/test_groq_provider.py`, `requirements-accelerated.txt`; plus the unused Groq import and dependency entry.
+
+**Kept:** the active Ollama/Llama provider and factory, TARA's custom model/training and teacher-distillation paths, and all protected local/checkpoint/data/voice assets. The cleanup branch is separate and unmerged. Treat the changes as pending validation until CI results are inspected.
