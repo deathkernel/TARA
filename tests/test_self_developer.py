@@ -787,3 +787,42 @@ def test_reset_failure_stops_retries_and_removes_candidate(tmp_path):
         ["git", "status", "--porcelain"], cwd=repo, check=True,
         capture_output=True, text=True,
     ).stdout == ""
+
+
+def test_report_write_preserves_preexisting_temp_neighbor(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / ".git").mkdir()
+    engine = SelfDeveloper(repo, state_root=tmp_path / "state")
+    engine.runs_root.mkdir(parents=True)
+    neighbor = engine.runs_root / "report-safety.json.tmp"
+    neighbor.write_text("user-owned temp neighbor\n", encoding="utf-8")
+
+    report = engine._write_report({"run_id": "report-safety", "status": "ok"})
+
+    assert json.loads(Path(report["report_path"]).read_text(encoding="utf-8"))["status"] == "ok"
+    assert neighbor.read_text(encoding="utf-8") == "user-owned temp neighbor\n"
+    assert list(engine.runs_root.glob(".report-safety.json.*.tmp")) == []
+
+
+def test_report_write_failure_preserves_existing_report_and_temp_neighbor(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / ".git").mkdir()
+    engine = SelfDeveloper(repo, state_root=tmp_path / "state")
+    engine.runs_root.mkdir(parents=True)
+    destination = engine.runs_root / "report-safety.json"
+    destination.write_text('{"status": "known-good"}\n', encoding="utf-8")
+    neighbor = engine.runs_root / "report-safety.json.tmp"
+    neighbor.write_text("user-owned temp neighbor\n", encoding="utf-8")
+
+    with pytest.raises(TypeError):
+        engine._write_report({
+            "run_id": "report-safety",
+            "status": "replacement",
+            "not_json_serializable": object(),
+        })
+
+    assert destination.read_text(encoding="utf-8") == '{"status": "known-good"}\n'
+    assert neighbor.read_text(encoding="utf-8") == "user-owned temp neighbor\n"
+    assert list(engine.runs_root.glob(".report-safety.json.*.tmp")) == []
