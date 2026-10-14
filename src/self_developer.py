@@ -11,6 +11,7 @@ import json
 import os
 import re
 import subprocess
+import tempfile
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -468,9 +469,26 @@ class SelfDeveloper:
         destination = self.runs_root / f"{run_id}.json"
         # Persist the same report path that the caller sees in the returned record.
         record["report_path"] = str(destination)
-        temporary = destination.with_suffix(".json.tmp")
-        temporary.write_text(json.dumps(record, indent=2, ensure_ascii=False), encoding="utf-8")
-        temporary.replace(destination)
+        temporary_path: Path | None = None
+        try:
+            # A unique sibling prevents collisions with user-owned files and keeps
+            # incomplete JSON invisible at the final report path.
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                newline="\n",
+                dir=destination.parent,
+                prefix=f".{destination.name}.",
+                suffix=".tmp",
+                delete=False,
+            ) as handle:
+                temporary_path = Path(handle.name)
+                handle.write(json.dumps(record, indent=2, ensure_ascii=False))
+            os.replace(temporary_path, destination)
+            temporary_path = None
+        finally:
+            if temporary_path is not None:
+                temporary_path.unlink(missing_ok=True)
         return record
 
     def latest_report(self) -> dict[str, Any]:
