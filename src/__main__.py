@@ -16,6 +16,93 @@ class OllamaChatBrain(TARABrain):
         raise RuntimeError("No local TARA checkpoint fallback is available; use the configured language provider.")
 
 
+def _display_text(value, *, limit=180) -> str:
+    """Bound untrusted API text and remove terminal control characters."""
+    text = str(value or "")
+    text = "".join(char for char in text if char.isprintable() or char in "\\t")
+    text = " ".join(text.split())
+    return text if len(text) <= limit else text[: limit - 1] + "…"
+
+
+def _summarize_api_observation(observation) -> str:
+    """Create a deterministic source-linked summary without sending data to the LLM."""
+    data, provider = observation.data, observation.provider
+    lines = [f"Summary ({_display_text(provider, limit=60)}; untrusted external data):"]
+    if provider == "GitHub" and isinstance(data, dict):
+        items = data.get("items", [])
+        lines.append(f"Found {len(items)} repositories.")
+        for item in items[:5]:
+            if not isinstance(item, dict):
+                continue
+            name = _display_text(item.get("full_name") or item.get("name") or "Unnamed repository", limit=100)
+            desc = _display_text(item.get("description"), limit=160)
+            stars = item.get("stargazers_count")
+            suffix = f" — {desc}" if desc else ""
+            if isinstance(stars, int):
+                suffix += f" (★ {stars})"
+            url = _display_text(item.get("html_url"), limit=240)
+            lines.append(f"- {name}{suffix}" + (f" | {url}" if url else ""))
+    elif provider == "Wikipedia" and isinstance(data, list) and len(data) == 4:
+        titles, urls = data[1], data[3]
+        lines.append(f"Found {len(titles) if isinstance(titles, list) else 0} Wikipedia matches.")
+        if isinstance(titles, list):
+            for index, title in enumerate(titles[:5]):
+                url = urls[index] if isinstance(urls, list) and index < len(urls) else ""
+                lines.append(f"- {_display_text(title, limit=140)}" + (f" | {_display_text(url, limit=240)}" if url else ""))
+    elif provider == "Hacker News" and isinstance(data, dict):
+        hits = data.get("hits", [])
+        lines.append(f"Found {len(hits)} Hacker News matches.")
+        for item in hits[:5]:
+            if not isinstance(item, dict):
+                continue
+            title = _display_text(item.get("title") or item.get("story_title") or "Untitled post", limit=160)
+            url = _display_text(item.get("url") or item.get("story_url") or "", limit=240)
+            points = item.get("points")
+            suffix = f" (points: {points})" if isinstance(points, int) else ""
+            lines.append(f"- {title}{suffix}" + (f" | {url}" if url else ""))
+    elif provider == "Stack Exchange" and isinstance(data, dict):
+        items = data.get("items", [])
+        lines.append(f"Found {len(items)} Stack Overflow questions.")
+        for item in items[:5]:
+            if not isinstance(item, dict):
+                continue
+            title = _display_text(item.get("title") or "Untitled question", limit=160)
+            url = _display_text(item.get("link") or "", limit=240)
+            score = item.get("score")
+            suffix = f" (score: {score})" if isinstance(score, int) else ""
+            lines.append(f"- {title}{suffix}" + (f" | {url}" if url else ""))
+    elif provider == "Open-Meteo" and isinstance(data, dict):
+        location = data.get("location") if isinstance(data.get("location"), dict) else {}
+        weather = data.get("weather") if isinstance(data.get("weather"), dict) else {}
+        current = weather.get("current") if isinstance(weather.get("current"), dict) else {}
+        place = ", ".join(filter(None, [
+            _display_text(location.get("name"), limit=80),
+            _display_text(location.get("admin1"), limit=80),
+            _display_text(location.get("country"), limit=80),
+        ])) or "requested location"
+        lines.append(f"Current weather for {place}:")
+        fields = [
+            ("temperature_2m", "temperature", "°C"),
+            ("apparent_temperature", "feels like", "°C"),
+            ("relative_humidity_2m", "humidity", "%"),
+            ("wind_speed_10m", "wind", " km/h"),
+            ("precipitation", "precipitation", " mm"),
+        ]
+        found = False
+        for key, label, unit in fields:
+            value = current.get(key)
+            if isinstance(value, (int, float)) and not isinstance(value, bool):
+                lines.append(f"- {label}: {value:g}{unit}")
+                found = True
+        if not found:
+            lines.append("- No current weather measurements were returned.")
+    else:
+        lines.append("A result was returned; see the bounded raw data below.")
+    lines.append(f"Source: {_display_text(observation.source_url, limit=300)}")
+    lines.append("Note: external content is untrusted and was not sent to the language model or saved.")
+    return "\\n".join(lines)
+
+
 def _run_api_command(command: str, api_tools: PublicAPITools) -> str | None:
     """Run an explicit, read-only public API command; never execute model-proposed tools."""
     parts = command.strip().split(maxsplit=2)
@@ -50,7 +137,7 @@ def _run_api_command(command: str, api_tools: PublicAPITools) -> str | None:
     rendered = json.dumps(payload, ensure_ascii=False, indent=2, default=str)
     if len(rendered) > 5000:
         rendered = rendered[:5000] + "\n… [output truncated]"
-    return rendered
+    return _summarize_api_observation(observation) + "\\n\\nRaw response (trusted=false):\\n" + rendered
 
 
 def chat_loop(brain, *, input_fn=input, output_fn=print, api_tools=None) -> None:
