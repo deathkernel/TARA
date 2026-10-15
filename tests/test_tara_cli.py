@@ -75,7 +75,7 @@ def test_api_commands_use_injected_public_apis_without_calling_llm():
         ("weather", "Pune"),
     ]
     assert brain.prompts == []
-    assert all("trusted": False for _ in [])  # marker intentionally not persisted
+    assert any("\\"trusted\\": false" in line for line in output)
     assert any("source_url" in line for line in output)
 
 
