@@ -69,7 +69,7 @@ def train_curated_candidate(
     report = Path(report_path).expanduser().resolve()
     if not baseline.is_file():
         raise FileNotFoundError(f"baseline checkpoint not found: {baseline}")
-    if candidate == baseline or report in {baseline, candidate, dataset_path}:
+    if len({dataset_path, baseline, candidate, report}) != 4:
         raise ValueError("dataset, baseline, candidate, and report paths must be distinct")
     for destination, label in ((candidate, "candidate checkpoint"), (report, "report")):
         if destination.exists():
