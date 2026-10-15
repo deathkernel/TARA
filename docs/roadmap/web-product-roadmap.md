@@ -5,7 +5,7 @@ This product roadmap supplements the existing engineering phase ledger in the ro
 - [x] 1. Create the monorepo workspace and initialize Next.js with TypeScript.
 - [x] 2. Build the responsive chat layout and sidebar (UI-only preview; no persistence or model calls yet).
 - [x] 3. Create the initial PostgreSQL migration and ownership-policy integration test.
-- [ ] 4. Implement conversation CRUD endpoints.
+- [x] 4. Implement ownership-scoped conversation CRUD and user-message endpoints (production remains disabled until trusted authentication is wired).
 - [ ] 5. Build the SSE chat interface with a mocked token stream.
 - [ ] 6. Create the Python inference service with a health endpoint.
 - [ ] 7. Connect the web backend to the inference adapter and run an end-to-end test.

@@ -14,5 +14,7 @@ SELECT count(*) INTO n FROM conversations; IF n<>1 THEN RAISE EXCEPTION 'convers
 SELECT count(*) INTO n FROM messages; IF n<>1 THEN RAISE EXCEPTION 'message visibility expected 1, got %',n; END IF;
 INSERT INTO messages(conversation_id,role,content) VALUES('20000000-0000-4000-8000-000000000001','assistant','Allowed');
 BEGIN INSERT INTO messages(conversation_id,role,content) VALUES('20000000-0000-4000-8000-000000000002','assistant','Blocked'); RAISE EXCEPTION 'cross-owner insert unexpectedly succeeded'; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+UPDATE conversations SET title='Owner A updated' WHERE id='20000000-0000-4000-8000-000000000001'; GET DIAGNOSTICS n=ROW_COUNT; IF n<>1 THEN RAISE EXCEPTION 'owner update expected 1 row, got %',n; END IF;
 UPDATE conversations SET title='Should not update' WHERE id='20000000-0000-4000-8000-000000000002'; GET DIAGNOSTICS n=ROW_COUNT; IF n<>0 THEN RAISE EXCEPTION 'cross-owner update changed % rows',n; END IF;
+DELETE FROM conversations WHERE id='20000000-0000-4000-8000-000000000002'; GET DIAGNOSTICS n=ROW_COUNT; IF n<>0 THEN RAISE EXCEPTION 'cross-owner delete changed % rows',n; END IF;
 END $test$; ROLLBACK;

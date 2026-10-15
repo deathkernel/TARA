@@ -32,3 +32,17 @@ psql "$TARA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f db/tests/ownership_policies
 ```
 
 The script checks per-owner row visibility, a same-owner message insert, rejection of a cross-owner insert, and prevention of cross-owner updates. All test fixtures and the temporary test role are rolled back. Never point this test at production.
+
+## Web API runtime role
+
+Create a dedicated runtime role using your database administration process (do not use the migration owner in the application):
+
+```sql
+CREATE ROLE tara_runtime LOGIN;
+GRANT USAGE ON SCHEMA public TO tara_runtime;
+GRANT SELECT, INSERT ON app_users TO tara_runtime;
+GRANT SELECT, INSERT, UPDATE, DELETE ON conversations TO tara_runtime;
+GRANT SELECT, INSERT ON messages TO tara_runtime;
+```
+
+Provision the password through your secret manager/environment, not source control. Ensure this role does not own these tables and has no `BYPASSRLS` privilege. The policies use `tara.user_id` transaction-locally; the API sets it from a fixed local-only development UUID until a trusted authentication adapter is implemented. Production requests fail closed with HTTP 401 until that adapter exists.
