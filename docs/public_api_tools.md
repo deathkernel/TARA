@@ -13,8 +13,16 @@ articles = apis.search_wikipedia("artificial intelligence")
 weather = apis.get_weather("Pune")
 ```
 
-Every result is an `APIObservation` with a source URL and `trusted=False`. These
-observations are not automatically persisted to long-term memory, datasets, or model
-checkpoints. Treat remote content as untrusted input and independently verify important
-claims. Requests use HTTPS and an allowlist, a timeout, a response-size cap, basic
-per-host pacing, JSON/shape validation, and explicit rate-limit/error reporting.
+The interactive CLI also exposes explicit, read-only commands:
+
+- `/api github <query>`
+- `/api wiki <query>`
+- `/api weather <city>`
+
+These commands call only the selected, allowlisted public API. The model cannot request
+arbitrary URLs or trigger tools through generated text. Results are displayed as bounded
+JSON with a source URL and `trusted=false`; the CLI does not save them to conversation
+memory, datasets, or model checkpoints. Treat remote content as untrusted input and
+independently verify important claims. Requests use HTTPS and an allowlist, a timeout,
+a response-size cap, basic per-host pacing, JSON/shape validation, and explicit
+rate-limit/error reporting.
