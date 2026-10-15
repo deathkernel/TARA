@@ -23,11 +23,11 @@ def _prepare(tmp_path: Path):
     return dataset, audit, queue, manifest, result
 
 
-def _complete_review(queue: Path, *, incomplete: bool = False):
+def _complete_review(queue: Path, *, incomplete: bool = False, approve_first: bool = True):
     with queue.open("r", encoding="utf-8", newline="") as stream:
         rows = list(csv.DictReader(stream))
     for index, row in enumerate(rows):
-        row["decision"] = "" if incomplete and index == 0 else ("approve" if index == 0 else "reject")
+        row["decision"] = "" if incomplete and index == 0 else ("approve" if approve_first and index == 0 else "reject")
         row["reviewer"] = "" if incomplete and index == 0 else "reviewer-1"
         row["notes"] = "independently checked" if row["decision"] == "approve" else "reviewed"
     with queue.open("w", encoding="utf-8", newline="") as stream:
@@ -75,6 +75,18 @@ def test_curate_incomplete_review_does_not_create_approved_dataset(tmp_path: Pat
     approved, manifest = tmp_path / "approved.jsonl", tmp_path / "curation-manifest.json"
     with pytest.raises(ValueError, match="review incomplete"):
         curate_pipeline(dataset, queue, approved, manifest)
+    assert not approved.exists()
+    assert not manifest.exists()
+
+
+def test_curate_all_rejected_rows_does_not_leave_empty_output(tmp_path: Path):
+    dataset, _, queue, _, _ = _prepare(tmp_path)
+    _complete_review(queue, approve_first=False)
+    approved, manifest = tmp_path / "approved.jsonl", tmp_path / "curation-manifest.json"
+
+    with pytest.raises(ValueError, match="no approved records"):
+        curate_pipeline(dataset, queue, approved, manifest)
+
     assert not approved.exists()
     assert not manifest.exists()
 
