@@ -34,3 +34,16 @@ def test_alternatives_and_revision_preserve_completed_work():
     assert plan.steps["step-0"].status == StepStatus.COMPLETED
     assert plan.revision == 1
     assert plan.steps["step-2"].dependencies == ("replacement",)
+
+
+
+def test_ready_steps_can_be_queried_repeatedly_before_execution():
+    plan = AdvancedPlanner().create("ship feature", ["design", "implement"])
+
+    first = plan.ready_steps()
+    second = plan.ready_steps()
+
+    assert first[0].step_id == "step-0"
+    assert second[0].step_id == "step-0"
+    assert plan.steps["step-0"].status == StepStatus.READY
+    assert plan.steps["step-1"].status == StepStatus.PENDING

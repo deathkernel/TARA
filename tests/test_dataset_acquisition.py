@@ -111,7 +111,7 @@ def test_streamer_does_not_need_datasets_import(monkeypatch):
             return {"splits": [{"dataset": "demo/source", "config": "default", "split": "train"}]}
         return {
             "rows": [
-                {"row_idx": 7, "row": {"text": "This is a valid public dataset example."}}
+                {"row_idx": 7, "row": {"text": "This is a valid public dataset example for TARA."}}
             ],
             "num_rows_total": 8,
         }
