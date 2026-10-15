@@ -62,4 +62,4 @@ jobs:
       - name: Install inference service test dependencies
         run: python -m pip install -r services/inference/requirements.txt
       - name: Test inference health endpoints
-        run: python -m pytest services/inference/tests -q
+        run: pytest services/inference/tests -q
