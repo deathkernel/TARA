@@ -18,14 +18,15 @@ from src.teacher_review import export_review_queue, import_review_decisions
 from src.teacher_training import train_curated_candidate, validate_approved_dataset
 
 
-def _distinct_new_paths(*named_paths: tuple[str, str | Path]) -> dict[str, Path]:
+def _distinct_new_paths(*named_paths: tuple[str, str | Path], must_be_new: tuple[str, ...] | None = None) -> dict[str, Path]:
     resolved = {name: Path(value).expanduser().resolve() for name, value in named_paths}
     if len(set(resolved.values())) != len(resolved):
         raise ValueError("all pipeline artifact paths must be distinct")
+    new_names = set(resolved) if must_be_new is None else set(must_be_new)
     for name, path in resolved.items():
-        if path.exists():
+        if name in new_names and path.exists():
             raise FileExistsError(f"Refusing to overwrite {name}: {path}")
-        if name == "candidate dataset" and path.with_name(path.name + ".tmp").exists():
+        if name == "candidate dataset" and name in new_names and path.with_name(path.name + ".tmp").exists():
             raise FileExistsError(f"Refusing to overwrite generator temporary file: {path.with_name(path.name + '.tmp')}")
     return resolved
 
@@ -100,6 +101,7 @@ def curate_pipeline(
         ("review CSV", review_csv),
         ("approved dataset", approved_dataset),
         ("curation manifest", manifest_path),
+        must_be_new=("approved dataset", "curation manifest"),
     )
     counts = import_review_decisions(
         paths["candidate dataset"], paths["review CSV"], paths["approved dataset"]
