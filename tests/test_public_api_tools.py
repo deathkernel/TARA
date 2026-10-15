@@ -2,6 +2,7 @@ import json
 from urllib.error import HTTPError
 
 import pytest
+from urllib.request import Request
 
 from src.public_api_tools import APIObservation, PublicAPIClient, PublicAPIError, PublicAPITools, _NoRedirectHandler
 
@@ -115,7 +116,7 @@ def test_stackoverflow_search_validates_items_and_query_limits():
 
 def test_redirect_handler_rejects_redirects():
     handler = _NoRedirectHandler()
-    request = __import__("urllib.request", fromlist=["Request"]).Request("https://api.github.com/example")
+    request = Request("https://api.github.com/example")
     assert handler.redirect_request(request, None, 302, "Found", {}, "https://example.com/steal") is None
 
 
