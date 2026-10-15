@@ -27,6 +27,38 @@ TARA's chat prompt and emotional-cue guidance support a balanced companion style
 - This is a conversational style, not a claim that TARA has human feelings, consciousness, or a real-world romantic partnership.
 - Regression coverage: `tests/test_identity_prompt.py` and `tests/test_emotional_intelligence.py`.
 
+## Context-aware emotion switching
+
+TARA's emotion layer includes a small state machine, EmotionSwitch, that updates the active response style turn by turn without loading another model.
+
+```text
+User message
+    |
+    v
+Keyword cue assessment
+    |
+    +-- clear emotion cue --> switch to the newly detected emotion
+    |
+    +-- neutral + continuity cue ("still", "abhi bhi", "same issue")
+    |                    --> keep the previous emotion for this follow-up
+    |
+    +-- neutral without continuity --> reset to neutral
+    |
+    v
+EmotionTransition (previous, current, changed, reason)
+    |
+    v
+LLM response-style guidance
+```
+
+- A new clear cue can switch sadness to joy, anxiety to anger, or another detected state.
+- Short follow-ups can retain context when they explicitly signal continuity (for example, abhi bhi or same issue).
+- Neutral messages reset the state unless continuity is signalled, preventing an old mood from sticking indefinitely.
+- brain.last_emotion and BrainResponse.emotion expose the active emotion for the current turn; EmotionTransition records why it switched.
+- This remains a transparent keyword heuristic, not a reliable reading of inner feelings. Mixed emotions, sarcasm, negation, and unfamiliar wording can still be misclassified.
+
+Regression coverage: tests/test_emotional_intelligence.py.
+
 ## Lightweight emotional intelligence
 
 TARA includes a deterministic, local emotional-cue layer in \`src/emotional_intelligence.py\`.
