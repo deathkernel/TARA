@@ -1,6 +1,5 @@
 """Polyglot algorithm planning, candidate generation, execution, and improvement."""
 
-from .archive import CandidateArchive
 from .candidate import PolyglotCandidate
 from .execution import PolyglotExecutionError, PolyglotExecutor
 from .generation import ModelCandidateGenerator, build_candidate_prompt
@@ -12,7 +11,7 @@ from .result import ExecutionResult
 from .self_improvement import ImprovementResult, SelfImprovementEngine
 
 __all__ = [
-    "CandidateArchive", "CandidateParseError", "ExecutionResult", "ImprovementResult",
+    "CandidateParseError", "ExecutionResult", "ImprovementResult",
     "KnowledgeExtractor", "KnowledgeRecord", "LanguageSpec", "ModelCandidateGenerator",
     "NoveltyAnalyzer", "NoveltyReport", "PolyglotCandidate", "PolyglotExecutionError",
     "PolyglotExecutor", "SelfImprovementEngine", "SimilarityMatch", "build_candidate_prompt",
