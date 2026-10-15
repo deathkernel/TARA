@@ -967,3 +967,39 @@ a substitute for task-specific held-out tests or a proof of general intelligence
 - CI must pass on the final exact head before this batch is validated. Windows focused tests and full Python/Rust suites remain pending.
 - Next: inspect exact-head CI, fix reproduced failures, run Windows validation in a separate worktree, review the full diff, and request explicit approval before merge.
 - No live teacher generation or real checkpoint training was executed during these remote repository edits.
+
+
+## Batch D — approval-gated model learning
+
+Batch D adds `src/teacher_training.py`, an explicit command that connects the Batch C reviewed-data pipeline to TARA's existing trainer and held-out evaluator. Training is blocked unless the JSONL dataset passes structural/provenance audit, contains no duplicates, and every record is marked `approved` with an explicit approve decision and reviewer. It writes a separate candidate checkpoint and an evidence report; it never overwrites the baseline or promotes the candidate automatically.
+
+```mermaid
+flowchart TD
+    A[Teacher candidates] --> B[Audit and human review]
+    B --> C[Approved-only JSONL]
+    C --> D[Approval gate]
+    D --> E[Train separate candidate]
+    E --> F[Same held-out suite: baseline vs candidate]
+    F --> G{Improvement and no regression?}
+    G -->|Yes| H[Evidence says accepted]
+    G -->|No| I[Evidence says rejected]
+    H --> J[Manual promotion only]
+    I --> J
+```
+
+Windows CMD example (choose new output paths; do not overwrite existing checkpoints):
+
+```bat
+python -m src.teacher_training data\\teacher_approved.jsonl checkpoints\\baseline.pt checkpoints\\batch_d_candidate.pt outputs\\batch_d_evidence.json --steps 100
+```
+
+A passing structural audit does not certify factual correctness. The fixed capability suite is a limited regression check, not proof of general intelligence. No real teacher generation, checkpoint training, or local Windows/full-suite validation was performed during remote repository editing.
+
+### Batch D handoff — 15 October 2026
+
+- Branch: `feature/tara-phase-d-model-learning`, stacked on Batch C branch `feature/tara-phase-c-teacher-data-quality`.
+- Draft PR is intended to target Batch C; it must remain unmerged until exact-head CI, Windows validation, full Python/Rust tests, and diff review are complete.
+- New module: `src/teacher_training.py`; tests: `tests/test_teacher_training.py`.
+- CI workflow includes the Batch D paths and focused tests. Check exact-head status before calling the batch validated.
+- Next: inspect CI logs and fix evidence-backed failures; run the focused tests and full suites in a separate worktree; review the full diff; ask for explicit merge approval.
+- Preserve local `checkpoints/`, `outputs/`, conversation JSONL/manifest data, and `test_voice.py`. Do not use destructive cleanup or merge without explicit approval.
