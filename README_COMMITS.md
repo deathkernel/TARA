@@ -1,12 +1,14 @@
 # TARA — Commit & Change Summary
 
 Repository: deathkernel/TARA  
-Branch reviewed: main  
-Snapshot: 24 Sep 2026
+Branch reviewed for this historical snapshot: main  
+Snapshot date: 24 Sep 2026
 
-## Commit Count
+> **Historical record — preserve this file.** The counts and “latest commit” below describe the snapshot date, not the current branch. Do not use these numbers as a live repository count. Consult GitHub commit history for current state. This file is intentionally retained so phase and supporting-work summaries are not lost during runtime cleanup.
 
-**Total commits on main: 518**
+## Commit Count at Snapshot
+
+**Total commits on main at snapshot: 518**
 
 This document keeps the history compact by grouping commits into phases/features instead of listing all 518 SHAs individually.
 
@@ -78,12 +80,13 @@ The remaining **415 unphased commits** contain the detailed implementation histo
 - Multimodal and autonomous capabilities
 - Testing, reproducibility, CI and repository hardening
 - Documentation and engineering cleanup
+- Optional Groq reasoning backend integration with budget controls
 
-## Latest Commit
+## Latest Commit at Snapshot
 
 **62ae2676 — docs: add explicit Phase 1-37 coverage index**
 
-The latest documented state includes the full Phase 1–37 coverage index.
+The latest documented state at this snapshot includes the full Phase 1–37 coverage index plus the optional Groq backend integration.
 
 ---
-Generated from the GitHub commit history of deathkernel/TARA.
+Generated from the GitHub commit history of deathkernel/TARA for the snapshot date above.

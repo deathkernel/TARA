@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 
+from .env import load_dotenv
 from .ollama_provider import OllamaProvider
 
 
@@ -12,6 +13,8 @@ def provider_from_env():
     Set TARA_LLM_BACKEND=ollama to enable local inference. Provider construction
     is explicit and does not download models or start background services.
     """
+    # Load local configuration before resolving the provider. Shell variables win.
+    load_dotenv()
     backend = os.getenv("TARA_LLM_BACKEND", "").strip().lower()
     if backend in {"", "none", "local"}:
         return None

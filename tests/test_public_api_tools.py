@@ -2,8 +2,9 @@ import json
 from urllib.error import HTTPError
 
 import pytest
+from urllib.request import Request
 
-from src.public_api_tools import APIObservation, PublicAPIClient, PublicAPIError, PublicAPITools
+from src.public_api_tools import APIObservation, PublicAPIClient, PublicAPIError, PublicAPITools, _NoRedirectHandler
 
 
 class FakeResponse:
@@ -87,3 +88,39 @@ def test_weather_validates_coordinates_and_returns_untrusted_data():
     assert result.data["location"]["name"] == "Pune"
     assert result.data["weather"]["current"]["temperature_2m"] == 30
     assert result.trusted is False
+
+
+def test_hacker_news_search_validates_hits_and_uses_allowlisted_host():
+    tools = PublicAPITools(fake_client({"hits": [{"title": "TARA"}]}))
+    result = tools.search_hacker_news("TARA")
+    assert result.data["hits"][0]["title"] == "TARA"
+    assert result.provider == "Hacker News"
+    assert result.trusted is False
+    assert "hn.algolia.com" in result.source_url
+    with pytest.raises(PublicAPIError, match="missing hits"):
+        PublicAPITools(fake_client({"items": []})).search_hacker_news("TARA")
+
+
+def test_stackoverflow_search_validates_items_and_query_limits():
+    tools = PublicAPITools(fake_client({"items": [{"title": "Python question"}]}))
+    result = tools.search_stackoverflow("python")
+    assert result.data["items"][0]["title"] == "Python question"
+    assert result.provider == "Stack Exchange"
+    assert result.trusted is False
+    assert "api.stackexchange.com" in result.source_url
+    with pytest.raises(ValueError):
+        tools.search_stackoverflow("x" * 201)
+    with pytest.raises(PublicAPIError, match="missing items"):
+        PublicAPITools(fake_client({"error_id": 400})).search_stackoverflow("python")
+
+
+def test_redirect_handler_rejects_redirects():
+    handler = _NoRedirectHandler()
+    request = Request("https://api.github.com/example")
+    assert handler.redirect_request(request, None, 302, "Found", {}, "https://example.com/steal") is None
+
+
+def test_stackoverflow_surfaces_provider_error_before_missing_items():
+    tools = PublicAPITools(fake_client({"error_id": 400, "error_name": "bad_parameter"}))
+    with pytest.raises(PublicAPIError, match="API error"):
+        tools.search_stackoverflow("python")

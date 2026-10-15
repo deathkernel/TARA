@@ -6,11 +6,18 @@ import time
 from dataclasses import dataclass
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urlparse
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 
 class PublicAPIError(RuntimeError):
     """A public API request failed or returned an unsafe response."""
+
+
+class _NoRedirectHandler(HTTPRedirectHandler):
+    """Reject redirects so an allowlisted URL cannot redirect to an untrusted host."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
 
 
 @dataclass(frozen=True)
@@ -24,7 +31,10 @@ class APIObservation:
 
 class PublicAPIClient:
     """HTTPS allowlist, bounded response, timeout and basic per-host pacing."""
-    ALLOWED_HOSTS = frozenset({"api.github.com", "en.wikipedia.org", "geocoding-api.open-meteo.com", "api.open-meteo.com"})
+    ALLOWED_HOSTS = frozenset({
+        "api.github.com", "en.wikipedia.org", "geocoding-api.open-meteo.com",
+        "api.open-meteo.com", "hn.algolia.com", "api.stackexchange.com",
+    })
 
     def __init__(self, *, timeout=8.0, max_response_bytes=1_000_000, min_interval=0.25, opener=None):
         if timeout <= 0 or max_response_bytes < 1 or min_interval < 0:
@@ -32,7 +42,7 @@ class PublicAPIClient:
         self.timeout = timeout
         self.max_response_bytes = max_response_bytes
         self.min_interval = min_interval
-        self._opener = opener or urlopen
+        self._opener = opener or build_opener(_NoRedirectHandler()).open
         self._last_request = {}
 
     def get_json(self, url, *, provider):
@@ -74,14 +84,19 @@ class PublicAPIClient:
 
 
 class PublicAPITools:
-    """Curated, read-only public APIs: GitHub search, Wikipedia and Open-Meteo."""
+    """Curated read-only queries: GitHub, Wikipedia, Open-Meteo, Hacker News, Stack Exchange."""
     def __init__(self, client=None):
         self.client = client or PublicAPIClient()
 
-    def search_github_repositories(self, query, *, limit=5):
+    @staticmethod
+    def _validate_query_limit(query, limit):
         query = query.strip()
-        if not query or not 1 <= limit <= 10:
-            raise ValueError("query must be non-empty and limit must be between 1 and 10")
+        if not query or len(query) > 200 or not 1 <= limit <= 10:
+            raise ValueError("query must contain 1-200 characters and limit must be between 1 and 10")
+        return query
+
+    def search_github_repositories(self, query, *, limit=5):
+        query = self._validate_query_limit(query, limit)
         url = "https://api.github.com/search/repositories?" + urlencode({"q": query, "per_page": limit, "sort": "stars"})
         result = self.client.get_json(url, provider="GitHub")
         if not isinstance(result.data, dict) or not isinstance(result.data.get("items"), list):
@@ -89,19 +104,39 @@ class PublicAPITools:
         return result
 
     def search_wikipedia(self, query, *, limit=5):
-        query = query.strip()
-        if not query or not 1 <= limit <= 10:
-            raise ValueError("query must be non-empty and limit must be between 1 and 10")
+        query = self._validate_query_limit(query, limit)
         url = "https://en.wikipedia.org/w/api.php?" + urlencode({"action": "opensearch", "search": query, "limit": limit, "namespace": 0, "format": "json"})
         result = self.client.get_json(url, provider="Wikipedia")
         if not isinstance(result.data, list) or len(result.data) != 4:
             raise PublicAPIError("Wikipedia response has an unexpected shape")
         return result
 
+    def search_hacker_news(self, query, *, limit=5):
+        query = self._validate_query_limit(query, limit)
+        url = "https://hn.algolia.com/api/v1/search?" + urlencode({"query": query, "hitsPerPage": limit})
+        result = self.client.get_json(url, provider="Hacker News")
+        if not isinstance(result.data, dict) or not isinstance(result.data.get("hits"), list):
+            raise PublicAPIError("Hacker News response is missing hits")
+        return result
+
+    def search_stackoverflow(self, query, *, limit=5):
+        query = self._validate_query_limit(query, limit)
+        url = "https://api.stackexchange.com/2.3/search/advanced?" + urlencode({
+            "order": "desc", "sort": "relevance", "q": query, "site": "stackoverflow", "pagesize": limit,
+        })
+        result = self.client.get_json(url, provider="Stack Exchange")
+        if not isinstance(result.data, dict):
+            raise PublicAPIError("Stack Exchange response has an unexpected shape")
+        if result.data.get("error_id"):
+            raise PublicAPIError("Stack Exchange returned an API error")
+        if not isinstance(result.data.get("items"), list):
+            raise PublicAPIError("Stack Exchange response is missing items")
+        return result
+
     def get_weather(self, city):
         city = city.strip()
-        if not city:
-            raise ValueError("city must not be empty")
+        if not city or len(city) > 120:
+            raise ValueError("city must contain 1-120 characters")
         geo_url = "https://geocoding-api.open-meteo.com/v1/search?" + urlencode({"name": city, "count": 1, "language": "en", "format": "json"})
         geo = self.client.get_json(geo_url, provider="Open-Meteo geocoding")
         places = geo.data.get("results", []) if isinstance(geo.data, dict) else []
