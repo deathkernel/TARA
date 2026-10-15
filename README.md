@@ -1003,3 +1003,47 @@ A passing structural audit does not certify factual correctness. The fixed capab
 - CI workflow includes the Batch D paths and focused tests. Check exact-head status before calling the batch validated.
 - Next: inspect CI logs and fix evidence-backed failures; run the focused tests and full suites in a separate worktree; review the full diff; ask for explicit merge approval.
 - Preserve local `checkpoints/`, `outputs/`, conversation JSONL/manifest data, and `test_voice.py`. Do not use destructive cleanup or merge without explicit approval.
+
+
+## Batch E — end-to-end teacher pipeline integration
+
+Batch E connects teacher generation, data audit, manual review, approved-only curation, TARA candidate training, and held-out evaluation in a staged CLI. It deliberately stops for human review before curation. It does **not** automatically trust teacher answers, train Llama weights, or promote a checkpoint.
+
+```mermaid
+flowchart TD
+    A[Ollama teacher] --> B[Prepare: generate and audit]
+    B --> C[Review CSV]
+    C --> D[Human verifies and decides]
+    D --> E[Curate approved-only JSONL]
+    E --> F[Train separate TARA candidate]
+    F --> G[Held-out baseline/candidate comparison]
+    G --> H{Improved without regression?}
+    H -->|Yes| I[Accepted evidence]
+    H -->|No| J[Rejected evidence]
+    I --> K[Manual review only]
+    J --> K
+```
+
+Windows CMD example (all artifact outputs must be new paths):
+
+```bat
+ollama list
+set TARA_LLM_BACKEND=ollama
+python -m src.teacher_pipeline prepare --dataset outputs\batch_e_candidates.jsonl --audit-report outputs\batch_e_audit.json --review-csv outputs\batch_e_review.csv --manifest outputs\batch_e_prepare_manifest.json --per-domain 2
+```
+
+After independently reviewing every row in the CSV:
+
+```bat
+python -m src.teacher_pipeline curate --dataset outputs\batch_e_candidates.jsonl --review-csv outputs\batch_e_review.csv --approved-dataset data\batch_e_approved.jsonl --manifest outputs\batch_e_curation_manifest.json
+python -m src.teacher_pipeline train --dataset data\batch_e_approved.jsonl --baseline checkpoints\baseline.pt --candidate checkpoints\batch_e_candidate.pt --report outputs\batch_e_evidence.json --steps 100
+```
+
+### Batch E handoff — 15 October 2026
+
+- Branch: `feature/tara-phase-e-teacher-pipeline-integration`, stacked on Batch D branch `feature/tara-phase-d-model-learning`.
+- Added `src/teacher_pipeline.py` (prepare/curate/train) and `tests/test_teacher_pipeline.py`; updated CI focused paths/tests and the detailed teacher-learning docs.
+- Exact-head CI, Windows tests, and full Python/Rust suites remain pending until actually observed.
+- No real teacher generation or model training was run during remote editing.
+- Next: check CI logs, fix evidence-backed failures, run validation in a separate worktree, review the full stacked diff, and request explicit approval before merging.
+- Preserve local checkpoints, outputs, conversation JSONL/manifests, and `test_voice.py`; no destructive cleanup.
