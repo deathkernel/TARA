@@ -7,13 +7,6 @@ from .brain import TARABrain
 from .llm_provider_factory import provider_from_env
 
 
-class OllamaChatBrain(TARABrain):
-    """TARA brain that relies on its configured language provider only."""
-
-    def generate(self, prompt, *, max_new_tokens=32, temperature=1.0, top_k=None, top_p=None):
-        raise RuntimeError("No local TARA checkpoint fallback is available; use the configured language provider.")
-
-
 def chat_loop(brain, *, input_fn=input, output_fn=print) -> None:
     """Run chat without saving or recalling conversation history."""
     output_fn("TARA chat is ready. Type /help for commands, /exit to quit.")
@@ -67,7 +60,7 @@ def main() -> int:
         if provider is None:
             print("TARA chat needs a language provider. Set TARA_LLM_BACKEND=ollama.")
             return 2
-        brain = OllamaChatBrain(model=None, tokenizer=None, llm_provider=provider)
+        brain = TARABrain(llm_provider=provider)
     except (ValueError, RuntimeError, OSError) as exc:
         print(f"TARA could not start: {exc}")
         return 2
