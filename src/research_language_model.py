@@ -47,7 +47,7 @@ class RotaryEmbedding(nn.Module):
             dtype=self.inverse_frequencies.dtype,
         )
         frequencies = torch.outer(positions, self.inverse_frequencies.to(query.device))
-        angles = torch.cat((frequencies, frequencies), dim=-1)
+        angles = frequencies.repeat_interleave(2, dim=-1)
         # The repeated halves correspond to adjacent-pair rotation after rotate_half.
         cos = angles.cos()[None, None, :, :].to(dtype=query.dtype)
         sin = angles.sin()[None, None, :, :].to(dtype=query.dtype)
