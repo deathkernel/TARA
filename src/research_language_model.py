@@ -7,8 +7,6 @@ SwiGLU in a small, configurable PyTorch implementation.
 """
 from __future__ import annotations
 
-import math
-
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -48,7 +46,7 @@ class RotaryEmbedding(nn.Module):
         )
         frequencies = torch.outer(positions, self.inverse_frequencies.to(query.device))
         angles = frequencies.repeat_interleave(2, dim=-1)
-        # The repeated halves correspond to adjacent-pair rotation after rotate_half.
+        # Repeat each frequency for its adjacent feature pair.
         cos = angles.cos()[None, None, :, :].to(dtype=query.dtype)
         sin = angles.sin()[None, None, :, :].to(dtype=query.dtype)
         return (
