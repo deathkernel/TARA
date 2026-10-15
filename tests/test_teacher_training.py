@@ -141,3 +141,13 @@ def test_nonaccepted_candidate_is_reported_without_promotion(tmp_path: Path):
     assert result["decision"]["accepted"] is False
     assert candidate.exists() and report.exists()
     assert "No checkpoint is promoted automatically" in result["interpretation"]
+
+
+def test_training_rejects_artifact_path_collisions(tmp_path: Path):
+    dataset = tmp_path / "approved.jsonl"
+    make_dataset(dataset)
+    baseline = tmp_path / "baseline.pt"
+    baseline.write_bytes(b"baseline")
+    with pytest.raises(ValueError, match="paths must be distinct"):
+        train_curated_candidate(dataset, baseline, dataset, tmp_path / "report.json",
+            steps=2, trainer_factory=FakeTrainer, evaluator=FakeEvaluator())
