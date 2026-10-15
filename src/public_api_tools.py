@@ -6,11 +6,18 @@ import time
 from dataclasses import dataclass
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urlparse
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 
 class PublicAPIError(RuntimeError):
     """A public API request failed or returned an unsafe response."""
+
+
+class _NoRedirectHandler(HTTPRedirectHandler):
+    """Reject redirects so an allowlisted URL cannot redirect to an untrusted host."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
 
 
 @dataclass(frozen=True)
@@ -35,7 +42,7 @@ class PublicAPIClient:
         self.timeout = timeout
         self.max_response_bytes = max_response_bytes
         self.min_interval = min_interval
-        self._opener = opener or urlopen
+        self._opener = opener or build_opener(_NoRedirectHandler()).open
         self._last_request = {}
 
     def get_json(self, url, *, provider):
@@ -118,10 +125,12 @@ class PublicAPITools:
             "order": "desc", "sort": "relevance", "q": query, "site": "stackoverflow", "pagesize": limit,
         })
         result = self.client.get_json(url, provider="Stack Exchange")
-        if not isinstance(result.data, dict) or not isinstance(result.data.get("items"), list):
-            raise PublicAPIError("Stack Exchange response is missing items")
+        if not isinstance(result.data, dict):
+            raise PublicAPIError("Stack Exchange response has an unexpected shape")
         if result.data.get("error_id"):
             raise PublicAPIError("Stack Exchange returned an API error")
+        if not isinstance(result.data.get("items"), list):
+            raise PublicAPIError("Stack Exchange response is missing items")
         return result
 
     def get_weather(self, city):
