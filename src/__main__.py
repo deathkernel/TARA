@@ -46,7 +46,14 @@ def chat_loop(brain, *, input_fn=input, output_fn=print) -> None:
         if command == "/help":
             output_fn(
                 "Commands: /help, /exit, /learn <key>=<fact>, "
-                "/remember <key>=<fact>, /memory, /forget <key>"
+                "/remember <key>=<fact>, /memory, /emotion, /forget <key>"
+            )
+            continue
+        if command == "/emotion":
+            label = getattr(brain, "last_emotion", "neutral")
+            output_fn(
+                f"TARA: Last detected emotional cue: {label}. "
+                "This is a lightweight text estimate, not a diagnosis; I do not literally feel emotions."
             )
             continue
         if command == "/memory":
