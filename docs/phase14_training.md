@@ -34,8 +34,8 @@ observe → memory → generate → verify → recover
 
 ```bash
 python train_algorithm_lm.py \
-  --data data/algorithm_tasks.jsonl \
-  --output checkpoints/algorithm_lm.pt \
+  --data data/teacher/approved.jsonl \
+  --output checkpoints/teacher_candidate_new.pt \
   --steps 1000 \
   --validation-split 0.1
 ```
@@ -46,9 +46,9 @@ The command performs the actual training. Importing the training module does not
 
 ```bash
 python train_algorithm_lm.py \
-  --data data/algorithm_tasks.jsonl \
-  --output checkpoints/algorithm_lm.pt \
-  --resume checkpoints/algorithm_lm.pt \
+  --data data/teacher/approved.jsonl \
+  --output checkpoints/teacher_candidate_resume.pt \
+  --resume checkpoints/teacher_candidate_existing.pt \
   --steps 1000
 ```
 
@@ -59,7 +59,7 @@ Resume requires the same dataset fingerprint and model configuration. This preve
 ```python
 from src.brain import TARABrain
 
-brain = TARABrain.from_checkpoint("checkpoints/algorithm_lm.pt")
+brain = TARABrain.from_checkpoint("checkpoints/teacher_candidate_new.pt")
 response = brain.respond("Problem: sort a list")
 print(response.text)
 ```
@@ -88,3 +88,10 @@ A Phase 14 checkpoint contains:
 - complete training `config`
 
 This gives later continual-learning and evaluation phases a stable handoff point.
+
+ 
+## Migration note — approved Ollama teacher data
+ 
+The historical `data/algorithm_tasks.jsonl` sample remains in the repository for reproducible legacy experiments, but it is no longer the default training input. The main training/preflight CLIs now default to `data/teacher/approved.jsonl` and block data without explicit human approval and reviewer metadata. Legacy public-corpus trainers require explicit opt-in.
+ 
+For the recommended safety/evidence-gated workflow, use `python -m src.teacher_pipeline prepare`, then review every row in the generated CSV, run `curate` to create approved-only JSONL, and run `train` with a read-only baseline plus a new candidate checkpoint and evidence report. See `docs/tara_multi_domain_teacher_learning.md`. Never reuse an existing output path.

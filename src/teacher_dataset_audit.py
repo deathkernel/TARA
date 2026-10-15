@@ -48,6 +48,7 @@ def audit_teacher_dataset(path: str | Path) -> TeacherDatasetAudit:
     fingerprints: list[str] = []
     pairs: list[str] = []
     domain_counts: Counter[str] = Counter()
+    valid_record_count = 0
     try:
         lines = source.read_text(encoding="utf-8").splitlines()
     except OSError as exc:
@@ -82,7 +83,7 @@ def audit_teacher_dataset(path: str | Path) -> TeacherDatasetAudit:
         if not instruction.strip() or not answer.strip():
             issues.append(AuditIssue("empty-content", "error", line_number, "instruction and answer must be non-empty"))
         if item["source"] != "ollama_teacher_generated":
-            issues.append(AuditIssue("unexpected-source", "warning", line_number, f"source is {item['source']!r}"))
+            issues.append(AuditIssue("unexpected-source", "error", line_number, f"source is {item['source']!r}; expected 'ollama_teacher_generated'"))
         if not item["teacher_model"].strip():
             issues.append(AuditIssue("missing-teacher-model", "error", line_number, "teacher_model must be non-empty"))
         if item["review_status"] not in {"unverified_candidate", "approved", "rejected"}:

@@ -4,6 +4,26 @@
 
 TARA is a research-first neural-network project built from mathematical and implementation fundamentals. The goal is a highly capable, inspectable artificial reasoning system that connects a neural language core with perception, memory, structured reasoning, advanced planning, intelligent tools, algorithm discovery, self-improvement, continual learning, reflection, autonomous tasks, scheduling, temporal context and an explicit world model.
 
+ 
+## Default training data: Ollama teacher + human approval
+ 
+The supported training-data path is now **Ollama-generated candidates → structural/provenance audit → independent human review → approved-only JSONL → separate TARA candidate checkpoint → held-out evaluation**. Generated answers are untrusted until independently checked. No training runs during chat, and no checkpoint is promoted automatically.
+ 
+```mermaid
+flowchart TD
+    A[Local Ollama teacher] --> B[Candidate JSONL]
+    B --> C[Schema, fingerprint and provenance audit]
+    C --> D[Human review CSV]
+    D --> E[Approved-only JSONL]
+    E --> F[Train separate candidate]
+    F --> G[Baseline vs candidate held-out gate]
+    G --> H[Manual decision; no auto-promotion]
+```
+ 
+Start with `python -m src.teacher_pipeline --help`, the [teacher-learning guide](docs/tara_multi_domain_teacher_learning.md), and the [migration/dependency audit](docs/teacher_data_migration.md). The default approved-data path is `data/teacher/approved.jsonl`; it is intentionally not committed with generated user data. Create it through the review/curation workflow. Choose fresh output paths; pipeline stages refuse to overwrite existing artifacts.
+ 
+The old `data/algorithm_tasks.jsonl` and public-corpus acquisition tools are retained as **legacy research assets** during this migration, but they are no longer the default input for the main training/preflight CLIs. Public-corpus trainers require an explicit `--legacy-public-dataset` opt-in. Do not delete old data, local checkpoints, outputs, or conversation files as part of this migration.
+
 ## Runtime identity and model attribution
 
 The interactive chat sets a backend-specific system prompt in `src/brain.py` so TARA can accurately distinguish its application from the language model that generates responses.
@@ -138,16 +158,16 @@ The repository now has an explicit readiness gate before the first real training
 Run the gate first:
 
 ```bash
-python training_preflight.py --data data/algorithm_tasks.jsonl --context 128
+python training_preflight.py --data data/teacher/approved.jsonl --context 128
 ```
 
 A successful preflight means the repository prerequisites are satisfied. It does **not** mean that training has already happened or that the resulting model will be capable; those require an actual training run and measured evaluation.
 
-## Public curriculum dataset pipeline
+## Legacy public curriculum dataset pipeline (optional research tooling)
 
 TARA now has a bounded public-dataset acquisition layer. It streams selected Hugging Face datasets instead of downloading entire multi-terabyte corpora, then applies text-length filtering, deterministic shuffling, cross-source deduplication, provenance/license metadata and a reproducible fingerprint.
 
-The current curriculum manifest is in `data/dataset_sources.json`.
+Legacy only: the public-corpus curriculum manifest remains in `data/dataset_sources.json` for reproducible historical experiments. It is not the default training source after the Ollama teacher-data migration.
 
 ### Basic level
 
@@ -163,19 +183,19 @@ The current curriculum manifest is in `data/dataset_sources.json`.
 Prepare a bounded Basic v1 sample without downloading an entire corpus:
 
 ```bash
-python prepare_tara_dataset.py --level basic --max-records-per-source 1000 --output data/basic_v1.jsonl
+python prepare_tara_dataset.py --level basic --max-records-per-source 1000 --output data/basic_v1.jsonl  # legacy public-data acquisition only
 ```
 
-The resulting JSONL is directly consumable by the existing training pipeline because each curated record contains a `text` field. The preparation command is an explicit data operation; it does not start model training.
+The resulting JSONL is retained for legacy research experiments only. It is not accepted by the default training/preflight path; use `--allow-legacy-data` only when deliberately running a historical experiment. The preparation command does not start model training.
 
 The public source manifest records dataset identity, organization, role and stated licensing information. Downstream use must still follow each upstream dataset's current terms and provenance requirements.
 
 ## Phase 37.11 — Single-Command Learning Pipeline Complete
 
-`run_learning_experiment.py` connects baseline evaluation, explicit training, candidate evaluation and evidence-gated promotion into one reproducible workflow.
+`run_learning_experiment.py` connects baseline evaluation, explicit training, candidate evaluation and evidence-gated decisions. It now requires human-approved Ollama teacher data by default; use `--allow-legacy-data` only for an explicitly chosen historical experiment.
 
 ```bash
-python run_learning_experiment.py checkpoints/baseline.pt data/algorithm_tasks.jsonl checkpoints/candidate.pt --steps 100
+python -m src.teacher_pipeline train --dataset data/teacher/approved.jsonl --baseline checkpoints/baseline.pt --candidate checkpoints/teacher_candidate_new.pt --report outputs/teacher_evidence_new.json --steps 100
 ```
 
 The candidate is accepted only after real evaluation shows strict overall improvement without a permitted category regression. Training is an injected explicit operation; no normal TARA runtime silently starts heavy training.
@@ -690,7 +710,7 @@ Added `src/learning_experiment.py` for baseline/candidate evaluation, capability
 Connected baseline evaluation, explicit training, candidate evaluation and evidence-gated promotion:
 
 ```bash
-python run_learning_experiment.py checkpoints/baseline.pt data/algorithm_tasks.jsonl checkpoints/candidate.pt --steps 100
+python run_learning_experiment.py checkpoints/baseline.pt data/teacher/approved.jsonl checkpoints/teacher_candidate_new.pt --steps 100 --report outputs/teacher_learning_new.json
 ```
 
 A candidate is accepted only when measured improvement satisfies the configured regression/progression gates.
@@ -776,19 +796,19 @@ TARA_GROQ_MAX_COMPLETION_TOKENS=1024
 ## Preflight
 
 ```bash
-python training_preflight.py --data data/algorithm_tasks.jsonl --context 128
+python training_preflight.py --data data/teacher/approved.jsonl --context 128
 ```
 
-## Fast TinyStories experiment
+## Legacy Fast TinyStories experiment (explicit opt-in)
 
 ```bash
-python train_fast.py --dataset tinystories --steps 1000 --batch-size 16
+python train_fast.py --dataset tinystories --legacy-public-dataset --steps 1000 --batch-size 16
 ```
 
 ## Algorithm language-model training
 
 ```bash
-python train_algorithm_lm.py --data data/algorithm_tasks.jsonl
+python train_algorithm_lm.py --data data/teacher/approved.jsonl --output checkpoints/teacher_algorithm_candidate_new.pt
 ```
 
 ## Capability evaluation
@@ -800,7 +820,7 @@ python evaluate_tara_capabilities.py checkpoints/algorithm_lm.pt --output experi
 ## Evidence-gated learning experiment
 
 ```bash
-python run_learning_experiment.py checkpoints/baseline.pt data/algorithm_tasks.jsonl checkpoints/candidate.pt --steps 100
+python run_learning_experiment.py checkpoints/baseline.pt data/teacher/approved.jsonl checkpoints/teacher_candidate_new.pt --steps 100 --report outputs/teacher_learning_new.json
 ```
 
 ---

@@ -31,18 +31,32 @@ Each JSONL record includes the instruction, answer, domain, teacher model, SHA-2
 
 Teacher-generated answers can be wrong, repetitive, or poorly reasoned. The generator only performs basic structural checks and exact-record deduplication; it does not prove factual or code correctness. Review/filter examples and evaluate on a separate held-out set before training.
 
-After review, run TARA's existing explicit training workflow against a curated dataset and a separate candidate checkpoint, for example:
-
+Use the integrated pipeline so the review gate and held-out evaluation cannot be skipped by accident. Run each stage separately, and choose paths that do not already exist:
+ 
 ```bat
-python run_training_experiment.py --data data/llama_teacher_reviewed.jsonl --output checkpoints/llama_teacher_candidate.pt --steps 100
+python -m src.teacher_pipeline prepare --dataset outputs\teacher_candidates_migration.jsonl --audit-report outputs\teacher_audit_migration.json --review-csv outputs\teacher_review_migration.csv --manifest outputs\teacher_prepare_migration.json --per-domain 2
 ```
-
-The reviewed dataset path above is an example: create it from checked examples first. This command trains TARA's own model architecture; it does not change Llama's weights. To claim improvement, compare baseline and candidate on held-out capability tests and keep the candidate only if it passes the existing evaluation gate. Do not overwrite user checkpoints, personal conversation data, or experiment outputs.
+ 
+Open the review CSV and independently check every answer. Enter `approve` or `reject` and a reviewer identifier for every row. Then curate:
+ 
+```bat
+if not exist data\teacher mkdir data\teacher
+python -m src.teacher_pipeline curate --dataset outputs\teacher_candidates_migration.jsonl --review-csv outputs\teacher_review_migration.csv --approved-dataset data\teacher\approved_migration.jsonl --manifest outputs\teacher_curation_migration.json
+```
+ 
+Finally train and evaluate a separate candidate:
+ 
+```bat
+python -m src.teacher_pipeline train --dataset data\teacher\approved_migration.jsonl --baseline checkpoints\baseline.pt --candidate checkpoints\teacher_candidate_migration.pt --report outputs\teacher_evidence_migration.json --steps 100
+```
+ 
+The baseline checkpoint must already exist; the candidate and report paths must be new. If any output already exists, choose a new name rather than deleting or overwriting it. This trains TARA's own model architecture; it does not change Ollama/Llama weights. The held-out gate is a limited regression check, not proof of general intelligence.
 
 ## What this is and is not
 
 - This pipeline uses Llama-generated answers as one teacher-data source; it does not access Llama's raw pretraining corpus.
-- It complements public datasets, curated examples, verified tool outcomes, and user-approved conversation memory.
+- The default production path is Ollama-generated data with explicit human approval. Public-corpus acquisition remains a legacy research option, not the default training source.
+- Verified tool outcomes and user-approved conversation memory are separate data sources and must not be silently mixed into the approved teacher dataset.
 - Memory updates improve retrieved context. Model training updates a checkpoint. These are separate mechanisms.
 - Large-scale teacher generation and training can consume substantial time, RAM, disk, and CPU/GPU resources; start small.
 

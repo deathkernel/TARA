@@ -48,6 +48,7 @@ def sample_batch(windows, batch_size, rng, device):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", choices=list_datasets(), default="tinystories")
+    parser.add_argument("--legacy-public-dataset", action="store_true", help="explicitly opt in to the retired public-corpus experiment instead of Ollama-approved teacher data")
     parser.add_argument("--tokenizer", choices=("char", "bpe"), default="char")
     parser.add_argument("--vocab-size", type=int, default=128)
     parser.add_argument("--train-chars", type=int, default=16384)
@@ -62,6 +63,9 @@ def main():
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--device", default="cpu")
     args = parser.parse_args()
+
+    if not args.legacy_public_dataset:
+        parser.error("This is a legacy public-dataset trainer. Use the Ollama teacher pipeline; add --legacy-public-dataset only for historical experiments.")
 
     random.seed(args.seed)
     torch.manual_seed(args.seed)
