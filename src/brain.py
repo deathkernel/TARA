@@ -27,6 +27,7 @@ from .tool_intelligence import ToolAttempt, ToolCapability, ToolIntelligence
 from .world_state import WorldContext, WorldModel
 from .groq_provider import GroqProvider
 from .elevenlabs_tts import ElevenLabsTTS
+from .emotional_intelligence import EmotionalIntelligence
 
 def _tara_system_prompt(model_name: str | None) -> str:
     """Return a truthful identity prompt for the configured TARA language backend."""
@@ -60,6 +61,7 @@ class BrainResponse:
     recalled: tuple = ()
     observations: tuple = ()
     temporal_context: str = ""
+    emotion: str = "neutral"
 
 class TARABrain:
     def __init__(self, model, tokenizer=None, *, engine=None, memory=None, seed=0, reflection=None,
@@ -90,6 +92,9 @@ class TARABrain:
         self.experience_learning = experience_learning or ExperienceLearningEngine()
         self.intelligence_improver = intelligence_improver or IntelligenceImprovementEngine()
         self.llm_provider = llm_provider
+        # Deterministic local heuristics; no second model or extra inference pass.
+        self.emotional_intelligence = EmotionalIntelligence()
+        self.last_emotion = "neutral"
         self.voice = ElevenLabsTTS.from_env() if voice is None else voice
         self.cognitive_loop = cognitive_loop or UnifiedCognitiveLoop(
             reasoner=self.reasoner, planner=self.planner, tools=self.tools, memory=self.memory,
@@ -219,23 +224,35 @@ class TARABrain:
 
     def respond(self, prompt, *, remember_key=None, importance=1.0, max_new_tokens=32,
                 temperature=1.0, top_k=None, top_p=None, speak=False):
-        self.observe(prompt, remember_key=remember_key, importance=importance, source="user", kind="prompt"); recalled=tuple(self.memory.retrieve(prompt)); context=self.build_reasoning_context(prompt, recalled=recalled)
+        emotion = self.emotional_intelligence.assess(prompt)
+        self.last_emotion = emotion.label
+        self.observe(prompt, remember_key=remember_key, importance=importance, source="user", kind="prompt")
+        recalled = tuple(self.memory.retrieve(prompt))
+        context = self.build_reasoning_context(prompt, recalled=recalled)
         if self.llm_provider is not None:
             try:
+                system_prompt = _tara_system_prompt(getattr(self.llm_provider, "model", None))
+                system_prompt += "\\n\\n" + self.emotional_intelligence.system_guidance(emotion)
                 text = self.llm_provider.complete(
                     context,
-                    system=_tara_system_prompt(getattr(self.llm_provider, "model", None)),
+                    system=system_prompt,
                     max_completion_tokens=max_new_tokens,
                     temperature=temperature,
                 )
             except (RuntimeError, TimeoutError):
                 text = self.generate(context, max_new_tokens=max_new_tokens, temperature=temperature, top_k=top_k, top_p=top_p)
         else:
-            # The local fallback should preserve the user's prompt; the richer
-            # context is available to an injected LLM provider instead.
+            # Preserve the user prompt when using the tiny local fallback model.
             text = self.generate(prompt, max_new_tokens=max_new_tokens, temperature=temperature, top_k=top_k, top_p=top_p)
         if speak:
             self.speak(text)
-        return BrainResponse(text=text, recalled=recalled, observations=tuple(self.engine.state.observations.recent()), temporal_context=self.temporal_context().as_prompt_context())
+        return BrainResponse(
+            text=text,
+            recalled=recalled,
+            observations=tuple(self.engine.state.observations.recent()),
+            temporal_context=self.temporal_context().as_prompt_context(),
+            emotion=emotion.label,
+        )
+
     def verify_result(self, observed, expected): return self.agent.submit_result(observed, expected)
     def recover(self, replacement_tasks): return self.agent.recover(replacement_tasks)
