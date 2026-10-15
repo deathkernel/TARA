@@ -137,6 +137,8 @@ class EmotionSwitch:
     previous emotion is retained for that turn. This avoids indefinitely
     carrying a stale emotional state across unrelated messages."""
 
+    _CONTRAST_CUES = ("but now", "but today", "however", "now i feel", "lekin ab", "par ab", "ab main", "ab mujhe", "finally")
+
     _CONTINUITY_CUES = (
         "still", "same issue", "same problem", "abhi bhi", "abhi tak",
         "wahi", "uske baad", "that is why", "isliye", "because of that",
@@ -154,9 +156,14 @@ class EmotionSwitch:
         self.last_assessment = self.intelligence.assess("")
 
     def update(self, text: str) -> EmotionTransition:
-        assessment = self.intelligence.assess(text)
-        previous = self.active_emotion
         normalized = " ".join(text.lower().split())
+        # When the user explicitly describes a change, assess the latest clause
+        # rather than letting an earlier emotion word dominate the whole turn.
+        contrast_positions = [normalized.rfind(cue) for cue in self._CONTRAST_CUES]
+        contrast_position = max(contrast_positions, default=-1)
+        assessment_text = normalized[contrast_position + len(self._CONTRAST_CUES[contrast_positions.index(contrast_position)]):].strip() if contrast_position >= 0 else text
+        assessment = self.intelligence.assess(assessment_text or text)
+        previous = self.active_emotion
 
         if assessment.label != "neutral":
             self.active_emotion = assessment.label
