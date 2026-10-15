@@ -1301,3 +1301,69 @@ flowchart TD
 - [ ] All intended PR dependencies and diffs are reviewed.
 - [ ] User explicitly approves integration; no PR is merged by implication.
 
+
+
+## Live repository audit and bulk-progress snapshot — 2026-10-15
+
+> This snapshot supersedes older CI statements below where the same PR/head now has newer evidence. It is a GitHub-hosted repository audit, not a claim that the Windows working copy was tested. Keep PRs unmerged until the user explicitly approves integration.
+
+### Verified branch / PR graph
+
+```mermaid
+flowchart TD
+    P5["PR #5: optional Ollama provider"] --> P6["PR #6: conversation memory"]
+    P6 --> P7["PR #7: teacher dataset pipeline"]
+    P7 --> P8["PR #8: Self-Developer v1"]
+    P8 --> P9["PR #9: AI ecosystem research"]
+    P9 --> P10["PR #10: cleanup candidates"]
+    P8 --> P11["PR #11: pytest-xdist trial"]
+    P6 -. "separate older base chain; verify dependency" .-> REVIEW["Review all diffs before integration"]
+    P10 --> REVIEW
+    P11 --> REVIEW
+```
+
+- PR #6 is based on `feature/local-llama-ollama-backend`; PR #7 is based on PR #6's branch; PR #8 is based on PR #7's branch; PR #9 is based on PR #8's branch; PR #10 is based on PR #9's branch. This is a stacked chain, so each base/head must be reviewed in order and synchronized deliberately.
+- PR #11 is a separate CI experiment based on an older PR #8 head (`19fc99d`), so its result does not validate the current PR #8 commit.
+- Current PR #6–#11 snapshots are open, draft, and unmerged. The connector reports them as mergeable, but that is not a substitute for CI, review, or user approval.
+
+### Newer CI evidence (exact heads only)
+
+| PR | Head commit | Latest observed run | Evidence / status |
+|---|---|---|---|
+| #6 | `32dec8730ff63938fe56ec26ae50d41efcdcd0d9` | [#38434430200](https://github.com/deathkernel/TARA/actions/runs/38434430200) | Python suite failed; Rust passed. Stale base chain needs diagnosis/retest. |
+| #7 | `641faa150af4737a29a22d90d0dbbb4c3651b98b` | [#38434787693](https://github.com/deathkernel/TARA/actions/runs/38434787693) | Python suite failed; Rust passed. Stale base chain needs diagnosis/retest. |
+| #8 | `3a53ef2c868cf8ca3be381af24f5ef4ed76d1b2b` | [#38683205509](https://github.com/deathkernel/TARA/actions/runs/38683205509) | Rust passed; Python job was still running at last check (dependency installation step). Do not call the full run green yet. |
+| #9 | `059062a091663d556657e7c893a3e5ab7f7c28a6` | [#38616099162](https://github.com/deathkernel/TARA/actions/runs/38616099162) | Python and Rust jobs passed on this exact head. Still review branch freshness/base relationship and docs claims. |
+| #10 | `2d32dda3d5c8becb88654c90f12f9e27ab73a8b5` | [#38616218993](https://github.com/deathkernel/TARA/actions/runs/38616218993) | Python and Rust jobs passed on this exact head. Still review cleanup diff carefully before integration. |
+| #11 | `d5dd719374cda63bb23fead3cd833a2d4b20e194` | [#38615869611](https://github.com/deathkernel/TARA/actions/runs/38615869611) | Static audit and focused tests passed; bounded parallel full-suite step was cancelled; smoke steps skipped. Performance experiment is inconclusive, not a pass. |
+
+### Bulk audit decisions
+
+- [x] Verify current PR #8 head SHA and inspect latest run/job state.
+- [x] Check the open/draft/unmerged state of PRs #6–#11 and record their stacked bases.
+- [x] Replace stale blanket statements that PR #9/#10 still have only failing CI with the newer successful exact-head run evidence above.
+- [x] Record PR #11 as inconclusive because the full parallel suite was cancelled.
+- [ ] Diagnose Python failures on PR #6 and #7 using exact failed test output; do not infer root cause from the red status alone.
+- [ ] Wait for PR #8 run #1177 to finish, then capture job-level results and exact test counts.
+- [ ] Re-run/refresh PR #6/#7 only after confirming intended stacked base commits; avoid rebasing or retargeting branches without checking dependent PR diffs.
+- [ ] Benchmark PR #11 against a serial baseline with comparable runner conditions; retain xdist only if it is reliable and materially faster.
+- [ ] Review PR #10 deletion candidates against imports, tests, scripts, docs and user artifacts before approving cleanup.
+- [ ] Run documented focused and full tests on the actual Windows checkout; GitHub Ubuntu CI is not a substitute.
+- [ ] Explicitly inspect protected data and untracked artifacts on the user's real checkout; the GitHub connector cannot prove local filesystem preservation.
+- [ ] No PR merged, closed, retargeted, or rebased during this audit.
+
+### Next bulk execution order
+
+```mermaid
+flowchart TD
+    A[Wait for PR #8 run #1177] --> B[Capture failed test names / counts if any]
+    B --> C[Fix confirmed shared regressions on the appropriate branch]
+    C --> D[Validate PR #6 then #7 in dependency order]
+    D --> E[Revalidate PR #8 against the updated stack]
+    E --> F[Review #9 docs and #10 deletions]
+    F --> G[Compare #11 serial vs xdist]
+    G --> H[Windows acceptance + protected-artifact audit]
+    H --> I[User review / explicit integration approval]
+```
+
+**Important limitation:** GitHub metadata and job status alone do not expose the complete failed pytest output in this connector response. Root-cause fixes require retrieving logs or reproducing locally; do not mark those tasks done until actual failure details are available.
