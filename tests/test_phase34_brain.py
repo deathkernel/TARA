@@ -2,12 +2,8 @@ from src.brain import TARABrain
 from src.unified_cognitive_loop import ActionOutcome
 
 
-class DummyModel:
-    pass
-
-
 def test_brain_exposes_unified_cognitive_loop():
-    brain = TARABrain(DummyModel())
+    brain = TARABrain()
     report = brain.run_cognitive_loop(
         "demo",
         ["step one"],
