@@ -35,7 +35,7 @@ articles = apis.search_wikipedia("artificial intelligence")
 weather = apis.get_weather("Pune")
 ```
 
-Results include a source URL and `trusted=False`. Remote content is not automatically persisted to conversation memory or training data. The client uses an HTTPS host allowlist, request timeouts, response-size limits, per-host pacing, JSON validation, and explicit rate-limit errors.
+Results include a source URL and `trusted=False`. Remote content is treated as untrusted input and is not automatically persisted by the chat runtime. The client uses an HTTPS host allowlist, request timeouts, response-size limits, per-host pacing, JSON validation, and explicit rate-limit errors.
 
 ## Development checks
 
