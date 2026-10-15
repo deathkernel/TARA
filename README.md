@@ -58,7 +58,7 @@ flowchart TD
 - **PR #7 — teacher distillation:** [PR #7 / branch](https://github.com/deathkernel/TARA/tree/feature/tara-llama-distillation). Generates candidate multi-domain teacher examples with local Ollama. Examples need review; this does **not** train a TARA checkpoint. Draft/open and not merged as last reported.
 - **PR #8 — Self-Developer v1:** [review PR #8](https://github.com/deathkernel/TARA/pull/8) · [branch](https://github.com/deathkernel/TARA/tree/feature/tara-self-developer-v1). Based on PR #7's branch; draft/open and not merged as last reported.
 - **PR #12 — full-suite timeout:** [review PR #12](https://github.com/deathkernel/TARA/pull/12) · [branch](https://github.com/deathkernel/TARA/tree/fix/self-developer-full-suite-timeout). Draft/open; recorded CI run #1183 passed for its exact head, but the PR remains unmerged and dependent on PR #8.
-- **PR #14 — Git metadata guard:** [review PR #14](https://github.com/deathkernel/TARA/pull/14) · [branch](https://github.com/deathkernel/TARA/tree/fix/self-developer-gitmetadata-guard). Draft/open; exact-head CI runs #1246/#1247 were pending/queued at the last check. No merge or integration.
+- **PR #14 — Git metadata guard:** [review PR #14](https://github.com/deathkernel/TARA/pull/14) · [branch](https://github.com/deathkernel/TARA/tree/fix/self-developer-gitmetadata-guard). Draft/open; run #1248 was queued for the preceding head. This README update creates a newer head, so its exact-head CI must be checked again. No merge or integration.
   - Self-Developer implementation commit: `198c2050c5b689c976b4edeec35a00a028347f07`.
   - README handoff commits: `ceba5cb002f2af8db8a390b11e5d59e9dd125daa`, `461686de55bfc078181d57b39f6b175b68384043`.
   - Adds `src/self_developer.py`, `src/self_developer_cli.py`, tests, and `docs/tara_self_developer.md`.
@@ -134,7 +134,7 @@ This is a GitHub-hosted Ubuntu CI result for the recorded head commit; it is **n
 - Added regression cases in `tests/test_self_developer.py` for `.gitmodules`, `.GITMODULES`, nested case variants, and two changed paths differing only by case.
 - Existing tests already cover candidate-only rollback/retry, patch-apply failure/retry, cleanup-warning/report retention, successful candidate retention, provider failure cleanup, and protection of dirty original-checkout contents. These test definitions exist, but their presence is not a pass claim.
 - Commit: `162529fdfbe9fb55e90c542f5f50929600335129` (guard) and `19d412f11ad330e5931d281e01186e48199e9bbb` (regression tests).
-- **Validation pending:** tests have not run in this GitHub-only session. Exact-head CI must run after the PR is opened; run the focused test and then full suite on the Windows checkout before declaring Phase A complete.
+- **Validation pending:** tests have not run in this GitHub-only session. Exact-head CI is queued; re-check the latest run after this README update, then run the focused test and full suite on the Windows checkout before declaring Phase A complete.
 - Safety boundary unchanged: no merge, no protected-artifact changes, no changes to checkpoints, outputs, conversation JSONL/manifest files, or `test_voice.py`.
 
 ```mermaid
