@@ -103,6 +103,7 @@ def build_tokenizer(text, kind, vocab_size):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", choices=list_datasets(), default="tinystories")
+    parser.add_argument("--legacy-public-dataset", action="store_true", help="explicitly opt in to the retired public-corpus experiment instead of Ollama-approved teacher data")
     parser.add_argument("--tokenizer", choices=("char", "bpe"), default="char")
     parser.add_argument("--vocab-size", type=int, default=128)
     parser.add_argument("--steps", type=int, default=DEFAULTS["steps"])
@@ -113,6 +114,9 @@ def main():
         default=DEFAULTS["validation_chars"],
     )
     args = parser.parse_args()
+
+    if not args.legacy_public_dataset:
+        parser.error("This is a legacy public-dataset trainer. Use the Ollama teacher pipeline; add --legacy-public-dataset only for historical experiments.")
 
     train_text = load_dataset_text(args.dataset, args.train_chars, "train")
     validation_text = load_dataset_text(
