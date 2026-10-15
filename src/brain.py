@@ -1,5 +1,6 @@
 """Integrated cognitive brain for TARA."""
 from dataclasses import dataclass
+import os
 import random
 from pathlib import Path
 from .advanced_planning import AdaptivePlan, AdvancedPlanner, PlanAlternative, PlanStep
@@ -188,8 +189,28 @@ class TARABrain:
             cumulative += probabilities[index]
             if threshold < cumulative: return index
         return selected[-1]
-    def build_reasoning_context(self, prompt, *, memory_limit=8, event_limit=8, temporal_limit=16, min_confidence=0.0):
-        recalled = tuple(self.memory.retrieve(prompt, limit=memory_limit)); world=self.world_context(event_limit=event_limit); temporal=self.temporal_context(limit=temporal_limit, min_confidence=min_confidence); memory_text="\n".join(str(item) for item in recalled) or "none"; return f"User/task: {prompt}\n\nMemory:\n{memory_text}\n\n{world.as_prompt_context()}\n\n{temporal.as_prompt_context()}"
+    def build_reasoning_context(self, prompt, *, memory_limit=8, event_limit=8, temporal_limit=16,
+                                min_confidence=0.0, recalled=None):
+        """Build a bounded prompt so large histories do not waste inference resources."""
+        recalled = tuple(self.memory.retrieve(prompt, limit=memory_limit)) if recalled is None else tuple(recalled)
+        world = self.world_context(event_limit=event_limit)
+        temporal = self.temporal_context(limit=temporal_limit, min_confidence=min_confidence)
+        memory_text = "\n".join(str(item) for item in recalled) or "none"
+        context = (
+            f"User/task: {prompt}\n\nMemory:\n{memory_text}\n\n"
+            f"{world.as_prompt_context()}\n\n{temporal.as_prompt_context()}"
+        )
+        try:
+            max_chars = int(os.getenv("TARA_MAX_CONTEXT_CHARS", "5000"))
+        except ValueError:
+            max_chars = 5000
+        # Preserve the complete user request; trim supporting context only.
+        prefix = f"User/task: {prompt}\n\n"
+        header = prefix + "Supporting context (trimmed for low-resource mode):\n"
+        if max_chars > 0 and len(context) > max_chars and len(header) < max_chars:
+            context = header + context[len(prefix):max_chars - len(header) + len(prefix)]
+        return context
+
     def speak(self, text: str) -> bytes:
         """Speak text through the configured ElevenLabs voice provider."""
         if self.voice is None:
@@ -198,7 +219,7 @@ class TARABrain:
 
     def respond(self, prompt, *, remember_key=None, importance=1.0, max_new_tokens=32,
                 temperature=1.0, top_k=None, top_p=None, speak=False):
-        self.observe(prompt, remember_key=remember_key, importance=importance, source="user", kind="prompt"); recalled=tuple(self.memory.retrieve(prompt)); context=self.build_reasoning_context(prompt)
+        self.observe(prompt, remember_key=remember_key, importance=importance, source="user", kind="prompt"); recalled=tuple(self.memory.retrieve(prompt)); context=self.build_reasoning_context(prompt, recalled=recalled)
         if self.llm_provider is not None:
             try:
                 text = self.llm_provider.complete(
