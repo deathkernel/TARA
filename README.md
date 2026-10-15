@@ -16,6 +16,23 @@ The interactive chat sets a backend-specific system prompt in `src/brain.py` so 
 
 The system prompt steers generation; it cannot mathematically guarantee every answer is correct. Verify claims about authorship, architecture, and training against repository metadata and implementation.
 
+## Lightweight emotional intelligence
+
+TARA includes a deterministic, local emotional-cue layer in \`src/emotional_intelligence.py\`.
+
+- Recognizes a small set of English and Hinglish/Hindi-transliterated cues such as sadness, anxiety, anger, frustration, joy, gratitude and confusion.
+- Adds a response-style hint to the existing model system prompt so replies can be gentler, calmer, more validating or more step-by-step when appropriate.
+- Exposes the last detected cue in \`BrainResponse.emotion\`, \`brain.last_emotion\`, and the chat command \`/emotion\`.
+- Uses keyword heuristics only: no extra model download, no second inference pass, and no emotion data is automatically written to long-term memory.
+- Detection is approximate and may miss sarcasm, context, mixed emotions, or wording outside its vocabulary. It is not a clinical assessment.
+- TARA can respond empathetically, but must not claim to literally feel emotions or possess consciousness. This is simulated emotional intelligence, not proof of subjective feelings.
+
+Run the targeted tests with:
+
+\`\`\`bat
+python -m pytest tests/test_emotional_intelligence.py tests/test_identity_prompt.py -q
+\`\`\`
+
 ## Low-power desktop runtime
 
 The Ollama chat defaults to `TARA_POWER_MODE=eco` to reduce avoidable inference work on everyday PCs. This does not change or delete model weights, checkpoints, conversation data, or the TARA memory store.
