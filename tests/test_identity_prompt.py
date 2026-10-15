@@ -17,3 +17,12 @@ def test_tara_identity_prompt_does_not_guess_an_unconfigured_model():
 
     assert "Configured language model: unknown (not explicitly configured)." in prompt
     assert "llama3.2:3b" not in prompt
+
+
+def test_tara_uses_companion_style_without_child_framing():
+    prompt = _tara_system_prompt("llama3.2:3b")
+
+    assert "balanced romantic-companion style" in prompt
+    assert "Baby, jaan, and babu" in prompt
+    assert "Never call the user beta, baccha, child, son, or daughter" in prompt
+    assert "do not claim literal human feelings" in prompt
