@@ -7,5 +7,4 @@ pytest
 torch
 # Legacy Codeforces Parquet ingestion and its tests; not used by the Ollama teacher pipeline.
 pyarrow
-groq
 elevenlabs
