@@ -4,9 +4,15 @@ on:
   workflow_dispatch:
   pull_request:
     branches:
-      - feature/tara-llama-distillation\n      - feature/tara-phase-b-intelligence-proof
+      - feature/tara-llama-distillation
+      - feature/tara-phase-b-intelligence-proof
     paths:
-      - "src/teacher_dataset_audit.py"\n      - "src/teacher_review.py"\n      - "src/teacher_heldout_eval.py"\n      - "tests/test_teacher_data_quality.py"\n      - "docs/tara_multi_domain_teacher_learning.md"\n      - "scripts/run_phase_b_smoke.py"
+      - "src/teacher_dataset_audit.py"
+      - "src/teacher_review.py"
+      - "src/teacher_heldout_eval.py"
+      - "tests/test_teacher_data_quality.py"
+      - "docs/tara_multi_domain_teacher_learning.md"
+      - "scripts/run_phase_b_smoke.py"
       - "scripts/run_phase_b_experiment.py"
       - "tests/test_phase_b_smoke.py"
       - "tests/test_phase_b_experiment.py"
