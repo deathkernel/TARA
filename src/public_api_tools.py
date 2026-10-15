@@ -26,17 +26,22 @@ class PublicAPIClient:
     """HTTPS allowlist, bounded response, timeout and basic per-host pacing."""
     ALLOWED_HOSTS = frozenset({"api.github.com", "en.wikipedia.org", "geocoding-api.open-meteo.com", "api.open-meteo.com"})
 
-    def __init__(self, *, timeout=8.0, max_response_bytes=1_000_000, min_interval=0.25):
+    def __init__(self, *, timeout=8.0, max_response_bytes=1_000_000, min_interval=0.25, opener=None):
         if timeout <= 0 or max_response_bytes < 1 or min_interval < 0:
             raise ValueError("invalid timeout, response limit, or interval")
         self.timeout = timeout
         self.max_response_bytes = max_response_bytes
         self.min_interval = min_interval
+        self._opener = opener or urlopen
         self._last_request = {}
 
     def get_json(self, url, *, provider):
         parsed = urlparse(url)
-        if parsed.scheme != "https" or parsed.hostname not in self.ALLOWED_HOSTS or parsed.username or parsed.password or parsed.port not in (None, 443):
+        try:
+            port = parsed.port
+        except ValueError as exc:
+            raise PublicAPIError("URL port is invalid") from exc
+        if parsed.scheme != "https" or parsed.hostname not in self.ALLOWED_HOSTS or parsed.username or parsed.password or port not in (None, 443):
             raise PublicAPIError("URL is not an allowlisted HTTPS public API endpoint")
         now = time.monotonic()
         previous = self._last_request.get(parsed.hostname)
@@ -47,13 +52,13 @@ class PublicAPIClient:
         self._last_request[parsed.hostname] = time.monotonic()
         request = Request(url, headers={"Accept": "application/json", "User-Agent": "TARA-PublicAPI-Tools/1.0"})
         try:
-            with urlopen(request, timeout=self.timeout) as response:
+            with self._opener(request, timeout=self.timeout) as response:
                 body = response.read(self.max_response_bytes + 1)
                 if len(body) > self.max_response_bytes:
                     raise PublicAPIError(f"{provider} response exceeded size limit")
         except HTTPError as exc:
             retry = exc.headers.get("Retry-After") if exc.headers else None
-            if exc.code == 429 or exc.code == 403:
+            if exc.code in (403, 429):
                 suffix = f"; Retry-After: {retry}" if retry else ""
                 raise PublicAPIError(f"{provider} rate limit or access denial{suffix}") from exc
             raise PublicAPIError(f"{provider} returned HTTP {exc.code}") from exc
