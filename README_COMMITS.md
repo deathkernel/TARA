@@ -78,13 +78,12 @@ The remaining **415 unphased commits** contain the detailed implementation histo
 - Multimodal and autonomous capabilities
 - Testing, reproducibility, CI and repository hardening
 - Documentation and engineering cleanup
-- Optional Groq reasoning backend integration with budget controls
 
 ## Latest Commit
 
 **62ae2676 — docs: add explicit Phase 1-37 coverage index**
 
-The latest documented state includes the full Phase 1–37 coverage index plus the optional Groq backend integration.
+The latest documented state includes the full Phase 1–37 coverage index.
 
 ---
 Generated from the GitHub commit history of deathkernel/TARA.

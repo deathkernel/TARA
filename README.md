@@ -757,37 +757,9 @@ At a high level, the current TARA design is:
                          measured evidence
 ```
 
-## Optional Groq language backend
+## External API integration policy
 
-TARA now includes an optional Groq provider. Groq is an **inference backend**, not the owner of TARA's cognitive architecture.
-
-The intended boundary is:
-
-```text
-User
-  ↓
-TARA perception / memory / planning / context
-  ↓
-Groq (optional language/reasoning backend)
-  ↓
-TARA verification / tool execution
-  ↓
-memory / reflection / learning evidence
-```
-
-The provider supports TARA-side daily request/token budgets and reads the API key from `GROQ_API_KEY`. The real API key must remain local and must never be committed to Git.
-
-Example local configuration:
-
-```env
-GROQ_API_KEY=gsk_...
-TARA_GROQ_MODEL=openai/gpt-oss-20b
-TARA_GROQ_MAX_DAILY_REQUESTS=20
-TARA_GROQ_MAX_DAILY_TOKENS=50000
-TARA_GROQ_MAX_COMPLETION_TOKENS=1024
-```
-
-**Important:** an API integration being present in source code does not mean an API call has been successfully authenticated or that a trained TARA checkpoint exists. Those are execution-time facts and should be reported only after testing.
+TARA keeps external services behind explicit adapters. Credentials must be supplied through local environment variables, public endpoints must be allowlisted, and responses must be validated before they can influence tools or persistent memory. Public API integration is separate from model training; no external response is automatically treated as trusted knowledge.
 
 ---
 
@@ -833,7 +805,7 @@ python run_learning_experiment.py checkpoints/baseline.pt data/teacher/approved.
 4. **Deterministic provenance** — datasets, experiments and benchmark reports receive stable fingerprints where supported.
 5. **Bounded tools** — generated text does not automatically receive permissions.
 6. **Verification before learning** — unverified model output is not silently promoted into durable knowledge.
-7. **Separation of concerns** — TARA owns cognition/orchestration; optional providers such as Groq supply inference.
+7. **Separation of concerns** — TARA owns cognition/orchestration; external providers supply only explicitly configured capabilities.
 8. **Reproducibility** — seeds, configuration, dataset identity, checkpoints and metrics are treated as first-class experiment data.
 9. **No invented capability claims** — a capability is reported only when the relevant code path and measurement have actually executed.
 10. **Inspectable architecture** — major cognitive functions remain represented as explicit modules instead of being hidden behind one opaque call.
@@ -849,7 +821,7 @@ Implemented in the repository:
 - benchmark/evaluation infrastructure;
 - evidence-gated learning workflows;
 - repository audit/CI;
-- optional Groq provider.
+- explicit external API adapter boundaries.
 
 Still dependent on actual runtime experiments:
 - successful authentication to any external LLM provider;
