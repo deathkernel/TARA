@@ -71,6 +71,8 @@ def import_review_decisions(dataset: str | Path, review_csv: str | Path, output:
             else: rejected.add(fingerprint)
     missing = set(original) - set(approved) - rejected
     if missing: raise ValueError(f"review incomplete: {len(missing)} candidate(s) have no explicit decision")
+    if not approved:
+        raise ValueError("no approved records; refusing to create an empty curated dataset")
     destination.parent.mkdir(parents=True, exist_ok=True)
     counts = {"approved": 0, "rejected": len(rejected)}
     with destination.open("x", encoding="utf-8", newline="\n") as out:
