@@ -838,3 +838,41 @@ def test_report_write_failure_preserves_existing_report_and_temp_neighbor(tmp_pa
     assert destination.read_text(encoding="utf-8") == '{"status": "known-good"}\n'
     assert neighbor.read_text(encoding="utf-8") == "user-owned temp neighbor\n"
     assert list(engine.runs_root.glob(".report-safety.json.*.tmp")) == []
+
+
+def test_validation_timeout_uses_long_default_for_full_suite():
+    from src.self_developer import (
+        DEFAULT_FULL_TEST_TIMEOUT_SECONDS,
+        _validation_timeout,
+    )
+    import sys
+
+    assert _validation_timeout([sys.executable, "-m", "pytest", "-q"]) == DEFAULT_FULL_TEST_TIMEOUT_SECONDS
+    assert DEFAULT_FULL_TEST_TIMEOUT_SECONDS > 2 * 60 * 60
+
+
+def test_validation_timeout_can_be_configured_for_full_suite(monkeypatch):
+    from src.self_developer import FULL_TEST_TIMEOUT_ENV, _validation_timeout
+    import sys
+
+    monkeypatch.setenv(FULL_TEST_TIMEOUT_ENV, "7200")
+    assert _validation_timeout([sys.executable, "-m", "pytest", "-q"]) == 7200
+
+
+def test_validation_timeout_keeps_focused_pytest_and_compile_checks_short(monkeypatch):
+    from src.self_developer import COMMAND_TIMEOUT_SECONDS, _validation_timeout
+    import sys
+
+    monkeypatch.setenv("TARA_SELF_DEVELOPER_FULL_TEST_TIMEOUT_SECONDS", "14400")
+    assert _validation_timeout([sys.executable, "-m", "pytest", "-q", "tests/test_memory.py"]) == COMMAND_TIMEOUT_SECONDS
+    assert _validation_timeout([sys.executable, "-m", "compileall", "-q", "src"]) == COMMAND_TIMEOUT_SECONDS
+
+
+@pytest.mark.parametrize("value", ["abc", "0", "59", "86401"])
+def test_validation_timeout_rejects_invalid_full_suite_setting(monkeypatch, value):
+    from src.self_developer import FULL_TEST_TIMEOUT_ENV, SelfDeveloperError, _validation_timeout
+    import sys
+
+    monkeypatch.setenv(FULL_TEST_TIMEOUT_ENV, value)
+    with pytest.raises(SelfDeveloperError, match=FULL_TEST_TIMEOUT_ENV):
+        _validation_timeout([sys.executable, "-m", "pytest", "-q"])
