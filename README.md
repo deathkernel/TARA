@@ -1367,3 +1367,42 @@ flowchart TD
 ```
 
 **Important limitation:** GitHub metadata and job status alone do not expose the complete failed pytest output in this connector response. Root-cause fixes require retrieving logs or reproducing locally; do not mark those tasks done until actual failure details are available.
+
+
+## Historical failure signatures — PR #6 / PR #7 (log-backed, 2026-10-15)
+
+Fetched the actual Python job logs for [PR #6 run #38434430200](https://github.com/deathkernel/TARA/actions/runs/38434430200) and [PR #7 run #38434787693](https://github.com/deathkernel/TARA/actions/runs/38434787693). Both Python jobs failed while their Rust jobs passed. The failures are highly overlapping and point to pre-existing/shared integration regressions; this is evidence for triage, not proof that every root cause is already understood.
+
+- PR #6 exact summary: **18 failed, 400 passed**.
+- PR #7 exact summary: **18 failed, 403 passed**.
+- Shared failure signatures captured from both logs:
+  - Continual-learning export: `Candidate` is not JSON serializable (two tests).
+  - Dataset acquisition: expected module-import behavior differed (`assert 0 == 1`).
+  - Evaluation orchestrator: missing `CheckpointEvaluator.overall_tolerance` (two tests); test factory lambda signature mismatch (one test).
+  - Improvement gate: category regression (memory) not detected in a benchmark scenario.
+  - Small language model capacity profile: expected embedding parameter count 16 but observed 512.
+  - Learning experiment: candidate checkpoint lookup raised `KeyError` for a temporary `candidate.pt` path.
+  - Model adapter: expected `src.polyglot.model_adapter.load_checkpoint` attribute was absent.
+  - Capability runner: fake model did not expose `eval()` expected by the runner.
+  - Image perception: PNG metadata fixture was rejected as unsupported (expected PNG or JPEG).
+  - Scheduler retry: retry event left report pending rather than failed.
+  - Self-improvement benchmark: candidate was not verified because host process execution was disabled by TARA's safety boundary.
+  - TARA Core and unified cognitive loop: end-to-end cycle did not complete.
+  - Transformer gradient check: tiny gradients produced a relative-error mismatch.
+  - Unified cognitive loop tool selection: a string was used where an object with `.tool` was expected.
+- These logs are from older heads and must not be treated as the current state of PR #8. Several subsequent commits may have changed the relevant modules. The current PR #8 full suite is still running; compare its final failure list before selecting fixes.
+- Avoid broad fixes that weaken safety (especially host-process execution restrictions) just to satisfy a test. Where the test assumes execution, either use a properly constrained test double/sandbox or adjust the expectation to match the intended policy.
+
+### Triage order for the shared failure family
+
+```mermaid
+flowchart TD
+    A[Capture current PR #8 full-suite result] --> B{Same failures remain?}
+    B -- No --> C[Record resolved tests and keep remaining failures separate]
+    B -- Yes --> D[Group by root cause: serialization, API contract, fixture, scheduler, model math]
+    D --> E[Add minimal regression tests per root cause]
+    E --> F[Fix one coherent module at a time]
+    F --> G[Focused tests then full suite]
+    G --> H[Recheck stacked PR #6 -> #7 -> #8]
+    H --> I[Update evidence and pending list]
+```
