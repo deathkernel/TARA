@@ -92,6 +92,6 @@ This gives later continual-learning and evaluation phases a stable handoff point
  
 ## Migration note — approved Ollama teacher data
  
-The historical `data/algorithm_tasks.jsonl` sample remains in the repository for reproducible legacy experiments, but it is no longer the default training input. The main training/preflight CLIs now default to `data/teacher/approved.jsonl` and block data without explicit human approval and reviewer metadata. Legacy public-corpus trainers require explicit opt-in.
+The historical `data/algorithm_tasks.jsonl` sample is removed in a separate cleanup PR. The main training/preflight CLIs default to `data/teacher/approved.jsonl` and block data without explicit human approval and reviewer metadata. Legacy public-corpus trainers require explicit opt-in; the small `data/dataset_sources.json` acquisition manifest remains because legacy acquisition tools still use it.
  
 For the recommended safety/evidence-gated workflow, use `python -m src.teacher_pipeline prepare`, then review every row in the generated CSV, run `curate` to create approved-only JSONL, and run `train` with a read-only baseline plus a new candidate checkpoint and evidence report. See `docs/tara_multi_domain_teacher_learning.md`. Never reuse an existing output path.
