@@ -426,6 +426,20 @@ class SelfDeveloper:
                 raise SelfDeveloperError("Git diff header does not match its new file marker")
         if not paths or not any(line.startswith("@@") for line in lines):
             raise SelfDeveloperError("Output is not a recognizable unified diff")
+        # Different spellings of the same path can collide on Windows/macOS
+        # filesystems. The same path appears more than once in normal diff
+        # headers, so compare distinct spellings after case-folding.
+        spellings_by_casefold: dict[str, set[str]] = {}
+        for item in paths:
+            if item != "/dev/null":
+                spellings_by_casefold.setdefault(item.casefold(), set()).add(item)
+        collisions = [spellings for spellings in spellings_by_casefold.values() if len(spellings) > 1]
+        if collisions:
+            raise SelfDeveloperError(
+                "Case-variant paths in one patch are not allowed: "
+                + "; ".join(", ".join(sorted(spellings)) for spellings in collisions)
+            )
+
         protected = [item.lower() for item in PROTECTED_PATHS]
         for path in paths:
             if path == "/dev/null":
@@ -449,7 +463,12 @@ class SelfDeveloper:
             normalized = path.lower()
             if any(normalized == item.rstrip("/") or normalized.startswith(item) for item in protected):
                 raise SelfDeveloperError(f"Patch targets a protected path: {path}")
-            if ".git" in normalized.split("/") or normalized.startswith(".github/workflows/") or normalized in {
+            path_parts_lower = normalized.split("/")
+            # Git submodule metadata can redirect future checkouts to arbitrary
+            # repositories. Reject it at any depth and in any letter case.
+            if any(part == ".gitmodules" for part in path_parts_lower):
+                raise SelfDeveloperError(f"Patch targets restricted Git submodule metadata: {path}")
+            if ".git" in path_parts_lower or normalized.startswith(".github/workflows/") or normalized in {
                 ".env", ".env.example", "requirements.txt", "pyproject.toml", "setup.py",
             }:
                 raise SelfDeveloperError(f"Patch targets a restricted path: {path}")
