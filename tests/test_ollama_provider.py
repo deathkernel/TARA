@@ -32,10 +32,36 @@ def test_ollama_provider_sends_chat_request_and_returns_text():
                 {"role": "user", "content": "Hello TARA"},
             ],
             "stream": False,
-            "options": {"temperature": 0.2, "num_predict": 48},
+            "keep_alive": "2m",
+            "options": {
+                "temperature": 0.2,
+                "num_predict": 48,
+                "num_ctx": 2048,
+                "num_thread": 4,
+                "num_batch": 64,
+            },
         },
         5.0,
     )]
+
+
+def test_ollama_provider_eco_profile_bounds_resources():
+    provider = OllamaProvider(transport=lambda *_: {"message": {"content": "ok"}})
+    assert provider.power_mode == "eco"
+    assert provider.num_ctx == 2048
+    assert provider.num_thread == 4
+    assert provider.num_batch == 64
+    assert provider.default_max_tokens == 128
+    assert provider.keep_alive == "2m"
+
+
+def test_ollama_provider_rejects_unknown_power_profile():
+    try:
+        OllamaProvider(power_mode="unlimited")
+    except ValueError as exc:
+        assert "TARA_POWER_MODE" in str(exc)
+    else:
+        raise AssertionError("Expected an unsupported power profile to be rejected")
 
 
 def test_ollama_provider_rejects_empty_prompt():
