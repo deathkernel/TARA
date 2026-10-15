@@ -75,7 +75,7 @@ class TARACore:
 
     REQUIRED_COMPONENTS = (
         "brain", "memory", "world", "reasoner", "planner", "tools",
-        "researcher", "experimenter", "cognitive_loop", "continual_learning", "multimodal",
+        "researcher", "experimenter", "cognitive_loop", "multimodal",
     )
 
     def __init__(self, brain: TARABrain, *, config: CoreConfig | None = None, architecture_optimizer: ArchitectureOptimizer | None = None) -> None:
@@ -91,11 +91,6 @@ class TARACore:
             self.brain.architecture_optimizer = architecture_optimizer
         self.brain.cognitive_loop.max_cycles = self.config.max_cycles
 
-    @classmethod
-    def from_checkpoint(cls, path: str | Path, *, config: CoreConfig | None = None, engine=None, memory=None) -> "TARACore":
-        brain = TARABrain.from_checkpoint(path, engine=engine, memory=memory, seed=(config or CoreConfig()).seed)
-        return cls(brain, config=config)
-
     @property
     def components(self) -> dict[str, Any]:
         return {
@@ -103,7 +98,7 @@ class TARACore:
             "reasoner": self.brain.reasoner, "planner": self.brain.planner, "tools": self.brain.tools,
             "researcher": self.brain.researcher, "experimenter": self.brain.experimenter,
             "architecture_optimizer": self.brain.architecture_optimizer,
-            "cognitive_loop": self.brain.cognitive_loop, "continual_learning": self.brain.continual,
+            "cognitive_loop": self.brain.cognitive_loop,
             "multimodal": self.brain.multimodal,
         }
 
@@ -181,15 +176,6 @@ class TARACore:
         self._emit("speech", characters=len(text), bytes=len(audio))
         return audio
 
-    def evaluate_checkpoint(self, path: str | Path, *, output: str | Path | None = None, max_new_tokens: int = 32):
-        from .capability_suite import capability_cases
-        from .model_capability_runner import evaluate_checkpoint, write_evaluation
-        evaluation = evaluate_checkpoint(path, tuple(capability_cases()), max_new_tokens=max_new_tokens)
-        if output is not None:
-            write_evaluation(evaluation, output)
-        self._emit("capability_evaluation", checkpoint=str(path), score=evaluation.benchmark.overall_score)
-        return evaluation
-
     def perceive(self, observations):
         context = self.brain.perceive_multimodal(observations)
         self._emit("perception", modalities=",".join(item.modality for item in context.observations))
@@ -214,11 +200,6 @@ class TARACore:
         report = self.brain.experience_learning.learn(experiences)
         self._emit("learning", experiences=len(experiences), updates=len(report.updates))
         return report
-
-    def build_replay(self, records):
-        batch = self.brain.build_replay(records)
-        self._emit("replay", examples=len(batch.examples))
-        return batch
 
     def snapshot(self) -> CoreSnapshot:
         cycles = len(self.brain.cognitive_loop.traces)

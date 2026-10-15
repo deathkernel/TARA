@@ -1,10 +1,4 @@
 numpy
-scikit-learn
 pyttsx3
-# Optional dependency for legacy public-dataset registry/fallback only; not used by the Ollama teacher pipeline.
-datasets
 pytest
-torch
-# Legacy Codeforces Parquet ingestion and its tests; not used by the Ollama teacher pipeline.
-pyarrow
 elevenlabs

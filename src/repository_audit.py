@@ -42,6 +42,46 @@ class RepositoryAuditor:
         "src/unified_cognitive_loop.py",
         "tests/test_tara_core.py",
     )
+    RETIRED_TRAINING_PATHS = (
+        "train_tiny_lm.py",
+        "train_fast.py",
+        "train_dataset.py",
+        "train_algorithm_lm.py",
+        "train_tinystories.py",
+        "train_xor.py",
+        "requirements-accelerated.txt",
+        "src/language_model.py",
+        "src/torch_language_model.py",
+        "src/tokenizer.py",
+        "src/continual_learning_engine.py",
+        "src/training_pipeline.py",
+        "src/checkpoint.py",
+        "src/dataset_pipeline.py",
+        "src/dataset_acquisition.py",
+        "src/activations.py",
+        "src/attention.py",
+        "src/autograd.py",
+        "src/embeddings.py",
+        "src/generation.py",
+        "src/gradcheck.py",
+        "src/gradient_clipping.py",
+        "src/initialization.py",
+        "src/layers.py",
+        "src/losses.py",
+        "src/metrics.py",
+        "src/mlp.py",
+        "src/neuron.py",
+        "src/numeric_inference.py",
+        "src/optimizers.py",
+        "src/positional.py",
+        "src/schedulers.py",
+        "src/transformer.py",
+        "src/language_benchmarks.py",
+        "src/evaluation.py",
+        ".github/workflows/phase-b-intelligence.yml",
+        ".github/workflows/phase-f-release-gate.yml",
+        "docs/phase-b-intelligence.md",
+    )
 
     def __init__(self, root: str | Path):
         self.root = Path(root).resolve()
@@ -65,6 +105,26 @@ class RepositoryAuditor:
         for relative in self.REQUIRED_FILES:
             if not (self.root / relative).is_file():
                 issues.append(AuditIssue("MISSING_REQUIRED_FILE", relative, "required Phase 36 file is missing"))
+
+        for relative in self.RETIRED_TRAINING_PATHS:
+            if (self.root / relative).exists():
+                issues.append(AuditIssue(
+                    "RETIRED_TRAINING_SOURCE",
+                    relative,
+                    "local-model training, dataset, checkpoint, and tokenizer sources are retired; use the configured inference provider",
+                ))
+
+        requirements_path = self.root / "requirements.txt"
+        if requirements_path.is_file():
+            for line in requirements_path.read_text(encoding="utf-8").splitlines():
+                requirement = line.strip().lower().split(";", 1)[0].split("[", 1)[0]
+                if requirement == "torch" or requirement.startswith(("torch==", "torch>=", "torch<=", "torch>", "torch<", "torch!=", "torch~=")):
+                    issues.append(AuditIssue(
+                        "RETIRED_TRAINING_DEPENDENCY",
+                        "requirements.txt",
+                        "PyTorch is not needed for the provider-backed inference runtime",
+                    ))
+                    break
 
         pytest_workflows = []
         for path in workflow_files:

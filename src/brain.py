@@ -1,12 +1,9 @@
 """Integrated cognitive brain for TARA."""
 from dataclasses import dataclass
 import os
-import random
-from pathlib import Path
 from .advanced_planning import AdaptivePlan, AdvancedPlanner, PlanAlternative, PlanStep
 from .agent import AgentLoop
 from .autonomous_orchestrator import AutonomousOrchestrator, TaskNode
-from .continual_learning_engine import ContinualLearningEngine, PromotionResult, ReplayBatch
 from .multimodal_perception import MultimodalContext, MultimodalObservation, MultimodalPerception
 from .autonomous_research import AutonomousResearchEngine, ResearchReport
 from .scientific_experiment import ExperimentDesign, ExperimentReport, ScientificExperimentEngine
@@ -70,13 +67,11 @@ class BrainResponse:
     emotion: str = "neutral"
 
 class TARABrain:
-    def __init__(self, model, tokenizer=None, *, engine=None, memory=None, seed=0, reflection=None,
+    def __init__(self, *, engine=None, memory=None, reflection=None,
                  progress=None, orchestrator=None, world=None, events=None, temporal=None,
                  temporal_history=256, reasoner=None, planner=None, tools=None, improver=None,
-                 continual=None, multimodal=None, researcher=None, experimenter=None, architecture_optimizer=None, cognitive_loop=None, experience_learning=None,
+                 multimodal=None, researcher=None, experimenter=None, architecture_optimizer=None, cognitive_loop=None, experience_learning=None,
                  intelligence_improver=None, llm_provider=None, voice=None):
-        self.model = model
-        self.tokenizer = tokenizer
         self.engine = TARAEngine() if engine is None else engine
         self.memory = LongTermMemory() if memory is None else memory
         self.agent = AgentLoop(engine=self.engine, memory=self.memory)
@@ -90,7 +85,6 @@ class TARABrain:
         self.planner = planner or AdvancedPlanner()
         self.tools = tools or ToolIntelligence()
         self.improver = improver or SelfImprovementLab()
-        self.continual = continual or ContinualLearningEngine(seed=seed)
         self.multimodal = multimodal or MultimodalPerception()
         self.researcher = researcher or AutonomousResearchEngine()
         self.experimenter = experimenter or ScientificExperimentEngine()
@@ -107,15 +101,7 @@ class TARABrain:
             reasoner=self.reasoner, planner=self.planner, tools=self.tools, memory=self.memory,
             reflection=self.reflection, progress=self.progress, learning=self.experience_learning,
         )
-        self.rng = random.Random(seed)
 
-    @classmethod
-    def from_checkpoint(cls, path: str | Path, *, engine=None, memory=None, seed=0):
-        from .model_runtime import load_checkpoint
-        model, tokenizer = load_checkpoint(path)
-        return cls(model, tokenizer, engine=engine, memory=memory, seed=seed)
-
-    def build_replay(self, records) -> ReplayBatch: return self.continual.build_replay(records)
     def perceive_multimodal(self, observations: list[MultimodalObservation]) -> MultimodalContext: return self.multimodal.perceive(observations)
     def perceive_text(self, text: str, *, confidence=1.0) -> MultimodalObservation: return self.multimodal.text(text, confidence=confidence)
     def perceive_document(self, text: str, *, path="", confidence=1.0) -> MultimodalObservation: return self.multimodal.document(text, path=path, confidence=confidence)
@@ -137,7 +123,6 @@ class TARABrain:
     def run_cognitive_loop(self, goal: str, subtasks, perceptions, *, action_executor, expected=None, required_capabilities=(), tool_facts=None) -> CognitiveLoopReport: return self.cognitive_loop.run(goal, subtasks, perceptions, action_executor=action_executor, expected=expected, required_capabilities=required_capabilities, tool_facts=tool_facts)
     def stop_cognitive_loop(self): self.cognitive_loop.stop()
     def resume_cognitive_loop(self): self.cognitive_loop.resume()
-    def evaluate_learning(self, baseline, current) -> PromotionResult: return self.continual.evaluate(baseline, current)
 
     def observe(self, observation, *, remember_key=None, importance=1.0, confidence=1.0, source="agent", kind="observation", timestamp=None):
         result = self.agent.observe(observation, remember_key=remember_key, importance=importance)
@@ -181,26 +166,22 @@ class TARABrain:
     def stop_tasks(self): self.orchestrator.stop()
     def resume_tasks(self): self.orchestrator.resume()
     def recall(self, query, limit=None, min_score=0.0): return self.agent.recall(query, limit=limit, min_score=min_score)
-    def generate(self, prompt, *, max_new_tokens=32, temperature=1.0, top_k=None, top_p=None):
-        if self.tokenizer is None: raise ValueError("a tokenizer is required for text generation")
-        if max_new_tokens <= 0 or temperature <= 0: raise ValueError("max_new_tokens must be positive and temperature must be positive")
-        if top_p is not None and not 0.0 < top_p <= 1.0: raise ValueError("top_p must be in (0, 1]")
-        token_ids = self.tokenizer.encode(prompt)
-        if not token_ids: raise ValueError("prompt must encode to at least one token")
-        for _ in range(max_new_tokens):
-            token_id = self.model.sample_next_token(token_ids, temperature=temperature, top_k=top_k, rng=self.rng) if top_p is None else self._sample_top_p(token_ids, temperature, top_p); token_ids.append(token_id)
-        return self.tokenizer.decode(token_ids)
-    def _sample_top_p(self, token_ids, temperature, top_p):
-        import math
-        logits = list(self.model.forward_numeric(token_ids)[-1]); scaled = [value / temperature for value in logits]; maximum = max(scaled); probabilities = [math.exp(value - maximum) for value in scaled]; total = sum(probabilities); probabilities = [value / total for value in probabilities]; ranked = sorted(range(len(probabilities)), key=probabilities.__getitem__, reverse=True); selected=[]; cumulative=0.0
-        for index in ranked:
-            selected.append(index); cumulative += probabilities[index]
-            if cumulative >= top_p: break
-        threshold = self.rng.random() * sum(probabilities[index] for index in selected); cumulative=0.0
-        for index in selected:
-            cumulative += probabilities[index]
-            if threshold < cumulative: return index
-        return selected[-1]
+    def generate(self, prompt, *, max_new_tokens=32, temperature=0.6):
+        """Generate text only through the configured external inference provider."""
+        if not isinstance(prompt, str) or not prompt.strip():
+            raise ValueError("prompt must be a non-empty string")
+        if max_new_tokens <= 0 or temperature <= 0:
+            raise ValueError("max_new_tokens and temperature must be positive")
+        if self.llm_provider is None:
+            raise RuntimeError("No language provider configured; set TARA_LLM_BACKEND=ollama.")
+        system_prompt = _tara_system_prompt(getattr(self.llm_provider, "model", None))
+        return self.llm_provider.complete(
+            prompt,
+            system=system_prompt,
+            max_completion_tokens=max_new_tokens,
+            temperature=temperature,
+        )
+
     def build_reasoning_context(self, prompt, *, memory_limit=8, event_limit=8, temporal_limit=16,
                                 min_confidence=0.0, recalled=None):
         """Build a bounded prompt so large histories do not waste inference resources."""
@@ -230,28 +211,28 @@ class TARABrain:
         return self.voice.speak(text)
 
     def respond(self, prompt, *, remember_key=None, importance=1.0, max_new_tokens=32,
-                temperature=1.0, top_k=None, top_p=None, speak=False):
+                temperature=0.6, speak=False):
+        if not isinstance(prompt, str) or not prompt.strip():
+            raise ValueError("prompt must be a non-empty string")
+        if max_new_tokens <= 0 or temperature <= 0:
+            raise ValueError("max_new_tokens and temperature must be positive")
+        if self.llm_provider is None:
+            raise RuntimeError("No language provider configured; set TARA_LLM_BACKEND=ollama.")
+
         transition = self.emotion_switch.update(prompt)
         emotion = transition.assessment
         self.last_emotion = transition.current
         self.observe(prompt, remember_key=remember_key, importance=importance, source="user", kind="prompt")
         recalled = tuple(self.memory.retrieve(prompt))
         context = self.build_reasoning_context(prompt, recalled=recalled)
-        if self.llm_provider is not None:
-            try:
-                system_prompt = _tara_system_prompt(getattr(self.llm_provider, "model", None))
-                system_prompt += "\n\n" + self.emotional_intelligence.system_guidance(emotion, transition)
-                text = self.llm_provider.complete(
-                    context,
-                    system=system_prompt,
-                    max_completion_tokens=max_new_tokens,
-                    temperature=temperature,
-                )
-            except (RuntimeError, TimeoutError):
-                text = self.generate(context, max_new_tokens=max_new_tokens, temperature=temperature, top_k=top_k, top_p=top_p)
-        else:
-            # Preserve the user prompt when using the tiny local fallback model.
-            text = self.generate(prompt, max_new_tokens=max_new_tokens, temperature=temperature, top_k=top_k, top_p=top_p)
+        system_prompt = _tara_system_prompt(getattr(self.llm_provider, "model", None))
+        system_prompt += "\n\n" + self.emotional_intelligence.system_guidance(emotion, transition)
+        text = self.llm_provider.complete(
+            context,
+            system=system_prompt,
+            max_completion_tokens=max_new_tokens,
+            temperature=temperature,
+        )
         if speak:
             self.speak(text)
         return BrainResponse(

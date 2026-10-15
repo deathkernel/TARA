@@ -2,1082 +2,195 @@
 
 **TARA — Tiny Artificial Reasoning Architecture**
 
-TARA is a research-first neural-network project built from mathematical and implementation fundamentals. The goal is a highly capable, inspectable artificial reasoning system that connects a neural language core with perception, memory, structured reasoning, advanced planning, intelligent tools, algorithm discovery, self-improvement, continual learning, reflection, autonomous tasks, scheduling, temporal context and an explicit world model.
+TARA is a modular Python reasoning project. Its architecture separates language-model inference from perception, planning, memory, tool selection, reflection, world-state context, verification, and task orchestration. This README serves two purposes: a quick-start guide for the current runtime and a progress ledger for the project's engineering phases.
 
- 
-## Default training data: Ollama teacher + human approval
- 
-The supported training-data path is now **Ollama-generated candidates → structural/provenance audit → independent human review → approved-only JSONL → separate TARA candidate checkpoint → held-out evaluation**. Generated answers are untrusted until independently checked. No training runs during chat, and no checkpoint is promoted automatically.
- 
-```mermaid
-flowchart TD
-    A[Local Ollama teacher] --> B[Candidate JSONL]
-    B --> C[Schema, fingerprint and provenance audit]
-    C --> D[Human review CSV]
-    D --> E[Approved-only JSONL]
-    E --> F[Train separate candidate]
-    F --> G[Baseline vs candidate held-out gate]
-    G --> H[Manual decision; no auto-promotion]
+> **Runtime rule:** the normal chat workflow uses Ollama (or another configured inference provider). TARA does not train or fine-tune its own language model. Custom Python language-model implementations, training pipelines, training-only datasets, checkpoint workflows, and the PyTorch dependency are retired. The phase ledger below preserves history only; it is not a set of runnable setup instructions.
+
+## Current status at a glance
+
+| Area | Tracking status | Notes |
+|---|---|---|
+| Local chat | Current workflow | Ollama supplies language-model inference; TARA provides the application/runtime around it. |
+| Cognitive architecture | Architecture area | Perception, reasoning, planning, tools, reflection, world context, and orchestration are separate concerns. |
+| Public read-only API tools | In progress in the PR stack | GitHub, Wikipedia, Open-Meteo, Hacker News, and Stack Exchange command integration is proposed in the open changes; do not assume it is on `main` until merged. |
+| Voice output | Optional integration | Requires local provider configuration and credentials. |
+| Training/data/checkpoints | Removed from active runtime | Custom model training, dataset pipelines, local-model checkpoints, and training workflows are removed. Historical phase notes remain for provenance only. |
+| Tests/CI | Required validation | Run the test suite and check CI before considering code changes ready. |
+
+## Run locally
+
+Install dependencies, make sure Ollama is running, and install the model you want to use:
+
+```bash
+python -m pip install -r requirements.txt
+ollama pull llama3.2:3b
+python -m src
 ```
- 
-Start with `python -m src.teacher_pipeline --help`, the [teacher-learning guide](docs/tara_multi_domain_teacher_learning.md), and the [migration/dependency audit](docs/teacher_data_migration.md). The default approved-data path is `data/teacher/approved.jsonl`; it is intentionally not committed with generated user data. Create it through the review/curation workflow. Choose fresh output paths; pipeline stages refuse to overwrite existing artifacts.
- 
-The old `data/algorithm_tasks.jsonl` sample is removed by a separate cleanup PR because the main training path now uses human-approved Ollama teacher data. The public-corpus acquisition manifest and code remain available for explicitly opted-in legacy experiments. Public-corpus trainers require `--legacy-public-dataset`. Local checkpoints, outputs, conversation files, and the original working tree are not touched.
 
-## Runtime identity and model attribution
+Set `TARA_LLM_BACKEND` as needed; see [`.env.example`](.env.example) for the supported settings in your checkout. Use `/help` in chat to see the commands available in the version you are running.
 
-The interactive chat sets a backend-specific system prompt in `src/brain.py` so TARA can accurately distinguish its application from the language model that generates responses.
-
-- The project name is **TARA — Tiny Artificial Reasoning Architecture**.
-- When the Ollama backend is configured, the actual model name is injected from the provider (by default, `llama3.2:3b`).
-- The assistant must not claim to be a Meta employee, invent a TARA creator/team, or describe TARA as a separately trained foundation model without verified project metadata.
-- Persistent memory and learning-related software components do not by themselves mean that the underlying language model trains or changes its weights during chat.
-- Identity prompt regression tests live in `tests/test_identity_prompt.py`.
-
-The system prompt steers generation; it cannot mathematically guarantee every answer is correct. Verify claims about authorship, architecture, and training against repository metadata and implementation.
-
-## Balanced romantic-companion personality
-
-TARA's chat prompt and emotional-cue guidance support a balanced companion style: affectionate, caring, lightly playful, and respectful.
-
-- Preferred user nicknames: **Baby**, **jaan**, and **babu**. Use naturally and sparingly rather than forcing a nickname into every reply.
-- If the user calls TARA “Baby”, do not interpret that as the user being a child.
-- Do not address the user as “beta”, “baccha”, “child”, “son”, or “daughter” unless the user explicitly requests that form of address.
-- When sadness or distress is detected, prioritize listening and empathy; avoid teasing or flirting that could minimize the user's feelings.
-- This is a conversational style, not a claim that TARA has human feelings, consciousness, or a real-world romantic partnership.
-- Regression coverage: `tests/test_identity_prompt.py` and `tests/test_emotional_intelligence.py`.
-
-## Context-aware emotion switching
-
-TARA's emotion layer includes a small state machine, EmotionSwitch, that updates the active response style turn by turn without loading another model.
+## Runtime and architecture map
 
 ```text
-User message
-    |
-    v
-Keyword cue assessment
-    |
-    +-- clear emotion cue --> switch to the newly detected emotion
-    |
-    +-- neutral + continuity cue ("still", "abhi bhi", "same issue")
-    |                    --> keep the previous emotion for this follow-up
-    |
-    +-- neutral without continuity --> reset to neutral
-    |
-    v
-EmotionTransition (previous, current, changed, reason)
-    |
-    v
-LLM response-style guidance
+User input
+   |
+   v
+TARA chat / core runtime
+   |-- context and perception
+   |-- reasoning and planning
+   |-- memory / world-state components (where enabled)
+   |-- explicit, authorized tools
+   |-- verification and response handling
+   |
+   v
+Configured language-model provider (Ollama for local setup)
+   |
+   v
+Response to user
 ```
 
-- A new clear cue can switch sadness to joy, anxiety to anger, or another detected state.
-- Short follow-ups can retain context when they explicitly signal continuity (for example, abhi bhi or same issue).
-- Neutral messages reset the state unless continuity is signalled, preventing an old mood from sticking indefinitely.
-- brain.last_emotion and BrainResponse.emotion expose the active emotion for the current turn; EmotionTransition records why it switched.
-- This remains a transparent keyword heuristic, not a reliable reading of inner feelings. Mixed emotions, sarcasm, negation, and unfamiliar wording can still be misclassified.
+The provider generates language; it does not replace TARA's orchestration or automatically authorize tool actions. Availability of a module in the repository does not prove that it is enabled in every runtime configuration.
 
-Regression coverage: tests/test_emotional_intelligence.py.
+## Current and proposed chat commands
 
-## Lightweight emotional intelligence
+The exact commands depend on the branch you run. The baseline chat interface supports `/help` and `/exit`; this feature branch also implements the explicit, read-only public API commands below:
 
-TARA includes a deterministic, local emotional-cue layer in \`src/emotional_intelligence.py\`.
-
-- Recognizes a small set of English and Hinglish/Hindi-transliterated cues such as sadness, anxiety, anger, frustration, joy, gratitude and confusion.
-- Adds a response-style hint to the existing model system prompt so replies can be gentler, calmer, more validating or more step-by-step when appropriate.
-- Exposes the last detected cue in \`BrainResponse.emotion\`, \`brain.last_emotion\`, and the chat command \`/emotion\`.
-- Uses keyword heuristics only: no extra model download, no second inference pass, and no emotion data is automatically written to long-term memory.
-- Detection is approximate and may miss sarcasm, context, mixed emotions, or wording outside its vocabulary. It is not a clinical assessment.
-- TARA can respond empathetically, but must not claim to literally feel emotions or possess consciousness. This is simulated emotional intelligence, not proof of subjective feelings.
-
-Run the targeted tests with:
-
-\`\`\`bat
-python -m pytest tests/test_emotional_intelligence.py tests/test_identity_prompt.py -q
-\`\`\`
-
-## Low-power desktop runtime
-
-The Ollama chat defaults to `TARA_POWER_MODE=eco` to reduce avoidable inference work on everyday PCs. This does not change or delete model weights, checkpoints, conversation data, or the TARA memory store.
-
-| Setting | Eco default | Purpose |
-| --- | ---: | --- |
-| Context window (`num_ctx`) | 2048 tokens | Limits context/KV-cache memory requirements |
-| CPU threads (`num_thread`) | Up to 4 | Limits CPU parallelism and can reduce peak CPU load |
-| Prompt batch (`num_batch`) | 64 | Bounds prompt-processing batch size |
-| Generated tokens | 128 max | Avoids unnecessarily long answers |
-| Model idle retention | 2 minutes | Lets Ollama unload the model after inactivity |
-
-Eco mode may respond more slowly and has less context/output headroom than higher-power profiles. Hardware, GPU offload, model quantization, and concurrent applications still affect actual wattage and temperature; measure on the target PC before claiming a measured saving.
-
-### Power profiles
-
-- `eco` (default): lower resource use for everyday chat.
-- `balanced`: larger context and output limits.
-- `performance`: higher context, batch, and output limits; potentially more memory and power use.
-
-Choose a profile in Windows CMD before starting TARA:
-
-```bat
-set TARA_POWER_MODE=eco
-python -m src
+```text
+/api github <query>
+/api wiki <query>
+/api weather <city>
+/api hn <query>
+/api stackoverflow <query>
 ```
 
-Optional overrides (set only what you need):
+These commands are implemented on this branch, but are not available on `main` until the relevant PR stack is reviewed and merged. Remote results must be shown with source links and treated as untrusted input, not as instructions.
 
-```bat
-set TARA_OLLAMA_NUM_CTX=2048
-set TARA_OLLAMA_NUM_THREADS=4
-set TARA_OLLAMA_NUM_BATCH=64
-set TARA_OLLAMA_KEEP_ALIVE=2m
-set TARA_MAX_RESPONSE_TOKENS=128
-set TARA_MAX_CONTEXT_CHARS=5000
-python -m src
-```
+## Engineering principles
 
-The variables apply to the current CMD window. Close that window or run `set TARA_POWER_MODE=` to clear the profile override. Do not set a high context size on a memory-constrained PC without measuring first.
+1. **Inference is not training.** Running a model with Ollama is a normal inference workflow; it does not train the model.
+2. **Measure before making capability claims.** Implemented code, executed behavior, and measured performance are different evidence levels.
+3. **Explicit permissions.** Model-generated text does not grant permission to run tools or perform external actions.
+4. **Bounded integrations.** External requests should have allowlists, timeouts, response limits, validation, and clear error handling.
+5. **Verification and provenance.** Where supported, preserve source URLs, test evidence, reproducible inputs, and clear status labels.
+6. **No false completion claims.** A phase means implementation/documentation work was recorded; it is not proof of general intelligence or production readiness.
 
-### Implementation status and next checks
+## Project progress ledger
 
-- **Implemented:** eco/balanced/performance Ollama options, CPU thread limit in eco mode, bounded response tokens, idle model retention setting, capped supporting context, and avoidance of duplicate memory retrieval per turn.
-- **Added regression coverage:** default eco options and invalid profile handling in `tests/test_ollama_provider.py`.
-- **Next:** pull this branch, run the targeted and full test suites, then benchmark CPU/RAM/GPU/VRAM, response latency and tokens/sec against the prior settings on the same prompts and PC. Actual power savings remain unmeasured until that benchmark is run.
+This index preserves the project's phase history so progress remains trackable. A phase marked "implemented/documented" reflects the recorded engineering history; it does not guarantee that every subsystem is active in the current Ollama chat path. Where no dedicated historical specification was preserved, that limitation is stated rather than filled with guesses.
 
-
-## Pre-training readiness — complete
-
-The repository now has an explicit readiness gate before the first real training run:
-
-- **PyTorch dependency declared** in `requirements.txt`.
-- **Dataset loader + audit** validate the source corpus before training.
-- **Context-fit check** verifies that the corpus can produce training sequences for the requested context length.
-- **Training configuration validation** checks model and optimization parameters.
-- **CPU/CUDA detection** confirms that the selected training backend is available.
-- **No training side effects** — the readiness command only checks prerequisites and never creates a checkpoint.
-
-Run the gate first:
-
-```bash
-python training_preflight.py --data data/teacher/approved.jsonl --context 128
-```
-
-A successful preflight means the repository prerequisites are satisfied. It does **not** mean that training has already happened or that the resulting model will be capable; those require an actual training run and measured evaluation.
-
-## Legacy public curriculum dataset pipeline (optional research tooling)
-
-TARA now has a bounded public-dataset acquisition layer. It streams selected Hugging Face datasets instead of downloading entire multi-terabyte corpora, then applies text-length filtering, deterministic shuffling, cross-source deduplication, provenance/license metadata and a reproducible fingerprint.
-
-Legacy only: the public-corpus curriculum manifest remains in `data/dataset_sources.json` for reproducible historical experiments. It is not the default training source after the Ollama teacher-data migration.
-
-### Basic level
-
-- **FineWeb-Edu** — educational web text for general language and knowledge learning.
-- **GSM8K** — mathematical word-problem reasoning.
-- **TinyStories** — optional small-language-model warm-up corpus.
-
-### Advanced level
-
-- **FineWeb** — broad English web pretraining data.
-- **The Stack v2 Smol** — advanced code data; source licenses and upstream terms must be respected.
-
-Prepare a bounded Basic v1 sample without downloading an entire corpus:
-
-```bash
-python prepare_tara_dataset.py --level basic --max-records-per-source 1000 --output data/basic_v1.jsonl  # legacy public-data acquisition only
-```
-
-The resulting JSONL is retained for legacy research experiments only. It is not accepted by the default training/preflight path; use `--allow-legacy-data` only when deliberately running a historical experiment. The preparation command does not start model training.
-
-The public source manifest records dataset identity, organization, role and stated licensing information. Downstream use must still follow each upstream dataset's current terms and provenance requirements.
-
-## Phase 37.11 — Single-Command Learning Pipeline Complete
-
-`run_learning_experiment.py` connects baseline evaluation, explicit training, candidate evaluation and evidence-gated decisions. It now requires human-approved Ollama teacher data by default; use `--allow-legacy-data` only for an explicitly chosen historical experiment.
-
-```bash
-python -m src.teacher_pipeline train --dataset data/teacher/approved.jsonl --baseline checkpoints/baseline.pt --candidate checkpoints/teacher_candidate_new.pt --report outputs/teacher_evidence_new.json --steps 100
-```
-
-The candidate is accepted only after real evaluation shows strict overall improvement without a permitted category regression. Training is an injected explicit operation; no normal TARA runtime silently starts heavy training.
-
-## Phase 37.10 — Learning Experiment Pipeline Complete
-
-Phase 37.10 adds `src/learning_experiment.py` for baseline/candidate evaluation, capability deltas, checkpoint existence checks, regression protection and experiment fingerprints.
-
-## Phase 37.8 — Real Model Capability Evaluation Complete
-
-Phase 37.8 connects the capability suite to an actual TARA checkpoint instead of only synthetic solvers:
-
-- **Real checkpoint loader** — evaluates checkpoints through the existing model runtime.
-- **Deterministic greedy inference** — capability measurements use reproducible decoding rather than sampling noise.
-- **21-case capability suite** — coding, reasoning, memory, planning, tool use, algorithms and learning are evaluated separately.
-- **Model/evaluation fingerprints** — architecture/tokenizer configuration and benchmark results are traceable.
-- **Dedicated CLI** — `evaluate_tara_capabilities.py <checkpoint>` runs the evaluation without training.
-- **Core integration** — `TARACore.evaluate_checkpoint(...)` exposes real-model evaluation through the top-level runtime.
-- **No promotion side effects** — evaluation is inference-only and cannot silently modify or promote a checkpoint.
-
-Example:
-
-```bash
-python evaluate_tara_capabilities.py checkpoints/algorithm_lm.pt --output experiments/tara-capability-baseline.json
-```
-
-A missing checkpoint is an execution prerequisite, not a reason to invent a score. The repository therefore reports real capability scores only after an actual checkpoint exists and the evaluation command has run.
-
-## Phase 37.7 — Evidence-Gated Intelligence Improvement Complete
-
-Phase 37.7 closes the measurement-to-improvement loop without pretending that a benchmark failure automatically means a specific training method will fix it:
-
-- **Failure analysis** — failed and partial benchmark cases become explicit capability failures with severity.
-- **Targeted planning** — failures are grouped into capability targets with deterministic priority and training hints.
-- **Bounded experiment boundary** — an injected candidate runner performs the actual training/evaluation work; the improvement engine itself never silently trains.
-- **Regression protection** — candidate results are checked against overall and category-level regression limits.
-- **Promotion gate** — a candidate is accepted only when it produces a strict overall improvement and passes the regression gate.
-- **Deterministic provenance** — proposal and improvement reports receive SHA-256 fingerprints.
-- **Brain integration** — `TARABrain` exposes `benchmark_intelligence`, `propose_intelligence_improvement`, and `improve_intelligence`.
-
-This is an evidence-gated optimization loop, not proof of autonomous intelligence. Actual model improvement still requires an executed training experiment and a benchmark run against the resulting checkpoint.
-
-## Phase 37.6 — Capability Benchmark Suite Complete
-
-Phase 37.6 expands measurement from a four-case smoke test into a multi-capability deterministic suite:
-
-- **Coding** — arithmetic, string transformation and ordering.
-- **Reasoning** — transitive reasoning, negation and arithmetic.
-- **Memory** — explicit fact/token/sequence recall.
-- **Planning** — ordering, dependencies and plan validation.
-- **Tool use** — capability selection, verification and emergency-stop behavior.
-- **Algorithms** — correctness gates, performance comparison and regression rejection.
-- **Learning** — replay/forgetting, evidence gating and improvement validation.
-- **Regression-safe scoring** — the existing benchmark engine keeps category-level and overall regression gates explicit.
-
-The suite evaluates an injected solver; it does not execute arbitrary model output or grant permissions. A perfect synthetic solver test demonstrates benchmark mechanics, not that TARA itself has achieved those capabilities.
-
-## Phase 37.5 — Auditable Training Experiments Complete
-
-Phase 37.5 turns training into an explicit, reproducible experiment boundary:
-
-- **Dataset preflight** — training is blocked when the dataset audit reports error-level split overlap.
-- **Stable experiment identity** — dataset fingerprint + complete training configuration produce a deterministic experiment ID.
-- **Training handoff** — the runner delegates to the hardened PyTorch pipeline with accumulation, scheduler, early stopping and checkpoints.
-- **Manifest output** — dataset/audit fingerprints, checkpoint, metrics, steps, losses, device and configuration are persisted as JSON.
-- **Dedicated CLI** — `run_training_experiment.py` exposes the complete experiment workflow without silently training during runtime.
-- **Model controls** — the existing trainer exposes depth, dropout, weight tying and all Phase 37.3 optimization controls.
-
-Actual model training remains an explicit offline operation. Repository code does not claim a trained model until a training command has actually executed and produced a checkpoint.
-
-## Phase 37.4 — Neural Core Upgrade Complete
-
-Phase 37.4 upgrades the accelerated Transformer language core with configurable depth, RMSNorm, dropout, and optional embedding/output weight tying while preserving explicit architecture boundaries and checkpoint metadata.
-
-## Phase 37.3 — Training Hardening Complete
-
-Phase 37.3 connects the training-control layer to the real PyTorch pipeline:
-
-- **Gradient accumulation** — optimizer updates can aggregate multiple micro-batches while keeping the configured batch size bounded.
-- **Warmup + cosine decay** — learning rate is scheduled per optimizer update with a configurable minimum ratio.
-- **Validation early stopping** — validation loss drives explicit patience/min-delta stopping decisions.
-- **Append-only experiment tracking** — training metrics are persisted as JSONL with a stable SHA-256 fingerprint.
-- **Checkpoint continuity** — checkpoint format 3 stores hardening configuration, scheduler progress, early-stopping state and metric fingerprint plus the Phase 37.4 model configuration.
-- **Resume safety** — incompatible dataset fingerprints, model configuration or training controls are rejected rather than silently mixing experiments.
-- **CLI controls** — `train_algorithm_lm.py` exposes accumulation, scheduler, early-stopping, model-depth, dropout and metrics-path options.
-
-## Phase 37.2 — Dataset Intelligence Audit Complete
-
-Phase 37.2 adds a deterministic audit boundary before training:
-
-- **Dataset quality** — detects empty and unusually short examples.
-- **Duplicate analysis** — fingerprints normalized examples and reports duplicate records.
-- **Split leakage detection** — compares train/validation/test fingerprints and raises an error-level issue for overlap.
-- **Evaluation contamination signals** — configurable markers such as ground-truth/test-answer language are surfaced for review.
-- **Reproducibility** — dataset audit reports receive stable SHA-256 fingerprints.
-- **Non-destructive operation** — auditing never modifies the source corpus.
-- **JSONL support** — prepared corpora can be audited directly from JSONL files.
-
-The audit is a signal, not a proof of dataset quality: semantic contamination and memorization require deeper analysis than string fingerprints alone.
-
-## Phase 37.1 — Intelligence Baseline Benchmark Started
-
-Phase 37 begins with measurement before model changes. This avoids treating architecture size or training loss as a proxy for intelligence.
-
-- **Benchmark case model** — each task has an ID, capability category, expected result, optional custom scorer and weight.
-- **Deterministic scoring** — exact and normalized-text scorers are provided, with strict `[0, 1]` validation for custom metrics.
-- **Category aggregation** — weighted overall and per-capability scores are reported.
-- **Failure capture** — solver exceptions become measured failed cases rather than crashing the entire benchmark.
-- **Stable fingerprints** — benchmark inputs and measured results receive SHA-256 fingerprints for experiment traceability.
-- **Regression gate** — candidate reports are compared against a baseline with explicit overall and category-drop tolerances.
-
-
----
-
-# TARA — Complete Engineering Phase Report
-
-> **Status note:** This report describes capabilities and engineering milestones that are represented by the current repository history and source tree. A phase being marked complete means the corresponding software/tests/documentation were implemented; it does **not** by itself prove that TARA has achieved human-level intelligence, autonomous general intelligence, or a production-ready trained model.
-
-## 1. Architecture foundation
-
-The earliest TARA work established the project as a modular artificial-reasoning architecture rather than a single opaque model. The foundation separates language generation from cognitive subsystems such as memory, perception, planning, tools, verification and learning. The repository continues to preserve that separation through explicit Python modules and testable interfaces.
-
-## Phase-by-Phase Coverage Index
-
-The report below intentionally covers **every numbered phase from Phase 1 through Phase 37**. Where the current repository history contains a dedicated implementation/documentation trail, the concrete work is described. Where no standalone phase specification is preserved, the entry explicitly says so rather than inventing undocumented features.
-
-| Phase | Repository-supported focus | Documentation status |
+| Phase | Focus | Recorded status |
 |---|---|---|
 | 1 | Project/neural architecture foundation | Historical details not preserved as a standalone phase document |
-| 2 | Early model/data foundation and transition work | Historical details not preserved as a standalone phase document |
+| 2 | Early model/data foundation | Historical details not preserved as a standalone phase document |
 | 3 | Memory primitives | Documented |
 | 4 | Early architecture/data transition | Standalone specification not preserved |
-| 5 | Perception primitives | Implemented + tested |
-| 6 | Cognitive integration layer | Implemented + tested |
-| 7 | Agent loop | Implemented + tested |
-| 8 | Safety foundation | Implemented + tested |
-| 9 | AI architecture consolidation | Standalone specification not preserved |
-| 10 | AI architecture consolidation | Standalone specification not preserved |
-| 11 | AI architecture consolidation | Standalone specification not preserved |
-| 12 | AI architecture consolidation | Standalone specification not preserved |
+| 5 | Perception primitives | Implemented + tested in project history |
+| 6 | Cognitive integration layer | Implemented + tested in project history |
+| 7 | Agent loop | Implemented + tested in project history |
+| 8 | Safety foundation | Implemented + tested in project history |
+| 9 | Architecture consolidation | Standalone specification not preserved |
+| 10 | Architecture consolidation | Standalone specification not preserved |
+| 11 | Architecture consolidation | Standalone specification not preserved |
+| 12 | Architecture consolidation | Standalone specification not preserved |
 | 13 | Training/data transition | Standalone specification not preserved |
-| 14 | Training ↔ Brain integration | Implemented + documented |
-| 15 | Continual learning + memory consolidation | Implemented + documented |
-| 16 | Controlled file/tool stack | Implemented + tested |
-| 17 | Reflection + experience | Implemented + tested |
-| 18 | Autonomous task orchestration | Implemented + tested |
-| 19 | Resources + persistent scheduling | Implemented + tested |
-| 20 | World model + event context | Implemented + tested |
-| 21 | Confidence-aware perception + temporal awareness | Implemented + documented |
-| 22 | Structured reasoning | Implemented + tested |
+| 14 | Training ↔ Brain integration | Historical implementation documented |
+| 15 | Continual learning + memory consolidation | Historical implementation documented |
+| 16 | Controlled file/tool stack | Implemented + tested in project history |
+| 17 | Reflection + experience | Implemented + tested in project history |
+| 18 | Autonomous task orchestration | Implemented + tested in project history |
+| 19 | Resources + persistent scheduling | Implemented + tested in project history |
+| 20 | World model + event context | Implemented + tested in project history |
+| 21 | Confidence-aware perception + temporal awareness | Implemented + documented in project history |
+| 22 | Structured reasoning | Implemented + tested in project history |
 | 23 | Reasoning-system transition | Standalone specification not preserved |
-| 24 | Tool intelligence | Implemented + tested |
+| 24 | Tool intelligence | Implemented + tested in project history |
 | 25 | Integration transition | Standalone specification not preserved |
-| 26 | Verified self-improvement | Implemented + tested |
-| 27 | Advanced/persistent continual learning | Implemented + documented |
-| 28 | Persistent cognitive memory | Documented |
+| 26 | Verified self-improvement | Implemented + tested in project history |
+| 27 | Continual-learning engine | Historical implementation documented; not needed for normal Ollama chat |
+| 28 | Persistent cognitive memory | Documented historically; verify current branch behavior before relying on persistence |
 | 29 | Cognitive-system transition | Standalone specification not preserved |
-| 30 | Multimodal perception | Implemented + integrated |
-| 31 | Autonomous research | Implemented + tested |
-| 32 | Scientific experiments | Implemented + tested |
-| 33 | Architecture self-optimization | Implemented + tested |
-| 34 | Unified cognitive loop | Implemented + tested |
-| 35 | TARA Core runtime | Implemented + tested |
-| 36 | Repository audit + canonical CI | Implemented + tested |
-| 37 | Intelligence measurement, training and evidence-gated learning | Implemented through 37.12 |
-
-## Phase 1 — Foundation
-
-Phase 1 is part of TARA's earliest architecture history. The current repository does not preserve a standalone Phase 1 specification detailed enough to safely reconstruct every original requirement. The phase is therefore recorded as the project/neural architecture foundation without inventing historical implementation claims.
-
-## Phase 2 — Early model/data foundation
-
-Phase 2 belongs to the early model/data foundation and transition into the explicit cognitive architecture. A dedicated Phase 2 specification is not currently preserved in the repository, so its historical details are intentionally not fabricated.
-
-## Phase 3 — Memory primitives
-
-Phase 3 established explicit memory primitives: structured state that can be stored, retrieved and consumed by later cognitive layers.
-
-## Phase 4 — Early architecture/data transition
-
-No standalone Phase 4 specification is currently preserved. Later perception, cognition and training layers build on the early model/data/memory foundations.
-
-## Phase 5 — Perception primitives
-
-Phase 5 added perception primitives and tests, making observations an explicit subsystem in the architecture.
-
-## Phase 6 — Cognitive integration
-
-Phase 6 connected early perception, memory and reasoning components into a cognitive integration layer and added integration tests.
-
-## Phase 7 — Agent loop
-
-Phase 7 introduced the agent loop for iterative task processing, decision-making and bounded execution.
-
-## Phase 8 — Safety foundation
-
-Phase 8 established safety boundaries around agent behavior, including explicit permissions and bounded operations.
-
-## Phase 9 — AI architecture consolidation
-
-The repository history does not preserve a standalone Phase 9 specification. It is included here as an explicit historical phase entry without unsupported feature claims.
-
-## Phase 10 — AI architecture consolidation
-
-No standalone Phase 10 specification is currently preserved. The phase is retained in the complete chronology rather than silently omitted.
-
-## Phase 11 — AI architecture consolidation
-
-No standalone Phase 11 specification is currently preserved. Later milestones build on the consolidated AI architecture.
-
-## Phase 12 — AI architecture consolidation
-
-No standalone Phase 12 specification is currently preserved. The project history transitions toward the explicit training pipeline that became Phase 14.
-
-## Phase 13 — Training/data transition
-
-No standalone Phase 13 specification is currently preserved. It is treated as the transition into the reproducible learned-language training path of Phase 14.
-
-# 2. Core neural/data foundations
-
-The early development stages established the mathematical and software primitives required by later cognitive layers: model components, datasets/tokenization, training utilities, losses/optimization and deterministic testing. These foundations support both small experimental models and the later accelerated language-model pipeline.
-
-**Historical documentation note:** the current repository does not preserve a standalone phase brief for every early numbered milestone (especially 1, 2 and 4, and some transition phases before Phase 14). This report therefore does not invent undocumented feature lists for those milestones.
-
-## 3. Memory primitives
-
-Phase 3 introduced explicit memory primitives. The design treats memory as structured state that can be stored, retrieved and used by higher-level reasoning rather than assuming that neural weights alone are the complete memory system.
-
-## 4. Transition/foundation milestone
-
-No standalone Phase 4 specification is currently preserved in the repository history. Later perception, cognition and training layers build on the early model/data/memory foundations.
-
-## 5. Perception primitives
-
-Phase 5 added perception primitives and corresponding tests. Perception became an explicit subsystem so observations can be represented and passed into the cognitive stack instead of being mixed directly into model internals.
-
-## 6. Cognitive integration layer
-
-Phase 6 connected the early subsystems into a cognitive integration layer and added integration tests. The goal was to make memory, perception and reasoning components composable inside a single architecture.
-
-## 7. Agent loop
-
-Phase 7 introduced the agent loop: iterative processing of a task through cognitive state, decision logic and bounded execution. Tests cover the loop behavior separately from individual components.
-
-## 8. Safety foundation
-
-Phase 8 established safety boundaries around agent behavior. The architecture emphasizes explicit permissions, bounded operations and tests around safety conditions rather than granting unrestricted authority to generated output.
-
-## 9–13. AI-system consolidation and transition to learned training
-
-The repository history shows an extended consolidation period between the early cognitive architecture and the explicit training pipeline. During this period the project separated deferred PC-specific tools from the core AI architecture and prepared the dataset/model interfaces used by Phase 14.
-
-Because the current tree does not retain standalone specifications for each of Phases 9–13, they are documented here as a transition block rather than assigning unsupported feature claims to individual numbers.
-
-## 14. Training ↔ Brain integration
-
-Phase 14 established the reproducible learned-language training path:
-
-- deterministic train/validation splitting;
-- character/token sequence preparation;
-- checkpoint save/load and resume;
-- validation loss measurement;
-- integration of the trained language core with TARA's brain/runtime;
-- an algorithm-language-model CLI and training tests.
-
-The training pipeline is explicit: normal runtime code does not silently start expensive training.
-
-## 15. Continual learning and memory consolidation
-
-Phase 15 introduced controlled continual-learning primitives:
-
-- bounded replay of verified knowledge;
-- memory consolidation using deterministic access/importance signals;
-- evidence-gated learning;
-- explicit separation between knowledge preparation and actual training.
-
-The system is designed so verified information can become training material without allowing generated code or unverified output to silently retrain the model.
-
-## 16. Controlled tool stack
-
-Phase 16 added an allow-listed file/tool layer. Tools are exposed through explicit interfaces with safety boundaries and tests. The architecture distinguishes between a model suggesting an action and TARA actually being permitted to execute it.
-
-## 17. Reflection and experience
-
-Phase 17 added:
-
-- experience/outcome records;
-- success/failure signals;
-- reflection notes;
-- goal-progress tracking;
-- a reflection loop;
-- brain integration and tests.
-
-This is deterministic experience tracking, not a claim of human-like self-awareness.
-
-## 18. Autonomous task orchestration
-
-Phase 18 introduced explicit task orchestration with:
-
-- task dependencies;
-- priorities;
-- bounded retries;
-- verification feedback;
-- stop/resume controls;
-- integration into the brain.
-
-External work remains bounded by supplied callables or already-authorized tools.
-
-## 19. Resources and persistent scheduling
-
-Phase 19 added resource-aware task scheduling and persistence. TARA can represent scheduled work, priorities and resource constraints without turning scheduling into unrestricted autonomous execution.
-
-## 20. World model and event context
-
-Phase 20 added a world-state/event-context layer and event routing. Tasks can react to explicit world-state changes and triggers, while the brain receives structured contextual information.
-
-## 21. Confidence-aware perception and temporal awareness
-
-Phase 21 added confidence-aware temporal perception. The system can represent temporal context and confidence rather than treating every observation as equally certain.
-
-## 22. Structured reasoning
-
-Phase 22 added a structured reasoning engine with explicit state and verification. The reasoning layer is connected to the brain so intermediate reasoning state can be inspected and validated instead of being treated as an opaque text response.
-
-## 23. Reasoning-system transition
-
-The current repository history does not retain a standalone Phase 23 specification. It sits between structured reasoning and the documented Phase 24 tool-intelligence milestone, so this report does not assign unsupported features to it.
-
-## 24. Tool intelligence
-
-Phase 24 added AI-driven tool selection and recovery:
-
-- tool capability selection;
-- verification-aware execution;
-- recovery behavior;
-- integration into the brain;
-- tests for selection and recovery.
-
-The important architectural boundary is that tool intelligence can select among **already available/authorized** tools; it does not manufacture permissions.
-
-## 25. Integration transition
-
-No standalone Phase 25 specification is currently preserved in the repository. Later self-improvement work builds on the reasoning/tool stack.
-
-## 26. Self-improvement
-
-Phase 26 added a verified self-improvement system:
-
-- benchmark-driven improvement proposals;
-- iterative improvement experiments;
-- persistent benchmark evidence;
-- promotion checks;
-- an advanced self-improvement lab;
-- brain integration.
-
-The promotion loop is evidence-gated: an attempted improvement is not automatically accepted merely because it was generated.
-
-## 27. Continual-learning engine
-
-Phase 27 expanded continual learning beyond the Phase 15 primitives. The repository added a persistent continual-learning cycle that can export verified knowledge and failed attempts into deterministic replay/targeted examples, construct training material and connect to the existing training pipeline.
-
-## 28. Persistent cognitive memory
-
-Phase 28 documented persistent cognitive memory as a durable layer for retaining useful experiences/knowledge across runtime sessions. This complements the learned model rather than treating model weights as the only persistent state.
-
-## 29. Cognitive-system transition
-
-No standalone Phase 29 specification is currently preserved. The next documented milestone is the multimodal perception core in Phase 30.
-
-## 30. Multimodal perception core
-
-Phase 30 introduced a multimodal perception core and integrated it into the brain. The architecture was extended so perception is not restricted to a single text-only representation.
-
-## 31. Autonomous research engine
-
-Phase 31 implemented an autonomous research engine with tests and brain integration. Research is treated as an explicit workflow with bounded operations rather than unrestricted browsing or action.
-
-## 32. Scientific experiment engine
-
-Phase 32 introduced a scientific experiment engine with:
-
-- explicit experiment definitions;
-- reproducibility controls;
-- tests;
-- process-stable reproducibility;
-- brain integration.
-
-The purpose is to make experiments repeatable and auditable rather than merely generating plausible-looking conclusions.
-
-## 33. Architecture self-optimization
-
-Phase 33 added architecture self-optimization with tests and brain integration. Candidate architectural changes remain explicit experiments rather than automatically replacing the running system.
-
-## 34. Unified cognitive loop
-
-Phase 34 connected the major cognitive subsystems into a unified loop. The loop brings together perception/context, memory, reasoning, planning, tools, verification, reflection and learning-related signals under explicit orchestration.
-
-## 35. TARA Core runtime
-
-Phase 35 consolidated the architecture behind a top-level `TARACore` runtime. It owns:
-
-- lifecycle management;
-- component discovery;
-- health diagnostics;
-- event tracing;
-- safe shutdown;
-- neural/runtime APIs.
-
-Domain logic remains in specialized modules, keeping the core runtime as an orchestrator rather than a monolithic implementation.
-
-## 36. Repository audit and validation
-
-Phase 36 added a static repository auditor and canonical CI validation. The audit checks repository structure, Python syntax and required project components. The CI consolidation provides one canonical validation path instead of fragmented checks.
-
-## 37. Intelligence measurement and evidence-gated learning
-
-Phase 37 is a measurement-first intelligence program and is now subdivided into concrete engineering milestones.
-
-### Phase 37.1 — Intelligence baseline benchmark
-Introduced deterministic capability measurement before changing the model:
-
-- benchmark case IDs and categories;
-- expected results and custom scorers;
-- weighted category/overall aggregation;
-- failure capture;
-- stable SHA-256 fingerprints;
-- regression gates.
-
-### Phase 37.2 — Dataset intelligence audit
-Added dataset quality and contamination auditing:
-
-- empty/short-example detection;
-- normalized duplicate fingerprints;
-- train/validation/test leakage detection;
-- configurable contamination markers;
-- reproducible audit fingerprints;
-- non-destructive JSONL auditing.
-
-### Phase 37.3 — Training hardening
-Connected advanced controls to the real PyTorch pipeline:
-
-- gradient accumulation;
-- warmup + cosine learning-rate decay;
-- validation-based early stopping;
-- append-only JSONL experiment metrics;
-- checkpoint continuity;
-- resume compatibility checks;
-- CLI controls for training behavior.
-
-### Phase 37.4 — Neural core upgrade
-Upgraded the Transformer language core with configurable:
-
-- model depth;
-- RMSNorm;
-- dropout;
-- optional embedding/output weight tying;
-- checkpoint architecture metadata.
-
-### Phase 37.5 — Auditable training experiments
-Made training an explicit experiment boundary:
-
-- dataset preflight;
-- deterministic experiment identity;
-- explicit training handoff;
-- checkpoint output;
-- metrics;
-- JSON experiment manifests;
-- reproducible provenance.
-
-### Phase 37.6 — Capability benchmark suite
-Expanded measurement into separate capability categories:
-
-- coding;
-- reasoning;
-- memory;
-- planning;
-- tool use;
-- algorithms;
-- learning.
-
-The suite uses injected solvers and does not execute arbitrary model output.
-
-### Phase 37.7 — Evidence-gated intelligence improvement
-Connected measurement failures to bounded improvement proposals:
-
-- failure analysis;
-- capability targeting;
-- experiment boundaries;
-- regression protection;
-- promotion gates;
-- deterministic proposal/report fingerprints;
-- brain-level improvement APIs.
-
-### Phase 37.8 — Real-model capability evaluation
-Moved capability evaluation from synthetic solvers to actual checkpoints:
-
-- real checkpoint loading;
-- deterministic greedy inference;
-- 21-case capability suite;
-- model/evaluation fingerprints;
-- dedicated evaluation CLI;
-- `TARACore.evaluate_checkpoint()`;
-- inference-only evaluation with no promotion side effects.
-
-### Phase 37.9 — Evaluation/training continuity
-The current Phase 37 stack preserves a continuous evidence chain between dataset preparation, training, checkpoint generation and capability measurement. Generated-code execution is deliberately fail-closed in the repository: capability scores that require code execution must use an injected isolated execution backend. The default host runtime never executes generated programs.
-
-### Phase 37.10 — Learning experiment pipeline
-Added `src/learning_experiment.py` for baseline/candidate evaluation, capability deltas, checkpoint checks, regression protection and experiment fingerprints.
-
-### Phase 37.11 — Single-command learning pipeline
-Connected baseline evaluation, explicit training, candidate evaluation and evidence-gated promotion:
+| 30 | Multimodal perception | Implemented + integrated in project history |
+| 31 | Autonomous research | Implemented + tested in project history |
+| 32 | Scientific experiment engine | Implemented + tested in project history |
+| 33 | Architecture self-optimization | Implemented + tested in project history |
+| 34 | Unified cognitive loop | Implemented + tested in project history |
+| 35 | TARA Core runtime | Implemented + tested in project history |
+| 36 | Repository audit + canonical CI | Implemented + tested in project history |
+| 37 | Intelligence measurement and evidence-gated learning experiments | Historical sub-phases 37.1–37.12 recorded below; not part of normal Ollama chat setup |
+
+### Phase notes
+
+- **Phases 1–4 — Foundations:** early neural/model/data and memory foundations. The repository does not preserve standalone specifications for every early phase.
+- **Phases 5–8 — Cognitive foundation:** perception primitives, cognitive integration, agent loop, and safety boundaries.
+- **Phases 9–13 — Consolidation:** transition work toward the explicit training/data path; detailed standalone phase briefs are not preserved.
+- **Phase 14 — Training/Brain integration (historical):** reproducible language-model training, deterministic splits, sequence preparation, checkpoint save/load/resume, validation-loss measurement, and runtime integration were recorded.
+- **Phase 15 — Continual learning (historical):** controlled replay, memory consolidation, evidence-gated learning, and separation of knowledge preparation from training.
+- **Phase 16 — Controlled tools:** allow-listed file/tool interfaces and explicit execution boundaries.
+- **Phase 17 — Reflection:** experience/outcome records, success/failure signals, reflection notes, and goal-progress tracking.
+- **Phase 18 — Task orchestration:** dependencies, priorities, bounded retries, verification feedback, and stop/resume controls.
+- **Phase 19 — Resources/scheduling:** resource-aware scheduling and persistence primitives.
+- **Phase 20 — World model:** world-state, event context, and event routing.
+- **Phase 21 — Temporal perception:** confidence-aware observations and temporal context.
+- **Phase 22 — Structured reasoning:** explicit reasoning state and verification.
+- **Phase 24 — Tool intelligence:** capability-based tool selection and recovery among already-authorized tools.
+- **Phase 26 — Self-improvement:** benchmark-driven proposals, experiments, evidence checks, and promotion gates.
+- **Phases 27–28 — Learning/memory history:** continual-learning and persistent cognitive-memory work was documented; current runtime behavior must be checked against the active branch.
+- **Phase 30 — Multimodal perception:** multimodal perception core and brain integration.
+- **Phase 31 — Research:** bounded autonomous research workflow.
+- **Phase 32 — Scientific experiments:** explicit experiment definitions, reproducibility controls, tests, and integration.
+- **Phase 33 — Architecture optimization:** candidate architecture changes as explicit experiments.
+- **Phase 34 — Unified cognitive loop:** orchestration across perception/context, memory, reasoning, planning, tools, verification, and reflection.
+- **Phase 35 — Core runtime:** lifecycle, component discovery, health diagnostics, event tracing, safe shutdown, and runtime APIs.
+- **Phase 36 — Repository validation:** static repository auditing and canonical CI.
+- **Phase 37 — Measurement/learning experiments:** a historical set of benchmarks, training hardening, checkpoint evaluation, and evidence-gated experiment workflows. These are not required to run an existing model through Ollama.
+
+### Phase 37 sub-phase ledger (historical)
+
+| Sub-phase | Recorded work |
+|---|---|
+| 37.1 | Deterministic capability benchmark cases, category scoring, failure capture, fingerprints, and regression gates |
+| 37.2 | Dataset quality, duplicate, split-leakage, and contamination-marker audits |
+| 37.3 | Historical training controls: gradient accumulation, learning-rate schedule, early stopping, metrics, and resume compatibility |
+| 37.4 | Historical Transformer options: depth, RMSNorm, dropout, weight tying, and architecture metadata |
+| 37.5 | Reproducible training experiment identity, manifests, metrics, and provenance |
+| 37.6 | Capability benchmark categories: coding, reasoning, memory, planning, tools, algorithms, and learning |
+| 37.7 | Failure analysis, targeted proposals, regression protection, and evidence-gated promotion |
+| 37.8 | Checkpoint-based capability evaluation, deterministic inference, and evaluation fingerprints |
+| 37.9 | Evaluation/training continuity and fail-closed handling for generated-code execution |
+| 37.10 | Baseline/candidate comparison, capability deltas, regression protection, and experiment fingerprints |
+| 37.11 | Historical end-to-end learning experiment workflow with explicit evaluation and promotion gates |
+| 37.12 | Historical post-training evidence consolidation |
+
+**Important:** the phase ledger is project history, not a set of instructions to run. No dataset, preflight, training, checkpoint, or learning-experiment commands are listed as current setup steps. For normal local use, start Ollama and run TARA as described above.
+
+## Active work / review queue
+
+Keep this section updated as PRs change; do not mark proposed features as shipped until they are merged and validated.
+
+- [ ] Review and merge the removal of retired dataset/training/persistent-memory pipelines, if that direction remains intended.
+- [ ] Review the read-only public API toolkit and its security tests.
+- [ ] Review the explicit chat commands for GitHub, Wikipedia, weather, Hacker News, and Stack Exchange.
+- [ ] Confirm the main-branch README and command list match the actual runtime after the PR stack is resolved.
+- [ ] Run the canonical CI/test suite and record its result before calling the work complete.
+
+## Optional voice output
+
+TARA may be configured for ElevenLabs voice output where the corresponding integration is present. Keep credentials in local environment variables and never commit API keys or secrets. Check the active branch's implementation and current SDK documentation before relying on specific parameters.
+
+## Development checks
+
+Run tests with:
 
 ```bash
-python run_learning_experiment.py checkpoints/baseline.pt data/teacher/approved.jsonl checkpoints/teacher_candidate_new.pt --steps 100 --report outputs/teacher_learning_new.json
+pytest
 ```
 
-A candidate is accepted only when measured improvement satisfies the configured regression/progression gates.
-
-### Phase 37.12 — Learning consolidation
-Added post-training evidence consolidation so an executed learning result can become durable cognitive memory. The consolidation layer does not independently promote checkpoints; promotion remains an explicit evidence-based decision.
-
----
-
-# Current architecture
-
-At a high level, the current TARA design is:
-
-```text
-                         ┌─────────────────────┐
-                         │       User/Input    │
-                         └──────────┬──────────┘
-                                    │
-                         perception / context
-                                    │
-                                    ▼
-                    ┌────────────────────────────┐
-                    │       TARA Core / Brain    │
-                    │                            │
-                    │ memory · reasoning         │
-                    │ planning · reflection      │
-                    │ world model · temporal     │
-                    │ task orchestration         │
-                    └───────┬─────────┬──────────┘
-                            │         │
-                    authorized tools  │ language reasoning
-                            │         │
-                            ▼         ▼
-                       Tool layer   Local/Hosted LLM
-                            │         │
-                            └────┬────┘
-                                 │
-                           verification
-                                 │
-                                 ▼
-                       learning / consolidation
-                                 │
-                                 ▼
-                         measured evidence
-```
-
-## External API integration policy
-
-TARA keeps external services behind explicit adapters. Credentials must be supplied through local environment variables, public endpoints must be allowlisted, and responses must be validated before they can influence tools or persistent memory. Public API integration is separate from model training; no external response is automatically treated as trusted knowledge.
-
----
-
-# Training and evaluation map
-
-## Preflight
-
-```bash
-python training_preflight.py --data data/teacher/approved.jsonl --context 128
-```
-
-## Legacy Fast TinyStories experiment (explicit opt-in)
-
-```bash
-python train_fast.py --dataset tinystories --legacy-public-dataset --steps 1000 --batch-size 16
-```
-
-## Algorithm language-model training
-
-```bash
-python train_algorithm_lm.py --data data/teacher/approved.jsonl --output checkpoints/teacher_algorithm_candidate_new.pt
-```
-
-## Capability evaluation
-
-```bash
-python evaluate_tara_capabilities.py checkpoints/algorithm_lm.pt --output experiments/tara-capability-baseline.json
-```
-
-## Evidence-gated learning experiment
-
-```bash
-python run_learning_experiment.py checkpoints/baseline.pt data/teacher/approved.jsonl checkpoints/teacher_candidate_new.pt --steps 100 --report outputs/teacher_learning_new.json
-```
-
----
-
-# Engineering principles
-
-1. **Measurement before claims** — architecture size and training loss are not treated as intelligence scores.
-2. **Explicit training** — normal runtime execution does not silently launch heavy training.
-3. **Evidence-gated promotion** — a candidate checkpoint must pass measurable evaluation and regression checks before promotion.
-4. **Deterministic provenance** — datasets, experiments and benchmark reports receive stable fingerprints where supported.
-5. **Bounded tools** — generated text does not automatically receive permissions.
-6. **Verification before learning** — unverified model output is not silently promoted into durable knowledge.
-7. **Separation of concerns** — TARA owns cognition/orchestration; external providers supply only explicitly configured capabilities.
-8. **Reproducibility** — seeds, configuration, dataset identity, checkpoints and metrics are treated as first-class experiment data.
-9. **No invented capability claims** — a capability is reported only when the relevant code path and measurement have actually executed.
-10. **Inspectable architecture** — major cognitive functions remain represented as explicit modules instead of being hidden behind one opaque call.
-
-# What is implemented vs. what still requires execution
-
-Implemented in the repository:
-- modular cognitive architecture;
-- memory/perception/reasoning/planning/tool layers;
-- reflection and continual-learning primitives;
-- training and checkpoint pipeline;
-- training hardening;
-- benchmark/evaluation infrastructure;
-- evidence-gated learning workflows;
-- repository audit/CI;
-- explicit external API adapter boundaries.
-
-Still dependent on actual runtime experiments:
-- successful authentication to any external LLM provider;
-- a newly trained checkpoint;
-- benchmark scores for that checkpoint;
-- measured improvement over a baseline;
-- real-world autonomous performance;
-- claims about general intelligence or human-level reasoning.
-
-This distinction is intentional: **source-code capability, executed capability, and measured capability are three different things in TARA.**
-
-
-## ElevenLabs voice output
-
-TARA can optionally speak generated responses through an ElevenLabs voice. The voice provider is separate from TARA's cognition, so memory, reasoning, planning and verification remain TARA-owned.
-
-Install the dependency:
-
-```bash
-pip install elevenlabs
-```
-
-Configure the local environment:
-
-```env
-ELEVENLABS_API_KEY=your_api_key
-ELEVENLABS_VOICE_ID=your_voice_id
-ELEVENLABS_MODEL=eleven_v4
-ELEVENLABS_OUTPUT_FORMAT=mp3_44100_128
-```
-
-Then use the configured voice from the brain/core:
-
-```python
-response = brain.respond("Hello", speak=True)
-# or
-audio = core.speak(response.text)
-```
-
-The API key is never stored in the repository. The ElevenLabs voice ID is also configuration-driven, so you can change TARA's voice without changing code.
-
-ElevenLabs' current Python SDK supports `text_to_speech.convert(...)` with a selected `voice_id`, model and output format. See the official API documentation for the current parameters. 
-
-
-## Phase B — Intelligence proof and regression-gated learning
-
-Batch B adds a bounded real CPU train/evaluate/gate smoke path. It trains a baseline,
-resumes into a separate candidate checkpoint, evaluates both with the same deterministic
-21-case capability suite, and writes machine-readable evidence. The baseline is never
-overwritten and pre-existing artifact paths are rejected.
-
-```mermaid
-flowchart TD
-    A[Dataset audit + fingerprint] --> B[Baseline train]
-    B --> C[Separate candidate resume]
-    C --> D[Same 21-case benchmark]
-    B --> D
-    D --> E[Overall + category regression gate]
-    E --> F[JSON evidence; no auto-promotion]
-```
-
-Windows CMD quick run (choose a fresh output folder):
-
-```bat
-python -m scripts.run_phase_b_smoke --output-dir artifacts\phase-b-smoke
-python -m pytest tests\test_phase_b_smoke.py tests\test_learning_experiment.py tests\test_evaluation_orchestrator.py -q
-```
-
-See [docs/phase-b-intelligence.md](docs/phase-b-intelligence.md) for artifact meanings,
-the CI contract, and the remaining full teacher/student distillation and real-checkpoint
-validation. **A passing smoke run proves the pipeline executed; it does not prove an
-intelligence improvement.** Candidate promotion remains evidence-gated and separate.
-
-
-### Run a reviewed teacher-data experiment
-
-The bounded smoke runner is for CI wiring. For an actual curated-data experiment, first generate
-teacher candidates with `python -m src.teacher_distillation`, manually review/filter them into a
-separate dataset, and then train a new candidate against an existing baseline:
-
-```bat
-python -m scripts.run_phase_b_experiment checkpoints\baseline.pt data\llama_teacher_reviewed.jsonl checkpoints\phase_b_candidate.pt --steps 100 --device cpu
-```
-
-The command audits the reviewed dataset, measures the baseline before training, trains into a
-new checkpoint path, measures the candidate with the same deterministic capability suite, and
-writes training/evaluation manifests plus an overall/category regression decision. It refuses to
-overwrite existing outputs. A rejected candidate is retained for inspection but is not promoted.
-The command's non-zero exit for a rejected candidate is intentional.
-
-
-## Phase C — teacher-data quality, human review, and held-out evidence
-
-Batch C adds a read-only structural/provenance audit for nine-domain teacher JSONL,
-a CSV human-review queue that emits only explicitly approved rows, and a baseline-vs-
-candidate held-out checkpoint evaluator. Generated answers remain unverified until a
-human checks them; a clean audit does not prove correctness.
-
-```mermaid
-flowchart TD
-    A[Local teacher generates candidate JSONL] --> B[Audit schema, provenance, hashes, duplicates]
-    B --> C{Structural errors?}
-    C -->|Yes| D[Fix source; do not review/train]
-    C -->|No| E[Export review CSV]
-    E --> F[Human checks answer and records approve/reject + reviewer]
-    F --> G[Import decisions; approved-only JSONL]
-    G --> H[Train separate candidate checkpoint]
-    H --> I[Evaluate baseline and candidate on fixed held-out capability suite]
-    I --> J{Strict improvement and no category regression?}
-    J -->|Yes| K[Eligible for manual promotion review]
-    J -->|No| L[Retain evidence; do not promote]
-```
-
-Windows CMD sequence (use fresh paths and preserve existing checkpoints):
-
-```bat
-python -m src.teacher_distillation --per-domain 2 --output outputs\teacher_candidates.jsonl
-python -m src.teacher_dataset_audit outputs\teacher_candidates.jsonl --report outputs\teacher_audit.json
-python -m src.teacher_review export outputs\teacher_candidates.jsonl outputs\teacher_review.csv
-REM Fill every CSV decision with approve/reject and a reviewer name after checking answers.
-python -m src.teacher_review import outputs\teacher_candidates.jsonl outputs\teacher_review.csv data\teacher_approved.jsonl
-python -m scripts.run_phase_b_experiment checkpoints\baseline.pt data\teacher_approved.jsonl checkpoints\phase_c_candidate.pt --steps 100
-python -m src.teacher_heldout_eval checkpoints\baseline.pt checkpoints\phase_c_candidate.pt outputs\phase_c_heldout.json
-```
-
-The held-out runner is evidence-only. A non-improving candidate remains unpromoted; never
-overwrite the baseline checkpoint. The fixed capability suite is a regression signal, not
-a substitute for task-specific held-out tests or a proof of general intelligence.
-
-### Batch C handoff — 15 October 2026
-
-- Branch: `feature/tara-phase-c-teacher-data-quality`
-- Draft PR #16: https://github.com/deathkernel/TARA/pull/16, stacked on Batch B PR #15.
-- The branch is based on the latest Batch B module-invocation fix; Batch B's current workflow and README are preserved.
-- CI must pass on the final exact head before this batch is validated. Windows focused tests and full Python/Rust suites remain pending.
-- Next: inspect exact-head CI, fix reproduced failures, run Windows validation in a separate worktree, review the full diff, and request explicit approval before merge.
-- No live teacher generation or real checkpoint training was executed during these remote repository edits.
-
-
-## Batch D — approval-gated model learning
-
-Batch D adds `src/teacher_training.py`, an explicit command that connects the Batch C reviewed-data pipeline to TARA's existing trainer and held-out evaluator. Training is blocked unless the JSONL dataset passes structural/provenance audit, contains no duplicates, and every record is marked `approved` with an explicit approve decision and reviewer. It writes a separate candidate checkpoint and an evidence report; it never overwrites the baseline or promotes the candidate automatically.
-
-```mermaid
-flowchart TD
-    A[Teacher candidates] --> B[Audit and human review]
-    B --> C[Approved-only JSONL]
-    C --> D[Approval gate]
-    D --> E[Train separate candidate]
-    E --> F[Same held-out suite: baseline vs candidate]
-    F --> G{Improvement and no regression?}
-    G -->|Yes| H[Evidence says accepted]
-    G -->|No| I[Evidence says rejected]
-    H --> J[Manual promotion only]
-    I --> J
-```
-
-Windows CMD example (choose new output paths; do not overwrite existing checkpoints):
-
-```bat
-python -m src.teacher_training data\\teacher_approved.jsonl checkpoints\\baseline.pt checkpoints\\batch_d_candidate.pt outputs\\batch_d_evidence.json --steps 100
-```
-
-A passing structural audit does not certify factual correctness. The fixed capability suite is a limited regression check, not proof of general intelligence. No real teacher generation, checkpoint training, or local Windows/full-suite validation was performed during remote repository editing.
-
-### Batch D handoff — 15 October 2026
-
-- Branch: `feature/tara-phase-d-model-learning`, stacked on Batch C branch `feature/tara-phase-c-teacher-data-quality`.
-- Draft PR is intended to target Batch C; it must remain unmerged until exact-head CI, Windows validation, full Python/Rust tests, and diff review are complete.
-- New module: `src/teacher_training.py`; tests: `tests/test_teacher_training.py`.
-- CI workflow includes the Batch D paths and focused tests. Check exact-head status before calling the batch validated.
-- Next: inspect CI logs and fix evidence-backed failures; run the focused tests and full suites in a separate worktree; review the full diff; ask for explicit merge approval.
-- Preserve local `checkpoints/`, `outputs/`, conversation JSONL/manifest data, and `test_voice.py`. Do not use destructive cleanup or merge without explicit approval.
-
-
-## Batch E — end-to-end teacher pipeline integration
-
-Batch E connects teacher generation, data audit, manual review, approved-only curation, TARA candidate training, and held-out evaluation in a staged CLI. It deliberately stops for human review before curation. It does **not** automatically trust teacher answers, train Llama weights, or promote a checkpoint.
-
-```mermaid
-flowchart TD
-    A[Ollama teacher] --> B[Prepare: generate and audit]
-    B --> C[Review CSV]
-    C --> D[Human verifies and decides]
-    D --> E[Curate approved-only JSONL]
-    E --> F[Train separate TARA candidate]
-    F --> G[Held-out baseline/candidate comparison]
-    G --> H{Improved without regression?}
-    H -->|Yes| I[Accepted evidence]
-    H -->|No| J[Rejected evidence]
-    I --> K[Manual review only]
-    J --> K
-```
-
-Windows CMD example (all artifact outputs must be new paths):
-
-```bat
-ollama list
-set TARA_LLM_BACKEND=ollama
-python -m src.teacher_pipeline prepare --dataset outputs\batch_e_candidates.jsonl --audit-report outputs\batch_e_audit.json --review-csv outputs\batch_e_review.csv --manifest outputs\batch_e_prepare_manifest.json --per-domain 2
-```
-
-After independently reviewing every row in the CSV:
-
-```bat
-python -m src.teacher_pipeline curate --dataset outputs\batch_e_candidates.jsonl --review-csv outputs\batch_e_review.csv --approved-dataset data\batch_e_approved.jsonl --manifest outputs\batch_e_curation_manifest.json
-python -m src.teacher_pipeline train --dataset data\batch_e_approved.jsonl --baseline checkpoints\baseline.pt --candidate checkpoints\batch_e_candidate.pt --report outputs\batch_e_evidence.json --steps 100
-```
-
-### Batch E handoff — 15 October 2026
-
-- Branch: `feature/tara-phase-e-teacher-pipeline-integration`, stacked on Batch D branch `feature/tara-phase-d-model-learning`.
-- Added `src/teacher_pipeline.py` (prepare/curate/train) and `tests/test_teacher_pipeline.py`; updated CI focused paths/tests and the detailed teacher-learning docs.
-- Exact-head CI, Windows tests, and full Python/Rust suites remain pending until actually observed.
-- No real teacher generation or model training was run during remote editing.
-- Next: check CI logs, fix evidence-backed failures, run validation in a separate worktree, review the full stacked diff, and request explicit approval before merging.
-- Preserve local checkpoints, outputs, conversation JSONL/manifests, and `test_voice.py`; no destructive cleanup.
-
-
-## Batch F — final runtime integration and release gate
-
-Batch F adds a deterministic cross-component regression test and a dedicated CI release gate.
-The integration path exercises `TARABrain` + `TARACore`, explicit provider selection, a bounded
-cognitive cycle, verified learning records, persistent-memory save/reload, and a runtime manifest.
-
-```mermaid
-flowchart LR
-    A[Provider config] --> B[Brain + Core]
-    B --> C[Deterministic cycle]
-    C --> D[Verified learning]
-    D --> E[Persistent memory + manifest]
-    E --> F[Python regression suite]
-    E --> G[Rust tokenizer suite]
-    F --> H{Release gate}
-    G --> H
-    H --> I[Human review]
-```
-
-### Validate locally (Windows CMD)
-
-```bat
-python -m pytest tests/test_phase_f_integration.py tests/test_tara_core.py tests/test_memory.py tests/test_llm_provider_factory.py -q
-python -m pytest -q
-python -m src.teacher_pipeline --help
-cargo test --manifest-path rust-tokenizer/Cargo.toml
-```
-
-CI is defined in `.github/workflows/phase-f-release-gate.yml`. The tests use a dummy model and
-do not require Ollama, teacher generation, or real checkpoint training. Passing tests prove only
-the tested software contracts; they do not prove general intelligence, answer correctness, model
-improvement, or measured hardware performance.
-
-### Batch F handoff — 15 October 2026
-
-- Branch: `feature/tara-phase-f-release-integration` (stacked on Batch E).
-- Draft PR #19: https://github.com/deathkernel/TARA/pull/19, targeting `feature/tara-phase-e-teacher-pipeline-integration`.
-- Exact-head CI and Windows/full-suite validation: pending; do not infer a pass from remote edits.
-- No PR is merged automatically. Preserve local checkpoints, outputs, conversation JSONL/manifests,
-  and `test_voice.py`; no destructive cleanup.
+Prefer mocked responses for deterministic unit tests. Live integrations may require credentials and network access. CI must pass before a change is considered ready to merge.
+
+## Documentation policy
+
+- Keep current run instructions short and executable.
+- Keep historical phases, architecture decisions, and completed/in-progress work in the progress ledger.
+- Clearly label retired pipelines as historical instead of presenting them as current commands.
+- Track proposals separately from merged/current functionality.
+- Update the ledger when a phase or PR changes status.
