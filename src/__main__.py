@@ -76,7 +76,7 @@ def chat_loop(brain, *, input_fn=input, output_fn=print, api_tools=None) -> None
         if command in {"/memory", "/learn", "/remember"} or command.startswith(("/learn ", "/remember ", "/forget ")):
             output_fn("TARA: Persistent conversation memory and memory commands have been removed.")
             continue
-        if command.startswith("/api "):
+        if command == "/api" or command.startswith("/api "):
             result = _run_api_command(prompt, api_tools)
             output_fn(f"TARA API: {result}" if result is not None else "Usage: /api github <query> | /api wiki <query> | /api weather <city>")
             continue
