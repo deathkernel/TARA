@@ -1,0 +1,45 @@
+name: TARA Phase B intelligence proof
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - feature/tara-llama-distillation
+    paths:
+      - "scripts/run_phase_b_smoke.py"
+      - "tests/test_phase_b_smoke.py"
+      - "src/training_pipeline.py"
+      - "src/training_experiment.py"
+      - "src/learning_experiment.py"
+      - "src/evaluation_orchestrator.py"
+      - "src/model_capability_runner.py"
+      - "src/capability_suite.py"
+      - "docs/phase-b-intelligence.md"
+      - ".github/workflows/phase-b-intelligence.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  phase-b-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install smoke-test dependencies
+        run: python -m pip install --upgrade pip pytest torch
+      - name: Run real CPU train/evaluate/gate cycle
+        run: python scripts/run_phase_b_smoke.py --output-dir phase-b-artifacts --steps 2 --max-new-tokens 4
+      - name: Run focused regression tests
+        run: python -m pytest tests/test_phase_b_smoke.py tests/test_learning_experiment.py tests/test_evaluation_orchestrator.py -q
+      - name: Upload Phase B evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tara-phase-b-evidence
+          path: phase-b-artifacts/
+          if-no-files-found: warn
