@@ -58,4 +58,4 @@ within the self-developer namespace while their diagnostic reports are retained.
 - Test success is necessary but not sufficient for correctness.
 - This version does not support automatic commits, pushes, merges, dependency
   installation, or arbitrary shell execution.
-- Failed runs retain their report and candidate worktree for diagnosis.
+- Failed runs retain their diagnostic report; their candidate worktree and branch are cleaned up when safe cleanup succeeds.
