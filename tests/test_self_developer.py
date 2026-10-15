@@ -16,6 +16,9 @@ from src.self_developer import SelfDeveloper, SelfDeveloperError, _validation_co
     "diff --git a/../../outside.txt b/src/example.py\n--- a/src/example.py\n+++ b/src/example.py\n@@ -1 +1 @@\n-a\n+b\n",
     "diff --git a/src/one.py b/src/one.py\n--- a/src/two.py\n+++ b/src/one.py\n@@ -1 +1 @@\n-a\n+b\n",
     "--- a/.git\n+++ b/.git\n@@ -1 +1 @@\n-a\n+b\n",
+    "--- a/.gitmodules\n+++ b/.gitmodules\n@@ -1 +1 @@\n-old\n+new\n",
+    "--- a/.GITMODULES\n+++ b/.GITMODULES\n@@ -1 +1 @@\n-old\n+new\n",
+    "--- a/src/.GitModules\n+++ b/src/.GitModules\n@@ -1 +1 @@\n-old\n+new\n",
     "--- a/src/.git/config\n+++ b/src/.git/config\n@@ -1 +1 @@\n-a\n+b\n",
     "--- a/requirements.txt\t2026-10-13 10:00:00 +0000\n+++ b/requirements.txt\t2026-10-13 10:00:00 +0000\n@@ -1 +1 @@\n-old\n+new\n",
     "--- a/src/link\n+++ b/src/link\nnew file mode 120000\n@@ -0,0 +1 @@\n+target\n",
@@ -29,6 +32,17 @@ def test_patch_guard_rejects_unsafe_or_invalid_patch(patch):
 def test_patch_guard_accepts_small_repository_relative_diff():
     patch = "--- a/src/example.py\n+++ b/src/example.py\n@@ -1 +1 @@\n-old\n+new\n"
     SelfDeveloper._validate_patch(patch)
+
+
+def test_patch_guard_rejects_case_colliding_paths():
+    patch = (
+        "diff --git a/src/Module.py b/src/Module.py\n"
+        "--- a/src/Module.py\n+++ b/src/Module.py\n@@ -1 +1 @@\n-old\n+new\n"
+        "diff --git a/src/module.py b/src/module.py\n"
+        "--- a/src/module.py\n+++ b/src/module.py\n@@ -1 +1 @@\n-old\n+new\n"
+    )
+    with pytest.raises(SelfDeveloperError, match="Case-variant paths"):
+        SelfDeveloper._validate_patch(patch)
 
 
 @pytest.mark.parametrize("path", [
