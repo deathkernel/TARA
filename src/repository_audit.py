@@ -57,6 +57,11 @@ class RepositoryAuditor:
         "src/schedulers.py", "src/transformer.py", "src/language_benchmarks.py",
         "src/evaluation.py", ".github/workflows/phase-b-intelligence.yml",
         ".github/workflows/phase-f-release-gate.yml", "docs/phase-b-intelligence.md",
+        "docs/archive/legacy-training/phase14_training.md",
+        "docs/archive/legacy-training/tara_chat_cli.md",
+        "docs/archive/legacy-training/tara_conversation_learning.md",
+        "docs/archive/legacy-training/tara_multi_domain_teacher_learning.md",
+        "docs/archive/legacy-training/teacher_data_migration.md",
     )
 
     def __init__(self, root: str | Path):
