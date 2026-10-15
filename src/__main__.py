@@ -9,13 +9,6 @@ from .llm_provider_factory import provider_from_env
 from .public_api_tools import PublicAPIError, PublicAPITools
 
 
-class OllamaChatBrain(TARABrain):
-    """TARA brain that relies on its configured language provider only."""
-
-    def generate(self, prompt, *, max_new_tokens=32, temperature=1.0, top_k=None, top_p=None):
-        raise RuntimeError("No local TARA checkpoint fallback is available; use the configured language provider.")
-
-
 def _display_text(value, *, limit=180) -> str:
     """Bound untrusted API text and remove terminal control characters."""
     text = str(value or "")
@@ -202,7 +195,7 @@ def main() -> int:
         if provider is None:
             print("TARA chat needs a language provider. Set TARA_LLM_BACKEND=ollama.")
             return 2
-        brain = OllamaChatBrain(model=None, tokenizer=None, llm_provider=provider)
+        brain = TARABrain(llm_provider=provider)
     except (ValueError, RuntimeError, OSError) as exc:
         print(f"TARA could not start: {exc}")
         return 2
