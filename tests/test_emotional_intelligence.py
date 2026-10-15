@@ -32,3 +32,14 @@ def test_system_guidance_does_not_claim_real_tara_feelings():
 
     assert "never claim TARA literally feels emotions" in guidance
     assert "not a diagnosis" in guidance
+
+
+def test_companion_guidance_uses_only_preferred_nicknames_and_respects_distress():
+    engine = EmotionalIntelligence()
+    guidance = engine.system_guidance(engine.assess("Bhai, aaj bahut udaas hoon"))
+
+    assert "balanced romantic companion" in guidance
+    assert "Baby, jaan, and babu" in guidance
+    assert "Never call the user beta, baccha, child, son, or daughter" in guidance
+    assert "prioritize empathy over flirting or teasing" in guidance
+    assert "not a claim of literal human feelings" in guidance
