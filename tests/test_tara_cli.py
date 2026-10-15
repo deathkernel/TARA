@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 
-from src.__main__ import chat_loop
+from src.__main__ import _summarize_api_observation, chat_loop
 
 
 class FakeBrain:
@@ -20,7 +20,7 @@ class FakeAPIs:
     def search_github_repositories(self, query):
         self.calls.append(("github", query))
         return SimpleNamespace(provider="GitHub", source_url="https://api.github.com/search/repositories?q=test",
-                               retrieved_at=123.0, trusted=False, data={"items": [{"full_name": "example/repo"}]})
+                               retrieved_at=123.0, trusted=False, data={"items": [{"full_name": "example/repo", "description": "A test repository", "stargazers_count": 7, "html_url": "https://github.com/example/repo"}]})
 
     def search_wikipedia(self, query):
         self.calls.append(("wiki", query))
@@ -90,6 +90,10 @@ def test_api_commands_use_injected_public_apis_without_calling_llm():
     assert brain.prompts == []
     assert any('"trusted": false' in line for line in output)
     assert any("source_url" in line for line in output)
+    assert any("Found 1 repositories." in line for line in output)
+    assert any("example/repo" in line for line in output)
+    assert any("untrusted external data" in line for line in output)
+    assert any("was not sent to the language model" in line for line in output)
 
 
 def test_api_commands_validate_provider_and_missing_query():
@@ -100,3 +104,37 @@ def test_api_commands_validate_provider_and_missing_query():
     assert any("Usage:" in line for line in output)
     assert any("Unknown API provider" in line for line in output)
     assert apis.calls == []
+
+
+
+def test_api_summary_formats_weather_and_removes_terminal_controls():
+    observation = SimpleNamespace(
+        provider="Open-Meteo",
+        source_url="https://api.open-meteo.com/v1/forecast",
+        retrieved_at=123.0,
+        trusted=False,
+        data={
+            "location": {"name": "Pune\\x1b[31m", "admin1": "Maharashtra", "country": "India"},
+            "weather": {"current": {"temperature_2m": 31.5, "relative_humidity_2m": 45, "wind_speed_10m": 8}},
+        },
+    )
+    summary = _summarize_api_observation(observation)
+    assert "temperature: 31.5°C" in summary
+    assert "humidity: 45%" in summary
+    assert "wind: 8 km/h" in summary
+    assert "untrusted external data" in summary
+    assert "\\x1b" not in summary
+
+
+def test_api_summary_formats_hacker_news_titles_and_links():
+    observation = SimpleNamespace(
+        provider="Hacker News",
+        source_url="https://hn.algolia.com/api/v1/search",
+        retrieved_at=123.0,
+        trusted=False,
+        data={"hits": [{"title": "A story", "url": "https://example.com/story", "points": 12}]},
+    )
+    summary = _summarize_api_observation(observation)
+    assert "Found 1 Hacker News matches." in summary
+    assert "A story (points: 12)" in summary
+    assert "https://example.com/story" in summary
