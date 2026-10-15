@@ -4,7 +4,7 @@
 
 The default TARA student-training data path is now **Ollama-generated candidates that have passed structural/provenance audit and explicit human approval**. The default curated path is `data/teacher/approved.jsonl`. The repository intentionally does not contain a generated approved dataset; it must be created through the review workflow.
 
-No existing dataset, checkpoint, output, conversation JSONL/manifest, or local working tree is deleted by this migration. The legacy sample and acquisition code remain in the branch for review and rollback. Destructive removal is a separate future decision after this migration is reviewed.
+This cleanup removes only the tracked historical sample `data/algorithm_tasks.jsonl` from the migration branch. The public-corpus acquisition manifest/code remain because the opt-in legacy tools still depend on them. No checkpoint, output, conversation JSONL/manifest, or local working tree is deleted or modified.
 
 ## Data flow
 
@@ -34,7 +34,7 @@ flowchart TD
 | `train_algorithm_lm.py` | Defaults to approved teacher data; legacy replay/targeted mixing requires explicit `--allow-legacy-data` | Migrated |
 | `training_preflight.py` | Defaults to approved teacher data and blocks legacy/unreviewed input; `--allow-legacy-data` is explicit preflight-only opt-in | Migrated |
 | `train_dataset.py`, `train_fast.py` | Public-corpus training is disabled by default; requires `--legacy-public-dataset` | Legacy research only |
-| `data/algorithm_tasks.jsonl` | Retained as a historical sample; no longer a default for the main training/preflight CLIs | Archived in place |
+| `data/algorithm_tasks.jsonl` | Historical sample deleted in this cleanup PR; approved Ollama data is the default path | Removed from checkout |
 | `data/dataset_sources.json`, `src/dataset_registry.py`, `src/dataset_acquisition.py`, `src/text_dataset.py`, `prepare_tara_dataset.py` | Retained for reproducible public-corpus experiments, not the preferred training path | Legacy research only |
 | `train_tiny_lm.py` and small synthetic experiments | Tiny educational corpora/experiments, not the Ollama teacher production path | Retained |
 
