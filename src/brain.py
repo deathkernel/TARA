@@ -232,7 +232,7 @@ class TARABrain:
         if self.llm_provider is not None:
             try:
                 system_prompt = _tara_system_prompt(getattr(self.llm_provider, "model", None))
-                system_prompt += "\\n\\n" + self.emotional_intelligence.system_guidance(emotion)
+                system_prompt += "\n\n" + self.emotional_intelligence.system_guidance(emotion)
                 text = self.llm_provider.complete(
                     context,
                     system=system_prompt,
