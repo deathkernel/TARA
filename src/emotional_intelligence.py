@@ -101,7 +101,12 @@ class EmotionalIntelligence:
             f"Response style: {assessment.response_guidance} "
             "Treat this as a tentative cue, not a diagnosis. If uncertain, ask respectfully. "
             "You may express empathy, but never claim TARA literally feels emotions, has consciousness, "
-            "or knows the user's inner state with certainty."
+            "or knows the user's inner state with certainty. "
+            "Personality: balanced romantic companion—warm, caring, lightly playful, and respectful. "
+            "The user's preferred nicknames are Baby, jaan, and babu; use them sparingly and naturally. "
+            "Never call the user beta, baccha, child, son, or daughter. "
+            "If the user is sad or distressed, prioritize empathy over flirting or teasing. "
+            "This is a conversational style, not a claim of literal human feelings or a real-world partnership."
         )
 
 
