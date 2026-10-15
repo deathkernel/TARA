@@ -183,7 +183,7 @@ Legacy only: the public-corpus curriculum manifest remains in `data/dataset_sour
 Prepare a bounded Basic v1 sample without downloading an entire corpus:
 
 ```bash
-python prepare_tara_dataset.py --level basic --max-records-per-source 1000 --output data/basic_v1.jsonl
+python prepare_tara_dataset.py --level basic --max-records-per-source 1000 --output data/basic_v1.jsonl  # legacy public-data acquisition only
 ```
 
 The resulting JSONL is directly consumable by the existing training pipeline because each curated record contains a `text` field. The preparation command is an explicit data operation; it does not start model training.
@@ -192,7 +192,7 @@ The public source manifest records dataset identity, organization, role and stat
 
 ## Phase 37.11 — Single-Command Learning Pipeline Complete
 
-`run_learning_experiment.py` connects baseline evaluation, explicit training, candidate evaluation and evidence-gated promotion into one reproducible workflow.
+`run_learning_experiment.py` connects baseline evaluation, explicit training, candidate evaluation and evidence-gated decisions. It now requires human-approved Ollama teacher data by default; use `--allow-legacy-data` only for an explicitly chosen historical experiment.
 
 ```bash
 python -m src.teacher_pipeline train --dataset data/teacher/approved.jsonl --baseline checkpoints/baseline.pt --candidate checkpoints/teacher_candidate_new.pt --report outputs/teacher_evidence_new.json --steps 100
@@ -710,7 +710,7 @@ Added `src/learning_experiment.py` for baseline/candidate evaluation, capability
 Connected baseline evaluation, explicit training, candidate evaluation and evidence-gated promotion:
 
 ```bash
-python run_learning_experiment.py checkpoints/baseline.pt data/algorithm_tasks.jsonl checkpoints/candidate.pt --steps 100
+python run_learning_experiment.py checkpoints/baseline.pt data/teacher/approved.jsonl checkpoints/teacher_candidate_new.pt --steps 100 --report outputs/teacher_learning_new.json
 ```
 
 A candidate is accepted only when measured improvement satisfies the configured regression/progression gates.
@@ -796,19 +796,19 @@ TARA_GROQ_MAX_COMPLETION_TOKENS=1024
 ## Preflight
 
 ```bash
-python training_preflight.py --data data/algorithm_tasks.jsonl --context 128
+python training_preflight.py --data data/teacher/approved.jsonl --context 128
 ```
 
-## Fast TinyStories experiment
+## Legacy Fast TinyStories experiment (explicit opt-in)
 
 ```bash
-python train_fast.py --dataset tinystories --steps 1000 --batch-size 16
+python train_fast.py --dataset tinystories --legacy-public-dataset --steps 1000 --batch-size 16
 ```
 
 ## Algorithm language-model training
 
 ```bash
-python train_algorithm_lm.py --data data/algorithm_tasks.jsonl
+python train_algorithm_lm.py --data data/teacher/approved.jsonl --output checkpoints/teacher_algorithm_candidate_new.pt
 ```
 
 ## Capability evaluation
@@ -820,7 +820,7 @@ python evaluate_tara_capabilities.py checkpoints/algorithm_lm.pt --output experi
 ## Evidence-gated learning experiment
 
 ```bash
-python run_learning_experiment.py checkpoints/baseline.pt data/algorithm_tasks.jsonl checkpoints/candidate.pt --steps 100
+python run_learning_experiment.py checkpoints/baseline.pt data/teacher/approved.jsonl checkpoints/teacher_candidate_new.pt --steps 100 --report outputs/teacher_learning_new.json
 ```
 
 ---
