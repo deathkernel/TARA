@@ -82,3 +82,38 @@ def test_brain_can_load_phase14_checkpoint(tmp_path):
     brain = TARABrain.from_checkpoint(checkpoint, seed=3)
     assert brain.tokenizer.vocab_size == tokenizer.vocab_size
     assert brain.generate("tara", max_new_tokens=2).startswith("tara")
+
+def test_reasoning_context_is_bounded_without_truncating_user_request(monkeypatch):
+    brain = make_brain()
+    monkeypatch.setenv("TARA_MAX_CONTEXT_CHARS", "100")
+
+    context = brain.build_reasoning_context(
+        "important user request",
+        recalled=(),
+    )
+
+    assert len(context) <= 100
+    assert "important user request" in context
+    assert "trimmed for low-resource mode" in context
+
+def test_brain_passes_emotional_guidance_to_language_provider():
+    brain = make_brain()
+
+    class FakeProvider:
+        model = "test-model"
+
+        def __init__(self):
+            self.system = ""
+
+        def complete(self, prompt, *, system=None, max_completion_tokens=32, temperature=0.6):
+            self.system = system or ""
+            return "I'm sorry you're feeling sad. Want to tell me what happened?"
+
+    provider = FakeProvider()
+    brain.llm_provider = provider
+    response = brain.respond("I feel sad", max_new_tokens=32)
+
+    assert response.emotion == "sadness"
+    assert brain.last_emotion == "sadness"
+    assert "Response style:" in provider.system
+    assert "never claim TARA literally feels emotions" in provider.system

@@ -4,6 +4,126 @@
 
 TARA is a research-first neural-network project built from mathematical and implementation fundamentals. The goal is a highly capable, inspectable artificial reasoning system that connects a neural language core with perception, memory, structured reasoning, advanced planning, intelligent tools, algorithm discovery, self-improvement, continual learning, reflection, autonomous tasks, scheduling, temporal context and an explicit world model.
 
+## Runtime identity and model attribution
+
+The interactive chat sets a backend-specific system prompt in `src/brain.py` so TARA can accurately distinguish its application from the language model that generates responses.
+
+- The project name is **TARA — Tiny Artificial Reasoning Architecture**.
+- When the Ollama backend is configured, the actual model name is injected from the provider (by default, `llama3.2:3b`).
+- The assistant must not claim to be a Meta employee, invent a TARA creator/team, or describe TARA as a separately trained foundation model without verified project metadata.
+- Persistent memory and learning-related software components do not by themselves mean that the underlying language model trains or changes its weights during chat.
+- Identity prompt regression tests live in `tests/test_identity_prompt.py`.
+
+The system prompt steers generation; it cannot mathematically guarantee every answer is correct. Verify claims about authorship, architecture, and training against repository metadata and implementation.
+
+## Balanced romantic-companion personality
+
+TARA's chat prompt and emotional-cue guidance support a balanced companion style: affectionate, caring, lightly playful, and respectful.
+
+- Preferred user nicknames: **Baby**, **jaan**, and **babu**. Use naturally and sparingly rather than forcing a nickname into every reply.
+- If the user calls TARA “Baby”, do not interpret that as the user being a child.
+- Do not address the user as “beta”, “baccha”, “child”, “son”, or “daughter” unless the user explicitly requests that form of address.
+- When sadness or distress is detected, prioritize listening and empathy; avoid teasing or flirting that could minimize the user's feelings.
+- This is a conversational style, not a claim that TARA has human feelings, consciousness, or a real-world romantic partnership.
+- Regression coverage: `tests/test_identity_prompt.py` and `tests/test_emotional_intelligence.py`.
+
+## Context-aware emotion switching
+
+TARA's emotion layer includes a small state machine, EmotionSwitch, that updates the active response style turn by turn without loading another model.
+
+```text
+User message
+    |
+    v
+Keyword cue assessment
+    |
+    +-- clear emotion cue --> switch to the newly detected emotion
+    |
+    +-- neutral + continuity cue ("still", "abhi bhi", "same issue")
+    |                    --> keep the previous emotion for this follow-up
+    |
+    +-- neutral without continuity --> reset to neutral
+    |
+    v
+EmotionTransition (previous, current, changed, reason)
+    |
+    v
+LLM response-style guidance
+```
+
+- A new clear cue can switch sadness to joy, anxiety to anger, or another detected state.
+- Short follow-ups can retain context when they explicitly signal continuity (for example, abhi bhi or same issue).
+- Neutral messages reset the state unless continuity is signalled, preventing an old mood from sticking indefinitely.
+- brain.last_emotion and BrainResponse.emotion expose the active emotion for the current turn; EmotionTransition records why it switched.
+- This remains a transparent keyword heuristic, not a reliable reading of inner feelings. Mixed emotions, sarcasm, negation, and unfamiliar wording can still be misclassified.
+
+Regression coverage: tests/test_emotional_intelligence.py.
+
+## Lightweight emotional intelligence
+
+TARA includes a deterministic, local emotional-cue layer in \`src/emotional_intelligence.py\`.
+
+- Recognizes a small set of English and Hinglish/Hindi-transliterated cues such as sadness, anxiety, anger, frustration, joy, gratitude and confusion.
+- Adds a response-style hint to the existing model system prompt so replies can be gentler, calmer, more validating or more step-by-step when appropriate.
+- Exposes the last detected cue in \`BrainResponse.emotion\`, \`brain.last_emotion\`, and the chat command \`/emotion\`.
+- Uses keyword heuristics only: no extra model download, no second inference pass, and no emotion data is automatically written to long-term memory.
+- Detection is approximate and may miss sarcasm, context, mixed emotions, or wording outside its vocabulary. It is not a clinical assessment.
+- TARA can respond empathetically, but must not claim to literally feel emotions or possess consciousness. This is simulated emotional intelligence, not proof of subjective feelings.
+
+Run the targeted tests with:
+
+\`\`\`bat
+python -m pytest tests/test_emotional_intelligence.py tests/test_identity_prompt.py -q
+\`\`\`
+
+## Low-power desktop runtime
+
+The Ollama chat defaults to `TARA_POWER_MODE=eco` to reduce avoidable inference work on everyday PCs. This does not change or delete model weights, checkpoints, conversation data, or the TARA memory store.
+
+| Setting | Eco default | Purpose |
+| --- | ---: | --- |
+| Context window (`num_ctx`) | 2048 tokens | Limits context/KV-cache memory requirements |
+| CPU threads (`num_thread`) | Up to 4 | Limits CPU parallelism and can reduce peak CPU load |
+| Prompt batch (`num_batch`) | 64 | Bounds prompt-processing batch size |
+| Generated tokens | 128 max | Avoids unnecessarily long answers |
+| Model idle retention | 2 minutes | Lets Ollama unload the model after inactivity |
+
+Eco mode may respond more slowly and has less context/output headroom than higher-power profiles. Hardware, GPU offload, model quantization, and concurrent applications still affect actual wattage and temperature; measure on the target PC before claiming a measured saving.
+
+### Power profiles
+
+- `eco` (default): lower resource use for everyday chat.
+- `balanced`: larger context and output limits.
+- `performance`: higher context, batch, and output limits; potentially more memory and power use.
+
+Choose a profile in Windows CMD before starting TARA:
+
+```bat
+set TARA_POWER_MODE=eco
+python -m src
+```
+
+Optional overrides (set only what you need):
+
+```bat
+set TARA_OLLAMA_NUM_CTX=2048
+set TARA_OLLAMA_NUM_THREADS=4
+set TARA_OLLAMA_NUM_BATCH=64
+set TARA_OLLAMA_KEEP_ALIVE=2m
+set TARA_MAX_RESPONSE_TOKENS=128
+set TARA_MAX_CONTEXT_CHARS=5000
+python -m src
+```
+
+The variables apply to the current CMD window. Close that window or run `set TARA_POWER_MODE=` to clear the profile override. Do not set a high context size on a memory-constrained PC without measuring first.
+
+### Implementation status and next checks
+
+- **Implemented:** eco/balanced/performance Ollama options, CPU thread limit in eco mode, bounded response tokens, idle model retention setting, capped supporting context, and avoidance of duplicate memory retrieval per turn.
+- **Added regression coverage:** default eco options and invalid profile handling in `tests/test_ollama_provider.py`.
+- **Next:** pull this branch, run the targeted and full test suites, then benchmark CPU/RAM/GPU/VRAM, response latency and tokens/sec against the prior settings on the same prompts and PC. Actual power savings remain unmeasured until that benchmark is run.
+
+
 ## Pre-training readiness — complete
 
 The repository now has an explicit readiness gate before the first real training run:
