@@ -93,11 +93,18 @@ class EmotionalIntelligence:
         return EmotionAssessment(label, round(intensity, 2), hits, _GUIDANCE[label])
 
     @staticmethod
-    def system_guidance(assessment: EmotionAssessment) -> str:
+    def system_guidance(assessment: EmotionAssessment, transition: "EmotionTransition | None" = None) -> str:
         evidence = ", ".join(assessment.evidence) if assessment.evidence else "none detected"
+        switch_note = ""
+        if transition is not None:
+            switch_note = (
+                f" Emotion switch: {transition.previous} -> {transition.current}; "
+                f"changed={transition.changed}; reason={transition.reason}."
+            )
         return (
             "Emotional-cue assessment (heuristic, uncertain): "
             f"{assessment.label}; intensity={assessment.intensity:.2f}; evidence={evidence}. "
+            f"{switch_note} "
             f"Response style: {assessment.response_guidance} "
             "Treat this as a tentative cue, not a diagnosis. If uncertain, ask respectfully. "
             "You may express empathy, but never claim TARA literally feels emotions, has consciousness, "
@@ -110,4 +117,67 @@ class EmotionalIntelligence:
         )
 
 
-__all__ = ["EmotionAssessment", "EmotionalIntelligence"]
+@dataclass(frozen=True)
+class EmotionTransition:
+    """One turn's state change, including why context did or did not switch it."""
+
+    previous: str
+    current: str
+    changed: bool
+    reason: str
+    assessment: EmotionAssessment
+
+
+class EmotionSwitch:
+    """Context-aware emotion state machine; deterministic and model-free.
+
+    A clear cue in the current message switches the active emotion. Neutral
+    messages reset to neutral unless the user explicitly signals continuity
+    (for example, 'still', 'abhi bhi', or 'same issue'), in which case the
+    previous emotion is retained for that turn. This avoids indefinitely
+    carrying a stale emotional state across unrelated messages."""
+
+    _CONTINUITY_CUES = (
+        "still", "same issue", "same problem", "abhi bhi", "abhi tak",
+        "wahi", "uske baad", "that is why", "isliye", "because of that",
+        "continue", "aur bhi",
+    )
+
+    def __init__(self, intelligence: EmotionalIntelligence | None = None):
+        self.intelligence = intelligence or EmotionalIntelligence()
+        self.active_emotion = "neutral"
+        self.last_assessment = self.intelligence.assess("")
+
+    def reset(self) -> None:
+        """Explicitly clear conversational emotion state."""
+        self.active_emotion = "neutral"
+        self.last_assessment = self.intelligence.assess("")
+
+    def update(self, text: str) -> EmotionTransition:
+        assessment = self.intelligence.assess(text)
+        previous = self.active_emotion
+        normalized = " ".join(text.lower().split())
+
+        if assessment.label != "neutral":
+            self.active_emotion = assessment.label
+            self.last_assessment = assessment
+            reason = "current_message_cue"
+        elif previous != "neutral" and any(cue in normalized for cue in self._CONTINUITY_CUES):
+            assessment = self.last_assessment
+            reason = "continuity_with_previous_context"
+        else:
+            self.active_emotion = "neutral"
+            self.last_assessment = assessment
+            reason = "neutral_reset"
+
+        current = self.active_emotion
+        return EmotionTransition(
+            previous=previous,
+            current=current,
+            changed=previous != current,
+            reason=reason,
+            assessment=assessment,
+        )
+
+
+__all__ = ["EmotionAssessment", "EmotionSwitch", "EmotionTransition", "EmotionalIntelligence"]
