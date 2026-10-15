@@ -9,6 +9,7 @@ on:
       - feature/tara-phase-c-teacher-data-quality
       - feature/tara-phase-d-model-learning
       - feature/tara-phase-e-teacher-pipeline-integration
+      - feature/tara-phase-f-release-integration
     paths:
       - "src/teacher_dataset_audit.py"
       - "src/teacher_review.py"
@@ -17,6 +18,7 @@ on:
       - "src/teacher_pipeline.py"
       - "tests/test_teacher_training.py"
       - "tests/test_teacher_pipeline.py"
+      - "tests/test_phase_f_integration.py"
       - "tests/test_teacher_data_quality.py"
       - "docs/tara_multi_domain_teacher_learning.md"
       - "scripts/run_phase_b_smoke.py"
@@ -50,7 +52,7 @@ jobs:
       - name: Run real CPU train/evaluate/gate cycle
         run: python -m scripts.run_phase_b_smoke --output-dir phase-b-artifacts --steps 2 --max-new-tokens 4
       - name: Run focused regression tests
-        run: python -m pytest tests/test_phase_b_smoke.py tests/test_phase_b_experiment.py tests/test_teacher_data_quality.py tests/test_teacher_training.py tests/test_teacher_pipeline.py tests/test_teacher_distillation.py tests/test_dataset_audit.py tests/test_learning_experiment.py tests/test_evaluation_orchestrator.py -q
+        run: python -m pytest tests/test_phase_b_smoke.py tests/test_phase_b_experiment.py tests/test_teacher_data_quality.py tests/test_teacher_training.py tests/test_teacher_pipeline.py tests/test_teacher_distillation.py tests/test_dataset_audit.py tests/test_learning_experiment.py tests/test_evaluation_orchestrator.py tests/test_phase_f_integration.py -q
       - name: Upload Phase B evidence
         if: always()
         uses: actions/upload-artifact@v4
