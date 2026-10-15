@@ -48,6 +48,7 @@ def audit_teacher_dataset(path: str | Path) -> TeacherDatasetAudit:
     fingerprints: list[str] = []
     pairs: list[str] = []
     domain_counts: Counter[str] = Counter()
+    valid_record_count = 0
     try:
         lines = source.read_text(encoding="utf-8").splitlines()
     except OSError as exc:
