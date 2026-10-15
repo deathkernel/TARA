@@ -111,7 +111,7 @@ def chat_loop(brain, *, input_fn=input, output_fn=print) -> None:
             else:
                 max_tokens = default_tokens
             response = brain.respond(prompt, max_new_tokens=max_tokens, temperature=0.6)
-        except (RuntimeError, TimeoutError, OSError) as exc:
+        except (RuntimeError, TimeoutError, OSError, ValueError) as exc:
             output_fn(
                 "TARA: I couldn't generate a response. Check that Ollama is "
                 "running and the configured model is installed. "
