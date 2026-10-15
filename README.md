@@ -1081,3 +1081,50 @@ flowchart TD
 ```
 
 Resume next: inspect the newest CI run; if focused tests pass, verify the full Python suite and smoke experiments. Do not merge any PR without explicit approval.
+
+### CI re-verification — current Self-Developer branch (2026-10-14)
+
+Latest branch-head workflow: [TARA CI run #38615254519](https://github.com/deathkernel/TARA/actions/runs/38615254519). Both jobs completed successfully on GitHub-hosted Ubuntu:
+
+- Static repository audit: passed.
+- Focused regression suite: **121 passed**.
+- Full Python suite: **499 passed** in about 2 hours 11 minutes.
+- XOR training smoke command: exited successfully and printed predictions.
+- Tiny language-model smoke command: exited successfully, **but its generated sample was low quality** (repetitive text such as `tara rrrr arrrrr...`). This proves the training/generation script executed, not that the model has useful language ability.
+- Rust `cargo test --all-targets`: passed.
+
+This is CI evidence for the recorded branch head, not a Windows-local run. Do not generalize a passing test suite into a claim that every feature works in real-world use.
+
+```mermaid
+flowchart TD
+    A[Source and tests] --> B[Focused regression suite: 121 passed]
+    B --> C[Full Python suite: 499 passed]
+    C --> D[XOR smoke: command passed]
+    D --> E[Tiny LM smoke: command passed]
+    E --> F{Is output useful?}
+    F -- Not established --> G[Do not claim language capability from exit code]
+    F -- Measured separately --> H[Record benchmark and baseline comparison]
+    C --> I[Rust tests passed]
+```
+
+### Capability reality check — source code vs. verified behavior
+
+| Area | Repository evidence | What is not established |
+|---|---|---|
+| Cognitive modules | Memory, perception, reasoning, planning, reflection, task scheduling | Reliable success on arbitrary complex tasks |
+| LLM providers | Optional local Ollama/Llama provider and provider interfaces | Provider availability without local configuration, model, or credentials |
+| Persistent memory | Explicit remember/learn/forget workflow | Updating model weights or learning correct facts automatically |
+| Teacher data and training | Candidate dataset generation, training/checkpoint and evaluation workflows | Dataset correctness or measurable intelligence improvement without evaluation |
+| Voice | Optional ElevenLabs speech output | Working voice without API access and configuration |
+| Self-Developer | CLI, isolated candidate worktree, guarded patch application, bounded validation/retries, rollback and report retention | Perfect bug discovery, independent proof of correctness, or safe arbitrary-code sandboxing |
+| GitHub write actions | Current Self-Developer documents and code avoid automatic push/merge | Automatic push or merge is not part of the current Self-Developer workflow |
+
+### Next engineering actions
+
+1. Keep PR #8 unmerged. Review the final diff and run focused/full validation on the user's actual Windows checkout while preserving user-owned files and data.
+2. Treat the successful Ubuntu CI run as a meaningful milestone, not as proof of Windows behavior or real-world autonomy.
+3. Synchronize and revalidate the stacked research/cleanup branches (#9 and #10) against the accepted Self-Developer base; their older CI runs had Python failures and are not current green evidence.
+4. Improve the Tiny LM evaluation so a successful process exit cannot be mistaken for useful generation: record a reproducible held-out metric and compare against a baseline before making quality claims.
+5. Only after review, design any future GitHub push capability as a separate, explicitly authorized feature: dedicated branch/PR, required checks, least-privilege token, audit log, and no automatic merge.
+6. Preserve `checkpoints/`, `outputs/`, conversation JSONL/manifest files, and `test_voice.py`. Never merge a PR without the user's explicit approval.
+
