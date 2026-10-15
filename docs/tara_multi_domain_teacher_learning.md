@@ -118,3 +118,45 @@ PR #16 remains a draft stacked on Batch B PR #15: https://github.com/deathkernel
 The branch is rebased onto the latest Batch B fix that runs experiment scripts as repository
 modules, preserving that fix and its CI command. Exact-head CI, Windows tests, and the full Python/
 Rust suites still need to pass before integration. No merge is performed without explicit approval.
+
+
+## Batch D — approval-gated model learning
+
+Batch D connects the reviewed teacher corpus to an explicit TARA candidate-training run.
+It does not train Llama, silently train during chat, or promote checkpoints automatically.
+
+```mermaid
+flowchart TD
+    A[Teacher candidate JSONL] --> B[Batch C structural and provenance audit]
+    B --> C[Human review CSV]
+    C --> D[Approved-only curated JSONL]
+    D --> E[Batch D strict approval gate]
+    E --> F[Train separate TARA candidate checkpoint]
+    F --> G[Evaluate baseline and candidate on same held-out capability suite]
+    G --> H{Strict improvement and no regression?}
+    H -->|Yes| I[Evidence report says accepted]
+    H -->|No| J[Evidence report says rejected]
+    I --> K[Manual review; no automatic promotion]
+    J --> K
+```
+
+### Run on Windows CMD
+
+Use paths that do not already exist. Keep the baseline checkpoint read-only and choose a new candidate path.
+
+```bat
+python -m src.teacher_dataset_audit data\\teacher_approved.jsonl --report outputs\\teacher_approved_audit.json
+python -m src.teacher_training data\\teacher_approved.jsonl checkpoints\\baseline.pt checkpoints\\batch_d_candidate.pt outputs\\batch_d_evidence.json --steps 100
+```
+
+The first command is optional preflight; the training command repeats the audit itself and blocks unless every row has `review_status=approved`, a review decision of `approve`, and a non-empty reviewer. Duplicate or structurally invalid data blocks training. Existing candidate/report paths are never overwritten. The candidate is a separate artifact even when the held-out gate rejects it; rejection never deletes it or promotes it.
+
+The report records the dataset fingerprint and per-domain counts, training manifest, baseline/candidate evaluation, category deltas, decision, and report fingerprint. The gate requires a strict overall improvement and no disallowed category regression under the existing evaluator. This fixed capability suite is a regression signal only, not proof of general intelligence or correctness on every teacher example.
+
+### Scope and validation status
+
+- This is an explicit local training command; no training happens during chat/runtime startup.
+- It trains TARA's own small language model, not Llama weights.
+- Start with a small `--steps` value and monitor RAM, CPU/GPU, disk, and runtime.
+- A generated candidate is not automatically the production checkpoint.
+- Remote code edits do not establish that tests passed. Exact-head CI and Windows/full-suite validation must be checked separately.
