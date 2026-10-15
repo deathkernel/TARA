@@ -6,12 +6,14 @@ from pathlib import Path
 from src.continual_learning import ReplayCorpusBuilder
 from src.training_dataset_mixer import TargetedDatasetMixer
 from src.training_pipeline import TrainingConfig, TrainingPipeline
+from src.teacher_training import validate_approved_dataset
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Train TARA's algorithm language model")
-    parser.add_argument("--data", default="data/algorithm_tasks.jsonl")
-    parser.add_argument("--output", default="checkpoints/algorithm_lm.pt")
+    parser = argparse.ArgumentParser(description="Train TARA from human-approved Ollama teacher data")
+    parser.add_argument("--data", default="data/teacher/approved.jsonl")
+    parser.add_argument("--output", default="checkpoints/teacher_algorithm_candidate.pt")
+    parser.add_argument("--allow-legacy-data", action="store_true", help="explicitly allow unreviewed legacy data and replay/targeted mixing")
     parser.add_argument("--resume", default=None, help="resume from a compatible checkpoint")
     parser.add_argument("--metrics-path", default=None, help="append-only JSONL experiment metrics path")
     parser.add_argument("--replay-data", default=None, help="verified knowledge JSONL for continual-learning replay")
@@ -41,6 +43,17 @@ def main() -> None:
     parser.add_argument("--early-stopping-min-delta", type=float, default=0.0)
     parser.add_argument("--device", default=None, help="auto, cpu, or cuda")
     args = parser.parse_args()
+
+    if not args.allow_legacy_data:
+        if args.replay_data or args.targeted_data:
+            parser.error("--replay-data/--targeted-data require --allow-legacy-data; mixed records are not human-approved teacher data")
+        validate_approved_dataset(args.data)
+
+    output_path = Path(args.output).expanduser().resolve()
+    if output_path.exists():
+        parser.error(f"refusing to overwrite existing checkpoint: {output_path}")
+    if args.metrics_path and Path(args.metrics_path).expanduser().resolve().exists():
+        parser.error(f"refusing to append to existing metrics file: {args.metrics_path}")
 
     data_path = Path(args.data)
     if args.replay_data:
