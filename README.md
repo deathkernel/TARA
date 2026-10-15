@@ -186,7 +186,7 @@ Prepare a bounded Basic v1 sample without downloading an entire corpus:
 python prepare_tara_dataset.py --level basic --max-records-per-source 1000 --output data/basic_v1.jsonl  # legacy public-data acquisition only
 ```
 
-The resulting JSONL is directly consumable by the existing training pipeline because each curated record contains a `text` field. The preparation command is an explicit data operation; it does not start model training.
+The resulting JSONL is retained for legacy research experiments only. It is not accepted by the default training/preflight path; use `--allow-legacy-data` only when deliberately running a historical experiment. The preparation command does not start model training.
 
 The public source manifest records dataset identity, organization, role and stated licensing information. Downstream use must still follow each upstream dataset's current terms and provenance requirements.
 
