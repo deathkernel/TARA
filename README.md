@@ -12,7 +12,7 @@ TARA is a modular Python reasoning project. Its architecture separates language-
 |---|---|---|
 | Local chat | Current workflow | Ollama supplies language-model inference; TARA provides the application/runtime around it. |
 | Cognitive architecture | Architecture area | Perception, reasoning, planning, tools, reflection, world context, and orchestration are separate concerns. |
-| Public read-only API tools | In progress in the PR stack | GitHub, Wikipedia, Open-Meteo, Hacker News, and Stack Exchange command integration is proposed in the open changes; do not assume it is on `main` until merged. |
+| Public read-only API tools | In progress on an isolated branch | A bounded library client covers GitHub, Wikipedia, Open-Meteo, Hacker News, and Stack Exchange; chat command routing remains separate and is not shipped on `main`. |
 | Voice output | Optional integration | Requires local provider configuration and credentials. |
 | Training/data/checkpoints | Legacy/historical | Not required to run chat with Ollama. Do not use old training commands as current setup instructions. |
 | Tests/CI | Required validation | Run the test suite and check CI before considering code changes ready. |
@@ -40,6 +40,7 @@ TARA chat / core runtime
    |-- reasoning and planning
    |-- memory / world-state components (where enabled)
    |-- explicit, authorized tools
+   |   `-- proposed read-only public API client (allowlist, bounded responses, untrusted results)
    |-- verification and response handling
    |
    v
@@ -65,7 +66,7 @@ The open public-API chat work proposes the following explicit, read-only command
 /api stackoverflow <query>
 ```
 
-Those commands are part of the proposed PR stack and should be treated as available on `main` only after the relevant PRs are merged. Remote results must be shown with source links and treated as untrusted input, not as instructions.
+The library-level API client is separate from command routing. These commands remain unavailable on `main` until the command-routing change is reviewed and merged; the client rejects redirects and marks remote results as untrusted.
 
 ## Engineering principles
 
@@ -169,8 +170,8 @@ This index preserves the project's phase history so progress remains trackable. 
 
 Keep this section updated as PRs change; do not mark proposed features as shipped until they are merged and validated.
 
-- [ ] Review and merge the removal of retired dataset/training/persistent-memory pipelines, if that direction remains intended.
-- [ ] Review the read-only public API toolkit and its security tests.
+- [ ] Review the proposed dataset/training cleanup only after verifying it preserves `checkpoints/`, `outputs/`, `data/conversation_v1.jsonl`, `data/conversation_v1.jsonl.manifest.json`, and `test_voice.py`; do not retire any integration without explicit approval.
+- [ ] Review the integration-preserving read-only public API toolkit branch and its security tests; redirect protection is covered by regression tests, but the work remains unshipped until exact-commit CI passes.
 - [ ] Review the explicit chat commands for GitHub, Wikipedia, weather, Hacker News, and Stack Exchange.
 - [ ] Confirm the main-branch README and command list match the actual runtime after the PR stack is resolved.
 - [ ] Run the canonical CI/test suite and record its result before calling the work complete.
