@@ -31,8 +31,10 @@ def test_preflight_accepts_human_approved_teacher_dataset(tmp_path: Path):
     assert any(item["name"] == "dataset_audit" and item["passed"] for item in report["checks"])
 
 
-def test_preflight_blocks_legacy_algorithm_dataset_by_default():
-    report = run_preflight(Path("data/algorithm_tasks.jsonl"), context=64)
+def test_preflight_blocks_unapproved_dataset_by_default(tmp_path: Path):
+    dataset = tmp_path / "unapproved_legacy_style.jsonl"
+    dataset.write_text(json.dumps({"problem": "legacy-style sample", "solution": "not reviewed"}) + "\n", encoding="utf-8")
+    report = run_preflight(dataset, context=64)
     assert report["ready"] is False
     approval = next(item for item in report["checks"] if item["name"] == "teacher_approval")
     assert approval["passed"] is False
