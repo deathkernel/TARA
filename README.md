@@ -6,7 +6,7 @@ TARA is a research-first neural-network project built from mathematical and impl
 
 ## Cross-chat project handoff (update this section after each meaningful task)
 
-> **Last updated:** 2026-10-14 (CI re-verified)  
+> **Last updated:** 2026-10-15 (Phase A Git-metadata guard committed; exact-head CI and Windows validation pending)  
 > **Purpose:** Future ChatGPT chats should read this section first, verify the current GitHub state, and continue from the next action. Keep this section and its diagrams updated after meaningful work.
 
 ### 1. TARA at a glance
@@ -29,13 +29,13 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    P[Previous: audit existing TARA modules] --> D[Designed controlled Self-Developer]
-    D --> I[Implemented on feature branch]
-    I --> C[Current: diagnose queued CI and harden report persistence]
-    C --> H{CI starts and focused tests pass?}
-    H -- No --> F[Investigate runner or fix verified failures]
-    F --> C
-    H -- Yes --> R[Run full suite and review reports]
+    P[Previous: audit existing TARA modules] --> D[Self-Developer safety and lifecycle tests]
+    D --> I[Current: reject .gitmodules and case-colliding paths]
+    I --> T[Regression tests committed]
+    T --> C{Exact-head CI and Windows tests pass?}
+    C -- No --> F[Fix evidence-backed failures]
+    F --> T
+    C -- Yes --> R[Run/review full validation and diff]
     R --> A[Ask user approval]
     A --> G[Integrate only after approval]
 ```
@@ -120,6 +120,27 @@ This is a GitHub-hosted Ubuntu CI result for the recorded head commit; it is **n
 - PR #9 (head `26078f1`): its older CI run [#38585922048](https://github.com/deathkernel/TARA/actions/runs/38585922048) failed in Python (22 failed, 468 passed); Rust passed. This run predates the latest PR #8 head and must be refreshed after the stacked branch is synchronized.
 - PR #10 (head `6064bc3`): its older CI run [#38586960158](https://github.com/deathkernel/TARA/actions/runs/38586960158) failed in Python (22 failed, 461 passed); Rust passed. This run also predates the latest PR #8 head and must be refreshed after the branch stack is synchronized.
 - Keep PRs draft/open and unmerged. No checkpoint promotion, training run, or NVIDIA/CUDA setup is authorized by this validation result.
+
+### Phase A update — Git metadata and case-collision guard (2026-10-15)
+
+- Branch: `fix/self-developer-gitmetadata-guard`, based on `feature/tara-self-developer-v1` at `b9f606aa846529ebf2dc5a239e5c24b0febdddf2`.
+- Implemented in `src/self_developer.py`: reject `.gitmodules` at any path depth and regardless of case; reject distinct patch path spellings that collide under Unicode case-folding (important for case-insensitive filesystems).
+- Added regression cases in `tests/test_self_developer.py` for `.gitmodules`, `.GITMODULES`, nested case variants, and two changed paths differing only by case.
+- Existing tests already cover candidate-only rollback/retry, patch-apply failure/retry, cleanup-warning/report retention, successful candidate retention, provider failure cleanup, and protection of dirty original-checkout contents. These test definitions exist, but their presence is not a pass claim.
+- Commit: `162529fdfbe9fb55e90c542f5f50929600335129` (guard) and `19d412f11ad330e5931d281e01186e48199e9bbb` (regression tests).
+- **Validation pending:** tests have not run in this GitHub-only session. Exact-head CI must run after the PR is opened; run the focused test and then full suite on the Windows checkout before declaring Phase A complete.
+- Safety boundary unchanged: no merge, no protected-artifact changes, no changes to checkpoints, outputs, conversation JSONL/manifest files, or `test_voice.py`.
+
+```mermaid
+flowchart TD
+    G[Guard: reject .gitmodules and case collisions] --> T[Focused regression tests]
+    T --> CI[Exact commit CI]
+    CI --> W[Windows focused tests]
+    W --> F[Full Python suite + Rust tests]
+    F --> R[Review diff and protected-file status]
+    R --> A[Explicit user approval]
+    A --> I[Integrate separately]
+```
 
 ### Teacher dataset audit — read-only
 
