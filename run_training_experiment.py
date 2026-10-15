@@ -3,15 +3,18 @@ from __future__ import annotations
 
 import argparse
 import json
+from pathlib import Path
 
 from src.training_experiment import TrainingExperiment
 from src.training_pipeline import TrainingConfig
+from src.teacher_training import validate_approved_dataset
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run a reproducible TARA training experiment")
-    parser.add_argument("--data", default="data/algorithm_tasks.jsonl")
-    parser.add_argument("--output", default="checkpoints/algorithm_lm.pt")
+    parser = argparse.ArgumentParser(description="Run a TARA training experiment from human-approved Ollama teacher data")
+    parser.add_argument("--data", default="data/teacher/approved.jsonl")
+    parser.add_argument("--output", default="checkpoints/teacher_experiment_candidate.pt")
+    parser.add_argument("--allow-legacy-data", action="store_true", help="explicitly bypass teacher approval validation for a legacy experiment")
     parser.add_argument("--resume", default=None)
     parser.add_argument("--metrics-path", default=None)
     parser.add_argument("--manifest-path", default=None)
@@ -37,6 +40,21 @@ def main() -> None:
     parser.add_argument("--early-stopping-min-delta", type=float, default=0.0)
     parser.add_argument("--device", default=None)
     args = parser.parse_args()
+
+    if not args.allow_legacy_data:
+        validate_approved_dataset(args.data)
+
+    destinations = [("checkpoint", args.output)]
+    if args.metrics_path:
+        destinations.append(("metrics", args.metrics_path))
+    if args.manifest_path:
+        destinations.append(("manifest", args.manifest_path))
+    resolved = [Path(path).expanduser().resolve() for _, path in destinations]
+    if len(set(resolved)) != len(resolved):
+        parser.error("checkpoint, metrics, and manifest paths must be distinct")
+    for (label, path), resolved_path in zip(destinations, resolved):
+        if resolved_path.exists():
+            parser.error(f"refusing to overwrite existing {label}: {resolved_path}")
 
     config = TrainingConfig(
         steps=args.steps, batch_size=args.batch_size, context=args.context,
