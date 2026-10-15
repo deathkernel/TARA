@@ -82,3 +82,16 @@ def test_brain_can_load_phase14_checkpoint(tmp_path):
     brain = TARABrain.from_checkpoint(checkpoint, seed=3)
     assert brain.tokenizer.vocab_size == tokenizer.vocab_size
     assert brain.generate("tara", max_new_tokens=2).startswith("tara")
+
+def test_reasoning_context_is_bounded_without_truncating_user_request(monkeypatch):
+    brain = make_brain()
+    monkeypatch.setenv("TARA_MAX_CONTEXT_CHARS", "200")
+
+    context = brain.build_reasoning_context(
+        "important user request",
+        recalled=(),
+    )
+
+    assert len(context) <= 200
+    assert "important user request" in context
+    assert "trimmed for low-resource mode" in context
