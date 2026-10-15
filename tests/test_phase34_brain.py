@@ -2,12 +2,8 @@ from src.brain import TARABrain
 from src.unified_cognitive_loop import ActionOutcome
 
 
-class DummyModel:
-    pass
-
-
 def test_brain_exposes_unified_cognitive_loop():
-    brain = TARABrain(DummyModel())
+    brain = TARABrain()
     report = brain.run_cognitive_loop(
         "demo",
         ["step one"],
@@ -20,7 +16,7 @@ def test_brain_exposes_unified_cognitive_loop():
 
 
 def test_brain_loop_can_be_stopped():
-    brain = TARABrain(DummyModel())
+    brain = TARABrain()
     brain.start_cognitive_loop("demo", ["step one"])
     brain.stop_cognitive_loop()
     assert brain.cognitive_loop.stopped
