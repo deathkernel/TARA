@@ -16,7 +16,7 @@ def test_brain_exposes_unified_cognitive_loop():
 
 
 def test_brain_loop_can_be_stopped():
-    brain = TARABrain(DummyModel())
+    brain = TARABrain()
     brain.start_cognitive_loop("demo", ["step one"])
     brain.stop_cognitive_loop()
     assert brain.cognitive_loop.stopped
