@@ -967,3 +967,15 @@ a substitute for task-specific held-out tests or a proof of general intelligence
 - CI must pass on the final exact head before this batch is validated. Windows focused tests and full Python/Rust suites remain pending.
 - Next: inspect exact-head CI, fix reproduced failures, run Windows validation in a separate worktree, review the full diff, and request explicit approval before merge.
 - No live teacher generation or real checkpoint training was executed during these remote repository edits.
+
+## Teacher dataset audit regression check
+
+The teacher JSONL audit initializes its valid-record counter before scanning the file, so valid records can be counted without an `UnboundLocalError`. Regression coverage verifies that a generated valid dataset reports its valid-record count and that an empty dataset reports zero valid records.
+
+Run the focused checks from the repository root in Windows CMD:
+
+```bat
+python -m pytest tests/test_teacher_data_quality.py -q
+```
+
+This command documents the validation to run; a passing result must be confirmed in CI or a local test run before treating the change as fully verified.
