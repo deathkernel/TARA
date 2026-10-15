@@ -114,7 +114,7 @@ def test_api_summary_formats_weather_and_removes_terminal_controls():
         retrieved_at=123.0,
         trusted=False,
         data={
-            "location": {"name": "Pune\\x1b[31m", "admin1": "Maharashtra", "country": "India"},
+            "location": {"name": "Pune\x1b[31m", "admin1": "Maharashtra", "country": "India"},
             "weather": {"current": {"temperature_2m": 31.5, "relative_humidity_2m": 45, "wind_speed_10m": 8}},
         },
     )
@@ -123,7 +123,7 @@ def test_api_summary_formats_weather_and_removes_terminal_controls():
     assert "humidity: 45%" in summary
     assert "wind: 8 km/h" in summary
     assert "untrusted external data" in summary
-    assert "\\x1b" not in summary
+    assert "\x1b" not in summary
 
 
 def test_api_summary_formats_hacker_news_titles_and_links():
