@@ -86,8 +86,13 @@ def token_loss(model, windows):
     return total_loss / total_tokens
 
 
-def train(train_corpus=None, steps=STEPS, learning_rate=LEARNING_RATE):
+def train(train_corpus=None, steps=STEPS, learning_rate=LEARNING_RATE, *, allow_legacy_public_dataset=False):
     if train_corpus is None:
+        if not allow_legacy_public_dataset:
+            raise ValueError(
+                "TinyStories is a legacy public corpus; pass allow_legacy_public_dataset=True "
+                "only for historical experiments. Use the Ollama teacher pipeline for default training."
+            )
         train_corpus = load_tinystories_text(
             max_chars=MAX_TRAIN_CHARS, split="train"
         )
