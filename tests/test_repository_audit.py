@@ -42,3 +42,19 @@ def test_auditor_flags_builtin_hash_for_persisted_logic(tmp_path):
     issues = [issue for issue in report.issues if issue.code == "NONDETERMINISTIC_HASH"]
     assert issues
     assert issues[0].severity == "warning"
+
+
+
+def test_auditor_flags_reintroduced_training_sources_and_torch_dependency(tmp_path):
+    for relative in RepositoryAuditor.REQUIRED_FILES:
+        path = tmp_path / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("pytest\n" if relative == "requirements.txt" else "# valid\n", encoding="utf-8")
+
+    (tmp_path / "train_fast.py").write_text("# retired training entry point\n", encoding="utf-8")
+    (tmp_path / "requirements.txt").write_text("pytest\ntorch>=2.0\n", encoding="utf-8")
+
+    report = RepositoryAuditor(tmp_path).audit()
+    codes = {issue.code for issue in report.issues}
+    assert "RETIRED_TRAINING_SOURCE" in codes
+    assert "RETIRED_TRAINING_DEPENDENCY" in codes
