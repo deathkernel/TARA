@@ -49,13 +49,19 @@ def main() -> None:
             parser.error("--replay-data/--targeted-data require --allow-legacy-data; mixed records are not human-approved teacher data")
         validate_approved_dataset(args.data)
 
-    output_path = Path(args.output).expanduser().resolve()
-    if output_path.exists():
-        parser.error(f"refusing to overwrite existing checkpoint: {output_path}")
-    if args.metrics_path and Path(args.metrics_path).expanduser().resolve().exists():
-        parser.error(f"refusing to append to existing metrics file: {args.metrics_path}")
+    data_path = Path(args.data).expanduser().resolve()
+    destinations = [("dataset", data_path), ("checkpoint", Path(args.output).expanduser().resolve())]
+    if args.metrics_path:
+        destinations.append(("metrics", Path(args.metrics_path).expanduser().resolve()))
+    if args.mixed_data_output:
+        destinations.append(("mixed dataset", Path(args.mixed_data_output).expanduser().resolve()))
+    resolved = [path for _, path in destinations]
+    if len(set(resolved)) != len(resolved):
+        parser.error("dataset, checkpoint, metrics, and mixed-data paths must be distinct")
+    for label, path in destinations[1:]:
+        if path.exists():
+            parser.error(f"refusing to overwrite existing {label}: {path}")
 
-    data_path = Path(args.data)
     if args.replay_data:
         replay_path = data_path.with_name(data_path.stem + ".replay.jsonl")
         report = ReplayCorpusBuilder(replay_ratio=args.replay_ratio, seed=args.seed).merge(data_path, args.replay_data, replay_path)
