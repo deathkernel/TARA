@@ -140,6 +140,14 @@ def main() -> int:
         return 2
 
     print(f"TARA long-term memory: {memory_path}")
+    print(
+        "TARA resource profile: "
+        f"{getattr(provider, 'power_mode', 'custom')} "
+        f"(context={getattr(provider, 'num_ctx', 'default')}, "
+        f"CPU threads={getattr(provider, 'num_thread', 'auto')}, "
+        f"batch={getattr(provider, 'num_batch', 'default')}, "
+        f"max response tokens={getattr(provider, 'default_max_tokens', 128)})"
+    )
     chat_loop(brain)
     return 0
 
