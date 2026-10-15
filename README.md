@@ -872,3 +872,50 @@ audio = core.speak(response.text)
 The API key is never stored in the repository. The ElevenLabs voice ID is also configuration-driven, so you can change TARA's voice without changing code.
 
 ElevenLabs' current Python SDK supports `text_to_speech.convert(...)` with a selected `voice_id`, model and output format. See the official API documentation for the current parameters. 
+
+
+## Phase B — Intelligence proof and regression-gated learning
+
+Batch B adds a bounded real CPU train/evaluate/gate smoke path. It trains a baseline,
+resumes into a separate candidate checkpoint, evaluates both with the same deterministic
+21-case capability suite, and writes machine-readable evidence. The baseline is never
+overwritten and pre-existing artifact paths are rejected.
+
+```mermaid
+flowchart TD
+    A[Dataset audit + fingerprint] --> B[Baseline train]
+    B --> C[Separate candidate resume]
+    C --> D[Same 21-case benchmark]
+    B --> D
+    D --> E[Overall + category regression gate]
+    E --> F[JSON evidence; no auto-promotion]
+```
+
+Windows CMD quick run (choose a fresh output folder):
+
+```bat
+python -m scripts.run_phase_b_smoke --output-dir artifacts\phase-b-smoke
+python -m pytest tests\test_phase_b_smoke.py tests\test_learning_experiment.py tests\test_evaluation_orchestrator.py -q
+```
+
+See [docs/phase-b-intelligence.md](docs/phase-b-intelligence.md) for artifact meanings,
+the CI contract, and the remaining full teacher/student distillation and real-checkpoint
+validation. **A passing smoke run proves the pipeline executed; it does not prove an
+intelligence improvement.** Candidate promotion remains evidence-gated and separate.
+
+
+### Run a reviewed teacher-data experiment
+
+The bounded smoke runner is for CI wiring. For an actual curated-data experiment, first generate
+teacher candidates with `python -m src.teacher_distillation`, manually review/filter them into a
+separate dataset, and then train a new candidate against an existing baseline:
+
+```bat
+python -m scripts.run_phase_b_experiment checkpoints\baseline.pt data\llama_teacher_reviewed.jsonl checkpoints\phase_b_candidate.pt --steps 100 --device cpu
+```
+
+The command audits the reviewed dataset, measures the baseline before training, trains into a
+new checkpoint path, measures the candidate with the same deterministic capability suite, and
+writes training/evaluation manifests plus an overall/category regression decision. It refuses to
+overwrite existing outputs. A rejected candidate is retained for inspection but is not promoted.
+The command's non-zero exit for a rejected candidate is intentional.
