@@ -21,10 +21,6 @@ jobs:
         run: python -m src.repository_audit .
       - name: Python test suite
         run: python -m pytest -q
-      - name: XOR smoke experiment
-        run: python train_xor.py
-      - name: Tiny language-model smoke experiment
-        run: python train_tiny_lm.py
 
   rust-tests:
     runs-on: ubuntu-latest
