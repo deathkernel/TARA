@@ -5,24 +5,9 @@
 TARA is a research-first neural-network project built from mathematical and implementation fundamentals. The goal is a highly capable, inspectable artificial reasoning system that connects a neural language core with perception, memory, structured reasoning, advanced planning, intelligent tools, algorithm discovery, self-improvement, continual learning, reflection, autonomous tasks, scheduling, temporal context and an explicit world model.
 
  
-## Default training data: Ollama teacher + human approval
- 
-The supported training-data path is now **Ollama-generated candidates → structural/provenance audit → independent human review → approved-only JSONL → separate TARA candidate checkpoint → held-out evaluation**. Generated answers are untrusted until independently checked. No training runs during chat, and no checkpoint is promoted automatically.
- 
-```mermaid
-flowchart TD
-    A[Local Ollama teacher] --> B[Candidate JSONL]
-    B --> C[Schema, fingerprint and provenance audit]
-    C --> D[Human review CSV]
-    D --> E[Approved-only JSONL]
-    E --> F[Train separate candidate]
-    F --> G[Baseline vs candidate held-out gate]
-    G --> H[Manual decision; no auto-promotion]
-```
- 
-Start with `python -m src.teacher_pipeline --help`, the [teacher-learning guide](docs/tara_multi_domain_teacher_learning.md), and the [migration/dependency audit](docs/teacher_data_migration.md). The default approved-data path is `data/teacher/approved.jsonl`; it is intentionally not committed with generated user data. Create it through the review/curation workflow. Choose fresh output paths; pipeline stages refuse to overwrite existing artifacts.
- 
-The old `data/algorithm_tasks.jsonl` sample is removed by a separate cleanup PR because the main training path now uses human-approved Ollama teacher data. The public-corpus acquisition manifest and code remain available for explicitly opted-in legacy experiments. Public-corpus trainers require `--legacy-public-dataset`. Local checkpoints, outputs, conversation files, and the original working tree are not touched.
+## Removed persistence and training systems
+
+Dataset acquisition, dataset loaders, training pipelines and experiments, checkpoint save/load support, and persistent conversation memory have been removed. The repository does not contain tracked model checkpoint files or conversation-memory data. TARA can still run its reasoning/runtime components, but it no longer trains from datasets or saves/recalls long-term conversation memories.
 
 ## Runtime identity and model attribution
 

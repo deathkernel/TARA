@@ -109,12 +109,6 @@ class TARABrain:
         )
         self.rng = random.Random(seed)
 
-    @classmethod
-    def from_checkpoint(cls, path: str | Path, *, engine=None, memory=None, seed=0):
-        from .model_runtime import load_checkpoint
-        model, tokenizer = load_checkpoint(path)
-        return cls(model, tokenizer, engine=engine, memory=memory, seed=seed)
-
     def build_replay(self, records) -> ReplayBatch: return self.continual.build_replay(records)
     def perceive_multimodal(self, observations: list[MultimodalObservation]) -> MultimodalContext: return self.multimodal.perceive(observations)
     def perceive_text(self, text: str, *, confidence=1.0) -> MultimodalObservation: return self.multimodal.text(text, confidence=confidence)

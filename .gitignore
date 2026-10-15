@@ -6,3 +6,20 @@ __pycache__/
 .pytest_cache/
 .venv/
 venv/
+
+# Local user data and learned artifacts (never commit)
+checkpoints/
+artifacts/
+data/teacher/*
+!data/teacher/README.md
+memory.json
+*.memory.json
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.onnx
+*.pkl
+*.pickle
+*.parquet
+*.jsonl

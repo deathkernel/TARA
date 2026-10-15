@@ -91,11 +91,6 @@ class TARACore:
             self.brain.architecture_optimizer = architecture_optimizer
         self.brain.cognitive_loop.max_cycles = self.config.max_cycles
 
-    @classmethod
-    def from_checkpoint(cls, path: str | Path, *, config: CoreConfig | None = None, engine=None, memory=None) -> "TARACore":
-        brain = TARABrain.from_checkpoint(path, engine=engine, memory=memory, seed=(config or CoreConfig()).seed)
-        return cls(brain, config=config)
-
     @property
     def components(self) -> dict[str, Any]:
         return {
