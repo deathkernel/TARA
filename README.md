@@ -196,3 +196,16 @@ Prefer mocked responses for deterministic unit tests. Live integrations may requ
 - Clearly label retired pipelines as historical instead of presenting them as current commands.
 - Track proposals separately from merged/current functionality.
 - Update the ledger when a phase or PR changes status.
+
+## Web product roadmap
+
+The web product is being built alongside TARA's existing Python architecture. The first implementation batch adds a responsive Next.js/TypeScript UI and a PostgreSQL schema with row-level ownership policies; the chat screen is currently a UI preview, not a connected inference client.
+
+Run the web workspace from the repository root with Node.js 20.9+:
+
+```bash
+npm install
+npm run web:dev
+```
+
+See [the web product roadmap](docs/roadmap/web-product-roadmap.md), [web app setup](apps/web/README.md), and [database/RLS notes](db/README.md). Authentication and API routes are not yet implemented. Database queries must set transaction-local `tara.user_id` from trusted server-side identity and use a dedicated non-owner runtime role.
