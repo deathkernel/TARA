@@ -23,7 +23,7 @@ def _run_api_command(command: str, api_tools: PublicAPITools) -> str | None:
         return None
     provider, query = parts[1].lower(), parts[2].strip()
     if not query:
-        return "Usage: /api github <query> | /api wiki <query> | /api weather <city>"
+        return "Usage: /api github <query> | /api wiki <query> | /api weather <city> | /api hn <query> | /api stackoverflow <query>"
     try:
         if provider == "github":
             observation = api_tools.search_github_repositories(query)
@@ -31,8 +31,12 @@ def _run_api_command(command: str, api_tools: PublicAPITools) -> str | None:
             observation = api_tools.search_wikipedia(query)
         elif provider in {"weather", "meteo"}:
             observation = api_tools.get_weather(query)
+        elif provider in {"hn", "hackernews", "hacker-news"}:
+            observation = api_tools.search_hacker_news(query)
+        elif provider in {"stackoverflow", "stackexchange", "stack-exchange"}:
+            observation = api_tools.search_stackoverflow(query)
         else:
-            return "Unknown API provider. Use github, wiki, or weather."
+            return "Unknown API provider. Use github, wiki, weather, hn, or stackoverflow."
     except (PublicAPIError, ValueError) as exc:
         return f"Public API request failed: {exc}"
 
@@ -67,7 +71,7 @@ def chat_loop(brain, *, input_fn=input, output_fn=print, api_tools=None) -> None
             output_fn("TARA: Bye, bhai!")
             return
         if command == "/help":
-            output_fn("Commands: /help, /exit, /emotion, /api github <query>, /api wiki <query>, /api weather <city>")
+            output_fn("Commands: /help, /exit, /emotion, /api github <query>, /api wiki <query>, /api weather <city>, /api hn <query>, /api stackoverflow <query>")
             continue
         if command == "/emotion":
             label = getattr(brain, "last_emotion", "neutral")
@@ -78,7 +82,7 @@ def chat_loop(brain, *, input_fn=input, output_fn=print, api_tools=None) -> None
             continue
         if command == "/api" or command.startswith("/api "):
             result = _run_api_command(prompt, api_tools)
-            output_fn(f"TARA API: {result}" if result is not None else "Usage: /api github <query> | /api wiki <query> | /api weather <city>")
+            output_fn(f"TARA API: {result}" if result is not None else "Usage: /api github <query> | /api wiki <query> | /api weather <city> | /api hn <query> | /api stackoverflow <query>")
             continue
         try:
             provider = getattr(brain, "llm_provider", None)
