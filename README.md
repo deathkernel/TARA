@@ -20,7 +20,7 @@ flowchart TD
     G --> H[Manual decision; no auto-promotion]
 ```
  
-Start with `python -m src.teacher_pipeline --help` and the detailed guide at `docs/tara_multi_domain_teacher_learning.md`. The default approved-data path is `data/teacher/approved.jsonl`; it is intentionally not committed with generated user data. Create it through the review/curation workflow. Choose fresh output paths; pipeline stages refuse to overwrite existing artifacts.
+Start with `python -m src.teacher_pipeline --help`, the [teacher-learning guide](docs/tara_multi_domain_teacher_learning.md), and the [migration/dependency audit](docs/teacher_data_migration.md). The default approved-data path is `data/teacher/approved.jsonl`; it is intentionally not committed with generated user data. Create it through the review/curation workflow. Choose fresh output paths; pipeline stages refuse to overwrite existing artifacts.
  
 The old `data/algorithm_tasks.jsonl` and public-corpus acquisition tools are retained as **legacy research assets** during this migration, but they are no longer the default input for the main training/preflight CLIs. Public-corpus trainers require an explicit `--legacy-public-dataset` opt-in. Do not delete old data, local checkpoints, outputs, or conversation files as part of this migration.
 
