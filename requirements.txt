@@ -1,5 +1,4 @@
 numpy
 pyttsx3
 pytest
-torch
 elevenlabs
