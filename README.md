@@ -16,6 +16,53 @@ The interactive chat sets a backend-specific system prompt in `src/brain.py` so 
 
 The system prompt steers generation; it cannot mathematically guarantee every answer is correct. Verify claims about authorship, architecture, and training against repository metadata and implementation.
 
+## Low-power desktop runtime
+
+The Ollama chat defaults to `TARA_POWER_MODE=eco` to reduce avoidable inference work on everyday PCs. This does not change or delete model weights, checkpoints, conversation data, or the TARA memory store.
+
+| Setting | Eco default | Purpose |
+| --- | ---: | --- |
+| Context window (`num_ctx`) | 2048 tokens | Limits context/KV-cache memory requirements |
+| CPU threads (`num_thread`) | Up to 4 | Limits CPU parallelism and can reduce peak CPU load |
+| Prompt batch (`num_batch`) | 64 | Bounds prompt-processing batch size |
+| Generated tokens | 128 max | Avoids unnecessarily long answers |
+| Model idle retention | 2 minutes | Lets Ollama unload the model after inactivity |
+
+Eco mode may respond more slowly and has less context/output headroom than higher-power profiles. Hardware, GPU offload, model quantization, and concurrent applications still affect actual wattage and temperature; measure on the target PC before claiming a measured saving.
+
+### Power profiles
+
+- `eco` (default): lower resource use for everyday chat.
+- `balanced`: larger context and output limits.
+- `performance`: higher context, batch, and output limits; potentially more memory and power use.
+
+Choose a profile in Windows CMD before starting TARA:
+
+```bat
+set TARA_POWER_MODE=eco
+python -m src
+```
+
+Optional overrides (set only what you need):
+
+```bat
+set TARA_OLLAMA_NUM_CTX=2048
+set TARA_OLLAMA_NUM_THREADS=4
+set TARA_OLLAMA_NUM_BATCH=64
+set TARA_OLLAMA_KEEP_ALIVE=2m
+set TARA_MAX_RESPONSE_TOKENS=128
+set TARA_MAX_CONTEXT_CHARS=5000
+python -m src
+```
+
+The variables apply to the current CMD window. Close that window or run `set TARA_POWER_MODE=` to clear the profile override. Do not set a high context size on a memory-constrained PC without measuring first.
+
+### Implementation status and next checks
+
+- **Implemented:** eco/balanced/performance Ollama options, CPU thread limit in eco mode, bounded response tokens, idle model retention setting, capped supporting context, and avoidance of duplicate memory retrieval per turn.
+- **Added regression coverage:** default eco options and invalid profile handling in `tests/test_ollama_provider.py`.
+- **Next:** pull this branch, run the targeted and full test suites, then benchmark CPU/RAM/GPU/VRAM, response latency and tokens/sec against the prior settings on the same prompts and PC. Actual power savings remain unmeasured until that benchmark is run.
+
 
 ## Pre-training readiness — complete
 
