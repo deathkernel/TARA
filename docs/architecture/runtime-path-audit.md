@@ -37,6 +37,7 @@ Proposed startup sequence:
 - `TARA_POWER_MODE` supports `eco`, `balanced`, and `performance`; `eco` is the default.
 - Additional controls include `TARA_LLM_TIMEOUT_SECONDS`, `TARA_OLLAMA_NUM_CTX`, `TARA_OLLAMA_NUM_THREADS`, `TARA_OLLAMA_NUM_BATCH`, and `TARA_OLLAMA_KEEP_ALIVE`.
 - Provider construction does not start Ollama or download a model. The local service and model must be installed separately.
+- A configuration-order defect was found during this pass: the factory originally read environment variables before loading `.env`. The current PR #26 branch now calls `load_dotenv()` before provider selection and adds a regression test that selects Ollama from a temporary `.env` file.
 
 ## 4. PR-stack dependency and history review
 
@@ -51,7 +52,7 @@ All four PRs were open and unmerged at the time of this audit. The files above d
 
 ## 5. Remaining verification work
 
-- Run the complete Python tests against the final stacked branch after history-preservation edits.
+- Run the complete Python tests against the final stacked branch after history-preservation edits and the new dotenv regression test.
 - Verify `python -m src` starts with Ollama unavailable, reports a useful error, and does not download models or start background services.
 - Test one real Ollama request only in an environment where Ollama and the selected model are installed; mock-based provider tests do not prove a live server works.
 - Test the public API client using its unit tests and verify redirect rejection, response bounds, timeouts, and source-link rendering.
