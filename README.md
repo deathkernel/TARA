@@ -4,6 +4,26 @@
 
 TARA is a research-first neural-network project built from mathematical and implementation fundamentals. The goal is a highly capable, inspectable artificial reasoning system that connects a neural language core with perception, memory, structured reasoning, advanced planning, intelligent tools, algorithm discovery, self-improvement, continual learning, reflection, autonomous tasks, scheduling, temporal context and an explicit world model.
 
+ 
+## Default training data: Ollama teacher + human approval
+ 
+The supported training-data path is now **Ollama-generated candidates → structural/provenance audit → independent human review → approved-only JSONL → separate TARA candidate checkpoint → held-out evaluation**. Generated answers are untrusted until independently checked. No training runs during chat, and no checkpoint is promoted automatically.
+ 
+```mermaid
+flowchart TD
+    A[Local Ollama teacher] --> B[Candidate JSONL]
+    B --> C[Schema, fingerprint and provenance audit]
+    C --> D[Human review CSV]
+    D --> E[Approved-only JSONL]
+    E --> F[Train separate candidate]
+    F --> G[Baseline vs candidate held-out gate]
+    G --> H[Manual decision; no auto-promotion]
+```
+ 
+Start with `python -m src.teacher_pipeline --help` and the detailed guide at `docs/tara_multi_domain_teacher_learning.md`. The default approved-data path is `data/teacher/approved.jsonl`; it is intentionally not committed with generated user data. Create it through the review/curation workflow. Choose fresh output paths; pipeline stages refuse to overwrite existing artifacts.
+ 
+The old `data/algorithm_tasks.jsonl` and public-corpus acquisition tools are retained as **legacy research assets** during this migration, but they are no longer the default input for the main training/preflight CLIs. Public-corpus trainers require an explicit `--legacy-public-dataset` opt-in. Do not delete old data, local checkpoints, outputs, or conversation files as part of this migration.
+
 ## Runtime identity and model attribution
 
 The interactive chat sets a backend-specific system prompt in `src/brain.py` so TARA can accurately distinguish its application from the language model that generates responses.
@@ -138,7 +158,7 @@ The repository now has an explicit readiness gate before the first real training
 Run the gate first:
 
 ```bash
-python training_preflight.py --data data/algorithm_tasks.jsonl --context 128
+python training_preflight.py --data data/teacher/approved.jsonl --context 128
 ```
 
 A successful preflight means the repository prerequisites are satisfied. It does **not** mean that training has already happened or that the resulting model will be capable; those require an actual training run and measured evaluation.
@@ -147,7 +167,7 @@ A successful preflight means the repository prerequisites are satisfied. It does
 
 TARA now has a bounded public-dataset acquisition layer. It streams selected Hugging Face datasets instead of downloading entire multi-terabyte corpora, then applies text-length filtering, deterministic shuffling, cross-source deduplication, provenance/license metadata and a reproducible fingerprint.
 
-The current curriculum manifest is in `data/dataset_sources.json`.
+Legacy only: the public-corpus curriculum manifest remains in `data/dataset_sources.json` for reproducible historical experiments. It is not the default training source after the Ollama teacher-data migration.
 
 ### Basic level
 
@@ -175,7 +195,7 @@ The public source manifest records dataset identity, organization, role and stat
 `run_learning_experiment.py` connects baseline evaluation, explicit training, candidate evaluation and evidence-gated promotion into one reproducible workflow.
 
 ```bash
-python run_learning_experiment.py checkpoints/baseline.pt data/algorithm_tasks.jsonl checkpoints/candidate.pt --steps 100
+python -m src.teacher_pipeline train --dataset data/teacher/approved.jsonl --baseline checkpoints/baseline.pt --candidate checkpoints/teacher_candidate_new.pt --report outputs/teacher_evidence_new.json --steps 100
 ```
 
 The candidate is accepted only after real evaluation shows strict overall improvement without a permitted category regression. Training is an injected explicit operation; no normal TARA runtime silently starts heavy training.
