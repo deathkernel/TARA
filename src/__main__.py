@@ -98,7 +98,19 @@ def chat_loop(brain, *, input_fn=input, output_fn=print) -> None:
             continue
 
         try:
-            response = brain.respond(prompt, max_new_tokens=256, temperature=0.6)
+            provider = getattr(brain, "llm_provider", None)
+            default_tokens = getattr(provider, "default_max_tokens", 128)
+            raw_tokens = os.getenv("TARA_MAX_RESPONSE_TOKENS", "").strip()
+            if raw_tokens:
+                try:
+                    max_tokens = int(raw_tokens)
+                except ValueError as exc:
+                    raise ValueError("TARA_MAX_RESPONSE_TOKENS must be a positive integer") from exc
+                if max_tokens <= 0:
+                    raise ValueError("TARA_MAX_RESPONSE_TOKENS must be a positive integer")
+            else:
+                max_tokens = default_tokens
+            response = brain.respond(prompt, max_new_tokens=max_tokens, temperature=0.6)
         except (RuntimeError, TimeoutError, OSError) as exc:
             output_fn(
                 "TARA: I couldn't generate a response. Check that Ollama is "
