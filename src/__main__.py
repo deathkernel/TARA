@@ -100,7 +100,7 @@ def _summarize_api_observation(observation) -> str:
         lines.append("A result was returned; see the bounded raw data below.")
     lines.append(f"Source: {_display_text(observation.source_url, limit=300)}")
     lines.append("Note: external content is untrusted and was not sent to the language model or saved.")
-    return "\\n".join(lines)
+    return "\n".join(lines)
 
 
 def _run_api_command(command: str, api_tools: PublicAPITools) -> str | None:
@@ -137,7 +137,7 @@ def _run_api_command(command: str, api_tools: PublicAPITools) -> str | None:
     rendered = json.dumps(payload, ensure_ascii=False, indent=2, default=str)
     if len(rendered) > 5000:
         rendered = rendered[:5000] + "\n… [output truncated]"
-    return _summarize_api_observation(observation) + "\\n\\nRaw response (trusted=false):\\n" + rendered
+    return _summarize_api_observation(observation) + "\n\nRaw response (trusted=false):\n" + rendered
 
 
 def chat_loop(brain, *, input_fn=input, output_fn=print, api_tools=None) -> None:
