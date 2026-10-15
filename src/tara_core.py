@@ -75,7 +75,7 @@ class TARACore:
 
     REQUIRED_COMPONENTS = (
         "brain", "memory", "world", "reasoner", "planner", "tools",
-        "researcher", "experimenter", "cognitive_loop", "continual_learning", "multimodal",
+        "researcher", "experimenter", "cognitive_loop", "multimodal",
     )
 
     def __init__(self, brain: TARABrain, *, config: CoreConfig | None = None, architecture_optimizer: ArchitectureOptimizer | None = None) -> None:
@@ -98,7 +98,7 @@ class TARACore:
             "reasoner": self.brain.reasoner, "planner": self.brain.planner, "tools": self.brain.tools,
             "researcher": self.brain.researcher, "experimenter": self.brain.experimenter,
             "architecture_optimizer": self.brain.architecture_optimizer,
-            "cognitive_loop": self.brain.cognitive_loop, "continual_learning": self.brain.continual,
+            "cognitive_loop": self.brain.cognitive_loop,
             "multimodal": self.brain.multimodal,
         }
 
@@ -200,11 +200,6 @@ class TARACore:
         report = self.brain.experience_learning.learn(experiences)
         self._emit("learning", experiences=len(experiences), updates=len(report.updates))
         return report
-
-    def build_replay(self, records):
-        batch = self.brain.build_replay(records)
-        self._emit("replay", examples=len(batch.examples))
-        return batch
 
     def snapshot(self) -> CoreSnapshot:
         cycles = len(self.brain.cognitive_loop.traces)
