@@ -22,6 +22,19 @@ def test_audit_accepts_generated_dataset_and_reports_all_domains(tmp_path: Path)
     assert set(report.domain_counts) == set(DOMAIN_TASKS)
     assert all(count == 1 for count in report.domain_counts.values()) and report.fingerprint
 
+
+def test_audit_valid_record_counter_regression_and_empty_dataset(tmp_path: Path):
+    dataset = tmp_path / "teacher.jsonl"
+    rows = _dataset(dataset, per_domain=1)
+    report = audit_teacher_dataset(dataset)
+    assert report.valid_records == len(rows)
+
+    empty = tmp_path / "empty.jsonl"
+    empty.write_text("", encoding="utf-8")
+    empty_report = audit_teacher_dataset(empty)
+    assert empty_report.records == 0
+    assert empty_report.valid_records == 0
+
 def test_audit_flags_tampered_fingerprint_and_malformed_json(tmp_path: Path):
     dataset = tmp_path / "teacher.jsonl"; rows = _dataset(dataset)
     rows[0]["fingerprint"] = "not-the-real-fingerprint"
