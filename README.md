@@ -4,6 +4,19 @@
 
 TARA is a research-first neural-network project built from mathematical and implementation fundamentals. The goal is a highly capable, inspectable artificial reasoning system that connects a neural language core with perception, memory, structured reasoning, advanced planning, intelligent tools, algorithm discovery, self-improvement, continual learning, reflection, autonomous tasks, scheduling, temporal context and an explicit world model.
 
+## Runtime identity and model attribution
+
+The interactive chat sets a backend-specific system prompt in `src/brain.py` so TARA can accurately distinguish its application from the language model that generates responses.
+
+- The project name is **TARA — Tiny Artificial Reasoning Architecture**.
+- When the Ollama backend is configured, the actual model name is injected from the provider (by default, `llama3.2:3b`).
+- The assistant must not claim to be a Meta employee, invent a TARA creator/team, or describe TARA as a separately trained foundation model without verified project metadata.
+- Persistent memory and learning-related software components do not by themselves mean that the underlying language model trains or changes its weights during chat.
+- Identity prompt regression tests live in `tests/test_identity_prompt.py`.
+
+The system prompt steers generation; it cannot mathematically guarantee every answer is correct. Verify claims about authorship, architecture, and training against repository metadata and implementation.
+
+
 ## Pre-training readiness — complete
 
 The repository now has an explicit readiness gate before the first real training run:
