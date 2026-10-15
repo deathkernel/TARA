@@ -43,3 +43,8 @@
 - Reconcile open PRs before deciding whether Groq, Ollama, training, and persistence code are current or being retired.
 - Add architecture decision records and establish baseline test results before file moves.
 - Establish containerized validation first; introduce an application container only once a real, tested application entrypoint exists.
+
+
+## Cross-branch note
+
+The missing entrypoint/provider finding above describes `main` only. The unmerged PR stack (#23–#26) contains an Ollama-backed CLI, provider factory, and public API command path. See [`runtime-path-audit.md`](runtime-path-audit.md) for the branch-specific startup path, provider settings, PR dependencies, and outstanding validation. The proposed branch is not proof that this runtime is already available on `main`.
