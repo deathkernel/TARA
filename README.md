@@ -4,7 +4,7 @@
 
 TARA is a modular Python reasoning project. Its architecture separates language-model inference from perception, planning, memory, tool selection, reflection, world-state context, verification, and task orchestration. This README serves two purposes: a quick-start guide for the current runtime and a progress ledger for the project's engineering phases.
 
-> **Runtime rule:** the normal chat workflow uses Ollama (or another configured inference provider). It does not require training TARA's own language model. Dataset, training, and checkpoint experiments listed in the history below are historical engineering work, not startup steps.
+> **Runtime rule:** the normal chat workflow uses Ollama (or another configured inference provider). TARA does not train or fine-tune its own language model. Custom Python language-model implementations, training pipelines, training-only datasets, checkpoint workflows, and the PyTorch dependency are retired. The phase ledger below preserves history only; it is not a set of runnable setup instructions.
 
 ## Current status at a glance
 
@@ -14,7 +14,7 @@ TARA is a modular Python reasoning project. Its architecture separates language-
 | Cognitive architecture | Architecture area | Perception, reasoning, planning, tools, reflection, world context, and orchestration are separate concerns. |
 | Public read-only API tools | In progress in the PR stack | GitHub, Wikipedia, Open-Meteo, Hacker News, and Stack Exchange command integration is proposed in the open changes; do not assume it is on `main` until merged. |
 | Voice output | Optional integration | Requires local provider configuration and credentials. |
-| Training/data/checkpoints | Legacy/historical | Not required to run chat with Ollama. Do not use old training commands as current setup instructions. |
+| Training/data/checkpoints | Removed from active runtime | Custom model training, dataset pipelines, local-model checkpoints, and training workflows are removed. Historical phase notes remain for provenance only. |
 | Tests/CI | Required validation | Run the test suite and check CI before considering code changes ready. |
 
 ## Run locally
