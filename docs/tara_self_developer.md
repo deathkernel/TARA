@@ -39,8 +39,9 @@ provider until TARA_LLM_BACKEND=ollama is set.
 
 Reports and candidate worktrees are stored outside the repository under
 %LOCALAPPDATA%\TARA\self-developer\. This avoids adding generated runtime
-artifacts to the user's working tree. Candidate worktrees are retained for
-inspection; review their diffs before any manual cleanup.
+artifacts to the user's working tree. Successful candidate worktrees are
+retained for inspection. Failed candidate worktrees and branches are cleaned up
+within the self-developer namespace while their diagnostic reports are retained.
 
 ## Review and integration
 
