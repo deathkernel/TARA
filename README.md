@@ -40,6 +40,15 @@ flowchart LR
     A --> G[Integrate only after approval]
 ```
 
+### 2.1 External AI ecosystem: research decision
+
+The ten-project comparison and prioritized adoption plan now live in [`docs/AI_ECOSYSTEM_RESEARCH.md`](docs/AI_ECOSYSTEM_RESEARCH.md). Core decision: **learn from these projects; do not replace TARA with a bundle of competing frameworks.** Keep Ollama + `llama3.2:3b` as the chosen local inference path; benchmark llama.cpp only as an optional future runtime. Priorities are (1) finish and record current validation, (2) harden provider-contract tests, (3) standardize default-deny tool permissions/audits, (4) strengthen real execution isolation, (5) consolidate scoped memory/retrieval and evaluations, and only then (6) add optional MCP/UI/workflow adapters. The report links all ten official projects and documents the decision boundaries.
+
+### 2.2 Llama-era file cleanup audit
+
+A dependency/reference audit is documented in [`docs/LLAMA_FILE_CLEANUP_AUDIT.md`](docs/LLAMA_FILE_CLEANUP_AUDIT.md). **No files were deleted.** The current Ollama chat path uses the provider adapter, but custom TARA model/training files remain referenced by training, checkpoint, benchmark and Polyglot workflows. Conditional cleanup candidates are the unintegrated Groq provider group (only if Groq support is intentionally dropped), the test-only alternate `basic_brain.py` baseline (after compatibility review), and the unreferenced duplicate `requirements-accelerated.txt`. The report distinguishes chat-only irrelevance from repository-wide obsolescence and records the tests required before any removal.
+
+
 ### 3. Current pull-request map
 
 ```mermaid
@@ -47,17 +56,19 @@ flowchart TD
     P6["PR #6: conversation learning / persistent memory"]
     P7["PR #7: Llama teacher distillation"]
     P8["PR #8: Self-Developer v1"]
-    P7 -->|"base branch dependency"| P8
+    P9["PR #9: AI ecosystem research"]
+    P10["PR #10: cleanup of unreferenced components"]
+    P11["PR #11: isolated CI parallel-test trial"]
+    P7 --> P8 --> P9 --> P10
+    P8 --> P11
 ```
 
-- **PR #6 — conversation learning/memory:** [PR #6 / branch](https://github.com/deathkernel/TARA/tree/feature/tara-conversation-learning). Adds user-approved persistent memory commands. Draft/open and not merged as last reported.
-- **PR #7 — teacher distillation:** [PR #7 / branch](https://github.com/deathkernel/TARA/tree/feature/tara-llama-distillation). Generates candidate multi-domain teacher examples with local Ollama. Examples need review; this does **not** train a TARA checkpoint. Draft/open and not merged as last reported.
-- **PR #8 — Self-Developer v1:** [review PR #8](https://github.com/deathkernel/TARA/pull/8) · [branch](https://github.com/deathkernel/TARA/tree/feature/tara-self-developer-v1). Based on PR #7's branch; draft/open and not merged as last reported.
-  - Self-Developer implementation commit: `198c2050c5b689c976b4edeec35a00a028347f07`.
-  - README handoff commits: `ceba5cb002f2af8db8a390b11e5d59e9dd125daa`, `461686de55bfc078181d57b39f6b175b68384043`.
-  - Adds `src/self_developer.py`, `src/self_developer_cli.py`, tests, and `docs/tara_self_developer.md`.
-  - CLI commands: `status`, `plan`, `run`, `report`.
-  - Candidate worktree changes are not committed, pushed, merged, or integrated automatically.
+- **PR #6 — conversation learning/memory:** [PR #6](https://github.com/deathkernel/TARA/pull/6) · [branch](https://github.com/deathkernel/TARA/tree/feature/tara-conversation-learning). Adds explicit user-approved memory commands. Draft/open and unmerged.
+- **PR #7 — teacher distillation:** [PR #7](https://github.com/deathkernel/TARA/pull/7) · [branch](https://github.com/deathkernel/TARA/tree/feature/tara-llama-distillation). Generates provenance-rich candidate examples with local Ollama; it does not train or promote a checkpoint. Draft/open and unmerged.
+- **PR #8 — Self-Developer v1:** [PR #8](https://github.com/deathkernel/TARA/pull/8) · [branch](https://github.com/deathkernel/TARA/tree/feature/tara-self-developer-v1). Adds a bounded, review-only CLI; candidate changes stay in a separate worktree and require human approval before integration. Draft/open and unmerged.
+- **PR #9 — AI ecosystem research:** [PR #9](https://github.com/deathkernel/TARA/pull/9) · [branch](https://github.com/deathkernel/TARA/tree/research/ai-ecosystem-roadmap). Documentation-only adapter-first adoption roadmap. Draft/open and unmerged.
+- **PR #10 — unused-component cleanup:** [PR #10](https://github.com/deathkernel/TARA/pull/10) · [branch](https://github.com/deathkernel/TARA/tree/cleanup/llama-unused-components). Removes only audited, unreferenced candidates; preserves active model/training/checkpoint workflows. Draft/open and unmerged.
+- **PR #11 — CI parallel-test trial:** [PR #11](https://github.com/deathkernel/TARA/pull/11) · [branch](https://github.com/deathkernel/TARA/tree/perf/ci-xdist-trial). Tests bounded `pytest-xdist` parallelism in CI; no application/runtime dependency was added. Draft/open and unmerged. Merge only if full tests pass and the measured runtime improvement is meaningful.
 
 ### 4. Self-Developer task lifecycle
 
@@ -90,22 +101,25 @@ flowchart TD
 
 ### 5. Validation status — do not guess
 
-**Latest verified PR #8 CI snapshot (2026-10-14):** [run #38598370679](https://github.com/deathkernel/TARA/actions/runs/38598370679), head commit `42691d05dd1a8aeb889d936225abdb5c174a7396), completed successfully. Evidence from the run:
-- Static repository audit: passed.
-- Focused regression tests: **121 passed** in 6.79 seconds.
-- Full Python suite: **499 passed** in 5,349.12 seconds (about 89 minutes).
-- XOR smoke experiment: passed.
-- Tiny language-model smoke experiment: passed.
-- Rust `cargo test --all-targets`: passed.
+**Verified CI snapshot (2026-10-14; refresh links before acting):**
+- PR #8 code head `42691d05dd1a8aeb889d936225abdb5c174a7396`: [run #38598370679](https://github.com/deathkernel/TARA/actions/runs/38598370679) passed static audit, **121 focused tests**, **499 full Python tests**, XOR and Tiny-LM smoke experiments, and Rust tests.
+- PR #8 latest README handoff head `19fc99df7d73584d98be9b549a15ce95fb08a94b`: run [#38615254519](https://github.com/deathkernel/TARA/actions/runs/38615254519) is in progress; the preceding success does not validate this newer commit.
+- PR #9 previous run [#38585922048](https://github.com/deathkernel/TARA/actions/runs/38585922048) failed Python (**22 failed, 468 passed**) while Rust passed. That run predates the latest PR #8 fixes and must be refreshed.
+- PR #10 latest cleanup README head `560403f972e6648ee6bc9dcc0ff8c4b6f227ebef`: run [#38615338885](https://github.com/deathkernel/TARA/actions/runs/38615338885) was running before this stack sync; its replacement run should validate the synchronized tree.
+- PR #11 head `d5dd719374cda63bb23fead3cd833a2d4b20e194`: [run #38615869611](https://github.com/deathkernel/TARA/actions/runs/38615869611) is in progress; Rust passed and Python was installing dependencies at last check.
+- Results above are hosted Ubuntu CI, not Windows-local validation. Do not merge any draft PR automatically.
 
-This is a GitHub-hosted Ubuntu CI result for the recorded head commit; it is **not** a Windows-local test result. A README-only follow-up commit still needs its own CI result before claiming that newer commit is validated. Do not imply that the full suite ran locally.
+**CI runtime reduction — research only, no workflow behavior changed here:**
+1. Add `--durations=20` to the full-suite pytest command so the next run identifies actual bottlenecks before optimization.
+2. Benchmark `pytest-xdist` on a disposable branch; use a bounded worker count and `--dist=loadfile` initially to keep each test module in one worker. Audit tests that share global state, ports, checkpoints or fixed paths before enabling it broadly.
+3. Keep a complete full-suite gate. Do not use dependency-based test selection as the only CI gate; affected-test tools can miss untracked dependencies.
+4. Review GitHub's official [stacked-PR CI optimization](https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/optimizing-ci-for-stacked-pull-requests) before skipping duplicate expensive jobs. Preserve at least a full-stack validation gate.
+5. Do not install a new CI dependency or modify workflows as part of this documentation-only PR; make the performance change separately and measure it.
 
 **CI queue mitigation applied in commit `8364a9b`:**
 - `.github/workflows/tests.yml` now uses pull-request and manual-dispatch triggers instead of running duplicate push + pull-request events for every feature-branch commit.
-- Workflow concurrency is keyed by PR number (or ref for manual runs) with `cancel-in-progress: true`, so superseded CI runs for the same PR can be cancelled.
-- `.github/workflows/experiments.yml` now triggers the expensive three-seed Tiny-vs-Scaled experiment only when its experiment scripts or relevant model/data/training files change, rather than on every `src/**` edit.
-- `.github/workflows/tests.yml` runs a focused regression subset before the full suite, so failures in recently changed paths surface early and can avoid another long full-suite run.
-- Older experiment jobs already queued under the previous broad path filter may still finish; narrowing future triggers does not cancel historical jobs.
+- Workflow concurrency is keyed by PR number (or ref for manual runs) with `cancel-in-progress: true`, so superseded runs for the same PR can be cancelled.
+- This reduces avoidable duplicate runs but has **not** resolved the queue yet. Older queued runs from the previous workflow definition remain visible; no runner-health diagnosis is available through the returned run/job metadata.
 
 **Implemented on this branch (tests still require execution):**
 - Patch validation rejects unsafe/traversal/absolute/protected paths, dependency and workflow edits, nested `.git` metadata, mismatched diff headers/markers, rename/copy/binary metadata, unsafe file modes, and Windows-invalid names (reserved device names, ADS colons, invalid characters/control characters, trailing dots/spaces); ordinary new-file mode `100644` patches remain allowed.
@@ -115,11 +129,8 @@ This is a GitHub-hosted Ubuntu CI result for the recorded head commit; it is **n
 - Teacher dataset audit: read-only JSONL schema/provenance/fingerprint/duplicate/UTF-8 checks, with `ready_for_training: false` regardless of structural success.
 - Regression tests were added for the behaviors above. **Code and test additions are not passing-test claims.**
 
-**Current gates after the successful PR #8 run:**
-- PR #8: inspect the final diff and perform the focused + full validation on the real Windows checkout; preserve the user's existing branch, untracked data, checkpoints, outputs, conversation files, and `test_voice.py`.
-- PR #9 (head `26078f1`): its older CI run [#38585922048](https://github.com/deathkernel/TARA/actions/runs/38585922048) failed in Python (22 failed, 468 passed); Rust passed. This run predates the latest PR #8 head and must be refreshed after the stacked branch is synchronized.
-- PR #10 (head `6064bc3`): its older CI run [#38586960158](https://github.com/deathkernel/TARA/actions/runs/38586960158) failed in Python (22 failed, 461 passed); Rust passed. This run also predates the latest PR #8 head and must be refreshed after the branch stack is synchronized.
-- Keep PRs draft/open and unmerged. No checkpoint promotion, training run, or NVIDIA/CUDA setup is authorized by this validation result.
+**Still blocked:** refresh PR #9 CI against the current PR #8 base; synchronize the stacked PR #10 branch; run focused and full tests on a real Windows checkout; inspect the final Self-Developer diff and report behavior. Integration remains a separate human-approved step.
+
 
 ### Teacher dataset audit — read-only
 
