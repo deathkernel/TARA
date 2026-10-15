@@ -44,14 +44,14 @@ def main() -> None:
     if not args.allow_legacy_data:
         validate_approved_dataset(args.data)
 
-    destinations = [("checkpoint", args.output)]
+    destinations = [("dataset", args.data), ("checkpoint", args.output)]
     if args.metrics_path:
         destinations.append(("metrics", args.metrics_path))
     if args.manifest_path:
         destinations.append(("manifest", args.manifest_path))
     resolved = [Path(path).expanduser().resolve() for _, path in destinations]
     if len(set(resolved)) != len(resolved):
-        parser.error("checkpoint, metrics, and manifest paths must be distinct")
+        parser.error("dataset, checkpoint, metrics, and manifest paths must be distinct")
     for (label, path), resolved_path in zip(destinations, resolved):
         if resolved_path.exists():
             parser.error(f"refusing to overwrite existing {label}: {resolved_path}")
