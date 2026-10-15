@@ -45,3 +45,76 @@ The reviewed dataset path above is an example: create it from checked examples f
 - It complements public datasets, curated examples, verified tool outcomes, and user-approved conversation memory.
 - Memory updates improve retrieved context. Model training updates a checkpoint. These are separate mechanisms.
 - Large-scale teacher generation and training can consume substantial time, RAM, disk, and CPU/GPU resources; start small.
+
+
+## Batch C: audit, review, and held-out evaluation
+
+### 1. Audit candidate data (read-only)
+
+```bat
+python -m src.teacher_dataset_audit outputs\teacher_candidates.jsonl --report outputs\teacher_audit.json
+```
+
+The audit validates required fields, supported domain, non-empty content, canonical
+text rendering, teacher provenance, review state, per-record SHA-256 fingerprint,
+malformed JSON, duplicate fingerprints, and duplicate instruction/answer pairs. It
+does not judge truth or executable-code correctness. Existing report paths are never
+overwritten. Exit code 2 means an error was found (or a warning when
+`--fail-on-warnings` is supplied).
+
+### 2. Human review queue
+
+```bat
+python -m src.teacher_review export outputs\teacher_candidates.jsonl outputs\teacher_review.csv
+```
+
+Open the CSV in a spreadsheet editor. Check every answer against independent reasoning,
+tests, or a trusted source; fill `decision` with exactly `approve` or `reject`, and
+enter a reviewer identifier. Do not mark answers approved merely because they look fluent.
+
+```bat
+python -m src.teacher_review import outputs\teacher_candidates.jsonl outputs\teacher_review.csv data\teacher_approved.jsonl
+```
+
+Import requires one explicit decision per candidate and rejects changed answer text,
+unknown/duplicate fingerprints, missing reviewers, invalid decisions, or pre-existing
+output files. Only approved rows are emitted. The source candidate JSONL and review CSV
+are read-only inputs to import.
+
+### 3. Held-out checkpoint comparison
+
+```bat
+python -m src.teacher_heldout_eval checkpoints\baseline.pt checkpoints\phase_c_candidate.pt outputs\phase_c_heldout.json
+```
+
+The evaluator runs the same deterministic capability suite against both checkpoints and
+records overall scores, per-category deltas, suite fingerprint, evaluation fingerprints,
+and the strict regression-gate decision. Exit code 2 means the candidate was not accepted.
+This fixed suite must be supplemented with task-specific tests that were not used in
+teacher generation or training.
+
+### Batch C handoff
+
+- Candidate generation, audit, review, and held-out comparison are implemented in code.
+- Generated answers are still untrusted until independently reviewed.
+- No checkpoint is promoted, replaced, or deleted by these commands.
+- CI, Windows focused tests, and full Python/Rust validation must pass before integration.
+
+
+## Current handoff — 15 October 2026
+
+- Branch: `feature/tara-phase-c-teacher-data-quality`
+- Draft PR #16: https://github.com/deathkernel/TARA/pull/16 (stacked on Batch B PR #15).
+- CI was queued at last check; exact-head CI must pass before this batch is considered validated:
+  - https://github.com/deathkernel/TARA/actions/runs/38695774939
+  - https://github.com/deathkernel/TARA/actions/runs/38695774821
+- Next steps: inspect exact-head CI results, resolve any reproduced failures, run focused and full Python/Rust tests on Windows using a separate worktree, inspect diffs, and obtain explicit approval before merging.
+- No local Windows suite or live teacher/model training was executed during remote repository edits.
+
+
+### Batch C handoff update — 15 October 2026
+
+PR #16 remains a draft stacked on Batch B PR #15: https://github.com/deathkernel/TARA/pull/16.
+The branch is rebased onto the latest Batch B fix that runs experiment scripts as repository
+modules, preserving that fix and its CI command. Exact-head CI, Windows tests, and the full Python/
+Rust suites still need to pass before integration. No merge is performed without explicit approval.

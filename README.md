@@ -919,3 +919,63 @@ new checkpoint path, measures the candidate with the same deterministic capabili
 writes training/evaluation manifests plus an overall/category regression decision. It refuses to
 overwrite existing outputs. A rejected candidate is retained for inspection but is not promoted.
 The command's non-zero exit for a rejected candidate is intentional.
+
+
+## Phase C — teacher-data quality, human review, and held-out evidence
+
+Batch C adds a read-only structural/provenance audit for nine-domain teacher JSONL,
+a CSV human-review queue that emits only explicitly approved rows, and a baseline-vs-
+candidate held-out checkpoint evaluator. Generated answers remain unverified until a
+human checks them; a clean audit does not prove correctness.
+
+```mermaid
+flowchart TD
+    A[Local teacher generates candidate JSONL] --> B[Audit schema, provenance, hashes, duplicates]
+    B --> C{Structural errors?}
+    C -->|Yes| D[Fix source; do not review/train]
+    C -->|No| E[Export review CSV]
+    E --> F[Human checks answer and records approve/reject + reviewer]
+    F --> G[Import decisions; approved-only JSONL]
+    G --> H[Train separate candidate checkpoint]
+    H --> I[Evaluate baseline and candidate on fixed held-out capability suite]
+    I --> J{Strict improvement and no category regression?}
+    J -->|Yes| K[Eligible for manual promotion review]
+    J -->|No| L[Retain evidence; do not promote]
+```
+
+Windows CMD sequence (use fresh paths and preserve existing checkpoints):
+
+```bat
+python -m src.teacher_distillation --per-domain 2 --output outputs\teacher_candidates.jsonl
+python -m src.teacher_dataset_audit outputs\teacher_candidates.jsonl --report outputs\teacher_audit.json
+python -m src.teacher_review export outputs\teacher_candidates.jsonl outputs\teacher_review.csv
+REM Fill every CSV decision with approve/reject and a reviewer name after checking answers.
+python -m src.teacher_review import outputs\teacher_candidates.jsonl outputs\teacher_review.csv data\teacher_approved.jsonl
+python -m scripts.run_phase_b_experiment checkpoints\baseline.pt data\teacher_approved.jsonl checkpoints\phase_c_candidate.pt --steps 100
+python -m src.teacher_heldout_eval checkpoints\baseline.pt checkpoints\phase_c_candidate.pt outputs\phase_c_heldout.json
+```
+
+The held-out runner is evidence-only. A non-improving candidate remains unpromoted; never
+overwrite the baseline checkpoint. The fixed capability suite is a regression signal, not
+a substitute for task-specific held-out tests or a proof of general intelligence.
+
+### Batch C handoff — 15 October 2026
+
+- Branch: `feature/tara-phase-c-teacher-data-quality`
+- Draft PR #16: https://github.com/deathkernel/TARA/pull/16, stacked on Batch B PR #15.
+- The branch is based on the latest Batch B module-invocation fix; Batch B's current workflow and README are preserved.
+- CI must pass on the final exact head before this batch is validated. Windows focused tests and full Python/Rust suites remain pending.
+- Next: inspect exact-head CI, fix reproduced failures, run Windows validation in a separate worktree, review the full diff, and request explicit approval before merge.
+- No live teacher generation or real checkpoint training was executed during these remote repository edits.
+
+## Teacher dataset audit regression check
+
+The teacher JSONL audit initializes its valid-record counter before scanning the file, so valid records can be counted without an `UnboundLocalError`. Regression coverage verifies that a generated valid dataset reports its valid-record count and that an empty dataset reports zero valid records.
+
+Run the focused checks from the repository root in Windows CMD:
+
+```bat
+python -m pytest tests/test_teacher_data_quality.py -q
+```
+
+This command documents the validation to run; a passing result must be confirmed in CI or a local test run before treating the change as fully verified.
