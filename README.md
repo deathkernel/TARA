@@ -163,7 +163,7 @@ python training_preflight.py --data data/teacher/approved.jsonl --context 128
 
 A successful preflight means the repository prerequisites are satisfied. It does **not** mean that training has already happened or that the resulting model will be capable; those require an actual training run and measured evaluation.
 
-## Public curriculum dataset pipeline
+## Legacy public curriculum dataset pipeline (optional research tooling)
 
 TARA now has a bounded public-dataset acquisition layer. It streams selected Hugging Face datasets instead of downloading entire multi-terabyte corpora, then applies text-length filtering, deterministic shuffling, cross-source deduplication, provenance/license metadata and a reproducible fingerprint.
 
