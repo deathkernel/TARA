@@ -19,7 +19,7 @@ class OllamaChatBrain(TARABrain):
 def _display_text(value, *, limit=180) -> str:
     """Bound untrusted API text and remove terminal control characters."""
     text = str(value or "")
-    text = "".join(char for char in text if char.isprintable() or char in "\\t")
+    text = "".join(char for char in text if char.isprintable())
     text = " ".join(text.split())
     return text if len(text) <= limit else text[: limit - 1] + "…"
 
