@@ -1,18 +1,8 @@
 # TARA
 
-**TARA — Tiny Artificial Reasoning Architecture**
+**Tiny Artificial Reasoning Architecture** is a modular reasoning application with a configurable language-model provider. The default chat provider is local Ollama.
 
-TARA is a modular reasoning application with structured planning, perception, tool selection, reflection, world-state tracking, and a configurable language-model provider. The default chat provider is local Ollama; the configured provider supplies the natural-language generation.
-
-## Current scope
-
-The repository has removed dataset acquisition and loading, training pipelines and experiments, checkpoint save/load and checkpoint-evaluation commands, and persistent conversation memory. No model checkpoint or conversation-memory data files were tracked in the Git tree when this change was prepared.
-
-TARA's runtime does not save conversation content for later turns. A small in-process working buffer may be used by components, but it is discarded when the process ends. Training or model-weight updates do not occur during chat.
-
-## Chat
-
-Install the requirements, make sure Ollama is running and the desired model is installed, then start the CLI:
+## Run
 
 ```bash
 python -m pip install -r requirements.txt
@@ -20,29 +10,26 @@ ollama pull llama3.2:3b
 python -m src
 ```
 
-Set `TARA_LLM_BACKEND` to configure the provider. See `.env.example` for supported environment settings. Chat commands are `/help`, `/emotion`, and `/exit`; persistent-memory commands have been removed.
+Set `TARA_LLM_BACKEND` as needed; see [`.env.example`](.env.example) for supported settings. Use `/help` in chat to see available commands.
 
-## Read-only public API tools
+## Public API commands
 
-The optional `src.public_api_tools.PublicAPITools` client exposes curated read-only queries to the GitHub repository search API, Wikipedia OpenSearch API, and Open-Meteo geocoding/forecast APIs:
+TARA supports explicit, read-only searches against GitHub, Wikipedia, Open-Meteo weather, Hacker News, and Stack Exchange:
 
-```python
-from src.public_api_tools import PublicAPITools
-
-apis = PublicAPITools()
-repos = apis.search_github_repositories("open source reasoning agents")
-articles = apis.search_wikipedia("artificial intelligence")
-weather = apis.get_weather("Pune")
+```text
+/api github <query>
+/api wiki <query>
+/api weather <city>
+/api hn <query>
+/api stackoverflow <query>
 ```
 
-Results include a source URL and `trusted=False`. Remote content is not automatically persisted to conversation memory or training data. The client uses an HTTPS host allowlist, request timeouts, response-size limits, per-host pacing, JSON validation, and explicit rate-limit errors.
+Remote results include source links and are marked untrusted. Requests are allowlisted and bounded; results are not saved to persistent conversation memory or training data. See [the API guide](docs/public_api_tools.md) for details.
 
-## Development checks
-
-Run the test suite with:
+## Development
 
 ```bash
 pytest
 ```
 
-External API calls are not required by the public API unit tests; they use mocked responses. CI must pass before a change is considered ready to merge.
+For local Ollama setup, see [the local model guide](docs/local_llama.md). CI must pass before a change is considered ready to merge.
