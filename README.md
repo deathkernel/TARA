@@ -1085,7 +1085,7 @@ improvement, or measured hardware performance.
 ### Batch F handoff — 15 October 2026
 
 - Branch: `feature/tara-phase-f-release-integration` (stacked on Batch E).
-- Draft PR: pending creation, targeting `feature/tara-phase-e-teacher-pipeline-integration`.
+- Draft PR #19: https://github.com/deathkernel/TARA/pull/19, targeting `feature/tara-phase-e-teacher-pipeline-integration`.
 - Exact-head CI and Windows/full-suite validation: pending; do not infer a pass from remote edits.
 - No PR is merged automatically. Preserve local checkpoints, outputs, conversation JSONL/manifests,
   and `test_voice.py`; no destructive cleanup.
