@@ -292,7 +292,7 @@ the stack validated.
 ### Batch F handoff — 15 October 2026
 
 - Branch: `feature/tara-phase-f-release-integration`, stacked on Batch E.
-- Pull request: create a draft PR targeting `feature/tara-phase-e-teacher-pipeline-integration`.
+- Draft PR #19: https://github.com/deathkernel/TARA/pull/19, targeting `feature/tara-phase-e-teacher-pipeline-integration`.
 - New files: `tests/test_phase_f_integration.py` and
   `.github/workflows/phase-f-release-gate.yml`.
 - Validation remains pending until exact-head CI and separate-worktree Windows tests have been
