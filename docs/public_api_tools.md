@@ -25,6 +25,6 @@ The interactive CLI also exposes explicit, read-only commands:
 
 These commands call only the selected, allowlisted public API. The model cannot request
 arbitrary URLs or trigger tools through generated text. Results include a deterministic natural-language summary plus bounded raw JSON with a source URL and `trusted=false`. The summary is rendered locally from allowlisted fields; returned text is never sent back into the language model as instructions. Terminal control characters are removed from displayed fields, and displayed strings are length-bounded. If raw output exceeds the size budget, TARA emits a valid JSON object with a bounded preview and an explicit truncation flag. The CLI does not save results to conversation memory, datasets, or model checkpoints. Treat remote content as untrusted input and
-independently verify important claims. Requests use HTTPS and an allowlist, a timeout,
+independently verify important claims. Requests use HTTPS and an allowlist, reject HTTP redirects to prevent allowlist bypasses, apply a timeout,
 a response-size cap, basic per-host pacing, query/result limits, JSON/shape validation,
-and explicit rate-limit/error reporting. APIs may impose their own usage limits.
+and explicit rate-limit/error reporting. Stack Exchange provider errors are surfaced before validating result items. APIs may impose their own usage limits.
