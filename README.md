@@ -1128,3 +1128,176 @@ flowchart TD
 5. Only after review, design any future GitHub push capability as a separate, explicitly authorized feature: dedicated branch/PR, required checks, least-privilege token, audit log, and no automatic merge.
 6. Preserve `checkpoints/`, `outputs/`, conversation JSONL/manifest files, and `test_voice.py`. Never merge a PR without the user's explicit approval.
 
+---
+
+## Master remaining-work inventory — 2026-10-15
+
+This is the consolidated remaining-work checklist based on the current README handoff, Self-Developer documentation, AI ecosystem research roadmap, and known pull-request/CI records. It is not a claim that every conceivable future improvement can be predicted. Update checkboxes only when evidence is available.
+
+### A. Immediate acceptance gates — do these first
+
+- [ ] **A1. Verify current branch head and CI.** Recheck the latest head of `feature/tara-self-developer-v1`, inspect workflow results and confirm whether README-only commits have a completed run. The last verified code-bearing CI snapshot is run [#38615254519](https://github.com/deathkernel/TARA/actions/runs/38615254519), on commit `19fc99df7d73584d98be9b549a15ce95fb08a94b`.
+- [ ] **A2. Run the documented focused tests on the actual Windows checkout**, including Self-Developer, CLI, teacher-distillation and repository-audit tests. Record exact command output; do not imply Ubuntu CI is Windows validation.
+- [ ] **A3. Run the full Python suite on Windows** and record pass/fail counts, duration and environment. Preserve the user's branch, untracked files and local artifacts.
+- [ ] **A4. Review PR #8's final diff and candidate lifecycle**: patch guards, symlink/external-file protection, intent-to-add/ignored artifacts, timeout, retry limit, rollback, candidate cleanup, atomic report persistence, candidate retention, and report accuracy.
+- [ ] **A5. Review all open PRs and branch dependencies** before integration. Keep PRs draft/open/unmerged until the user explicitly approves; do not merge as part of automated cleanup.
+- [ ] **A6. Preserve protected user data:** `checkpoints/`, `outputs/`, conversation JSONL/manifest files and `test_voice.py`. Never run destructive cleanup against the original working tree.
+
+### B. Self-Developer — make controlled code improvement trustworthy
+
+- [ ] **B1. Prove bug reproduction:** require a failing regression test or an explicit, reproducible failure before claiming a bug has been identified.
+- [ ] **B2. Verify repair quality:** require the new regression test to fail before the fix and pass after it where feasible; also run relevant existing tests.
+- [ ] **B3. Review retry and failure reports** for all terminal states, including provider errors, malformed patches, rejected paths, validation failures, timeout, rollback failure, cleanup failure and report-write failure.
+- [ ] **B4. Add/finish adversarial tests** for malicious patch paths, symlink escape, protected artifacts, ignored files, nested Git metadata, Windows-invalid paths, unsafe file modes and dependency/workflow modifications.
+- [ ] **B5. Add a real execution boundary.** A Git worktree isolates edits but is not a hostile-code sandbox. Design and test least-privilege execution with restricted mounts, secrets unavailable, network policy, CPU/RAM/time ceilings and a Windows-first implementation or clearly documented Windows-compatible option.
+- [ ] **B6. Keep fixed validation commands and bounded output/timeouts.** Do not let generated model text choose arbitrary shell commands, install dependencies or widen its own permissions.
+- [ ] **B7. Add human-readable diff/review UX** with changed paths, validation commands/results, risks, report location and explicit approval state.
+- [ ] **B8. Keep current default safe:** no automatic integration, push or merge. Only design a future push feature after review and acceptance gates are defined.
+- [ ] **B9. If authorized later, implement supervised push as a separate feature:** dedicated branch, least-privilege credential, required checks, audit log, explicit opt-in, no automatic merge and fail-closed behavior. Never expose secrets to generated code.
+- [ ] **B10. Add end-to-end acceptance tests** proving the CLI can go from task → candidate → validation → retained report, without changing the original checkout.
+
+### C. Pull requests and branch hygiene
+
+- [ ] **C1. PR #8 — Self-Developer v1:** review final code/diff and complete Windows validation; retain manual approval boundary.
+- [ ] **C2. PR #9 — AI ecosystem research:** sync its base with the accepted upstream branch as appropriate, rerun CI, verify documentation links and roadmap claims, and review its complete diff.
+- [ ] **C3. PR #10 — unused-component cleanup:** rebase/sync only after dependency/base decisions, rerun full CI, verify deletions and ensure the custom model/training/benchmark/Polyglot stack and protected artifacts remain intact.
+- [ ] **C4. PR #11 — parallel pytest experiment:** compare two-worker runtime with serial baseline; verify no shared-state races, flaky tests, resource pressure or lost coverage. Revert if no meaningful benefit.
+- [ ] **C5. PR #6 — persistent conversation memory:** verify it is included in the intended integration sequence, run targeted and full tests, inspect privacy/path behavior and review the diff.
+- [ ] **C6. PR #7 — teacher distillation:** verify generation, overwrite protection, provenance, audit and dataset-review workflow; run targeted and full tests before integration.
+- [ ] **C7. PR #5 and other older branches/PRs:** decide whether their provider/voice work is already present in the intended base, obsolete, or still needs integration. Avoid duplicate or conflicting provider implementations.
+- [ ] **C8. Resolve stacked-PR order explicitly.** Document each PR's base, dependency and merge order; rerun CI after any rebase/base change.
+- [ ] **C9. Review remaining branches** such as checkpoint-preservation, upstream-integration and algorithm-loop branches. Classify each as active, superseded, archive-only or candidate for a separately reviewed PR; do not bulk-merge branches.
+- [ ] **C10. Confirm default-branch status** after user approval and only then mark accepted PRs complete. Keep README handoff and diagrams synchronized with actual repository state.
+
+### D. Model providers and inference reliability
+
+- [ ] **D1. Define one provider contract** for completion, timeout, normalized errors, selected-model reporting, availability/health status and usage metadata.
+- [ ] **D2. Add deterministic provider tests** for valid and malformed responses, connection failures, timeouts, environment parsing, model selection and fallback behavior.
+- [ ] **D3. Test Ollama locally** with the configured `llama3.2:3b` model; record model availability, latency, timeout and response behavior.
+- [ ] **D4. Test optional external providers** only with explicitly configured credentials; confirm failures do not leak secrets or falsely report success.
+- [ ] **D5. Document cost/privacy/network behavior** for every external provider and preserve local inference as an explicit option.
+- [ ] **D6. Benchmark Ollama vs llama.cpp** before any runtime switch, recording hardware/software, first-token latency, tokens/sec, peak RAM/VRAM, context length, compatibility, error rate and output quality.
+- [ ] **D7. Do not auto-download models or start services silently.** Any model install, large download or external call must be explicit and observable.
+
+### E. Tools, permissions and execution safety
+
+- [ ] **E1. Inventory existing `src/tools/` and `SafetyPolicy`** and reuse them rather than introducing a duplicate tool system.
+- [ ] **E2. Standardize tool metadata:** stable name, description, argument schema, permission, side-effect class, timeout/resource limits and result/error format.
+- [ ] **E3. Route every tool call through one default-deny policy gate** and create an auditable event for allow/deny/result.
+- [ ] **E4. Require explicit confirmation** for destructive or externally visible actions: deletion, sending/publishing, settings changes, risky host commands, commits, pushes and merges.
+- [ ] **E5. Add negative tests** for denied calls, malformed arguments, repeated calls, timeouts, partial failures, forged model requests and audit-write errors.
+- [ ] **E6. Verify generated code remains fail-closed on the host.** Code execution that is required for an evaluation must use an explicitly injected isolated backend.
+- [ ] **E7. Test permissions end-to-end** so an untrusted model response cannot gain host capabilities merely by naming a tool.
+
+### F. Memory, retrieval and user-controlled data
+
+- [ ] **F1. Define memory scopes:** global preferences, project facts, session state and task-run history must not be accidentally mixed.
+- [ ] **F2. Add provenance where useful:** timestamps, source references, confidence/status and origin of each durable fact.
+- [ ] **F3. Test persistent memory on the target OS** for save, restart, retrieval, list, export, forget/delete and custom path handling.
+- [ ] **F4. Ensure secrets and sensitive content are not silently persisted or included in logs.**
+- [ ] **F5. Build a small retrieval benchmark** with known expected results before adding a vector database or RAG framework.
+- [ ] **F6. Add source-grounded answers and citations** for document retrieval; test deletion/forget behavior and stale-source handling.
+- [ ] **F7. Only then evaluate AnythingLLM/Dify-style document connectors**; keep one canonical memory/retrieval contract rather than fragmented stores.
+
+### G. Teacher data, training and checkpoint lifecycle
+
+- [ ] **G1. Test teacher generation and read-only audit** on valid, malformed, duplicate, corrupt-UTF-8 and missing files.
+- [ ] **G2. Manually review/curate teacher answers** for factuality, code correctness, safety, duplication and usefulness; structural audit alone is insufficient.
+- [ ] **G3. Keep train/validation/test data separated** and prevent benchmark/test contamination in generated or curated training data.
+- [ ] **G4. Run an explicit small training experiment** only on a reviewed dataset and a separate candidate checkpoint.
+- [ ] **G5. Compare baseline and candidate on held-out evaluations** with reproducible seeds, data fingerprints and recorded hardware/configuration.
+- [ ] **G6. Verify checkpoint resume/recovery** and that interrupted/failed training cannot overwrite the best known-good checkpoint.
+- [ ] **G7. Complete the checkpoint-preservation audit** on branch `audit/preserve-best-validation-checkpoint`; verify best-validation checkpoint selection, resume determinism, promotion gates and failure recovery before integrating it.
+- [ ] **G8. Test CPU fallback and CUDA compatibility** on supported environments; do not require NVIDIA/CUDA setup as a side effect.
+- [ ] **G9. Profile memory/throughput and consider AMP only with numerical regression tests** and measured benefit.
+- [ ] **G10. Do not promote a checkpoint automatically** unless explicit measurable gates pass and the promotion workflow has been reviewed/authorized.
+
+### H. Model quality and evaluation — high priority
+
+- [ ] **H1. Fix the Tiny LM acceptance gap:** smoke command success is not quality. Add a reproducible held-out metric and compare with a baseline.
+- [ ] **H2. Establish baseline scores** for coding, reasoning, memory retrieval, tool selection, safety-denial and task completion.
+- [ ] **H3. Track regression across commits** with stable benchmark cases and fingerprints.
+- [ ] **H4. Separate syntax/compilation, unit tests, task success and output quality** in reports; never collapse them into one generic “passed”.
+- [ ] **H5. Report uncertainty and failed cases** rather than presenting only aggregate scores.
+- [ ] **H6. Ensure model-evaluation reports identify the checkpoint, dataset, model/provider, configuration, seeds and software version.**
+- [ ] **H7. Measure actual end-to-end task completion** and verify side effects; fluent text or a zero exit code alone is insufficient.
+- [ ] **H8. Avoid claims of general intelligence or human-level reasoning** without an appropriate, reproducible evaluation.
+
+### I. Cognitive loop, planner and observability
+
+- [ ] **I1. Retain regression tests for the dependency-aware scheduler** and verify multi-step plans progress beyond the first ready step.
+- [ ] **I2. Test cognitive-loop/core end-to-end paths** for empty plans, dependencies, retries, cancellation, tool failures and incomplete verification.
+- [ ] **I3. Trace task IDs, plan revisions, tool decisions, provider latency/errors, validation outcomes and final results.**
+- [ ] **I4. Redact secrets and sensitive user data from traces and reports.**
+- [ ] **I5. Make failure reasons explicit** so “no action”, “denied”, “timeout”, “provider unavailable” and “task completed” cannot be confused.
+- [ ] **I6. Add deterministic replay/regression fixtures** for previously failing orchestration and scheduler cases.
+
+### J. Voice, chat UX and interfaces
+
+- [ ] **J1. Verify local chat on Windows** with Ollama running and a model installed; check clear errors when unavailable.
+- [ ] **J2. Test ElevenLabs TTS with explicitly configured credentials** and document provider/model/voice/output-format errors.
+- [ ] **J3. Keep secrets and voice configuration out of Git.**
+- [ ] **J4. Decide whether a stable API/session/auth boundary is needed** before considering Open WebUI or another UI.
+- [ ] **J5. Keep CLI and core functional without an optional web UI.**
+- [ ] **J6. Add UI only for a concrete use case and with acceptance tests; do not build UI merely because an ecosystem project offers one.**
+
+### K. Optional AI ecosystem integrations — after core contracts stabilize
+
+- [ ] **K1. MCP exposure:** define schemas, permissions, confirmations and audit logging; expose only selected TARA capabilities.
+- [ ] **K2. n8n:** consider a narrow webhook/event adapter only when a concrete automation requirement exists; review current licensing/terms before reuse or redistribution.
+- [ ] **K3. Langflow/Dify:** evaluate as optional prototypes or external services, not as a second TARA orchestrator.
+- [ ] **K4. Open WebUI:** consider only after stable API, authentication and session boundaries; review extensions as potentially executable server code.
+- [ ] **K5. AnythingLLM:** consider only for a defined document/RAG requirement after retrieval contracts and evaluations exist.
+- [ ] **K6. Agent Zero, AutoAgent and OpenHands:** continue design comparisons; do not run several competing autonomous controllers inside TARA.
+- [ ] **K7. Check current licenses and third-party dependencies** before copying code, vendoring components or redistributing integrations.
+- [ ] **K8. Keep heavy/optional dependencies lazy and optional** so core CPU/local operation does not require every ecosystem runtime.
+
+### L. CI, performance and release engineering
+
+- [ ] **L1. Revalidate latest README commits and branch head**; record the exact tested commit SHA and CI URL.
+- [ ] **L2. Preserve static repository audit, focused tests, full Python suite, smoke tests and Rust tests** as distinct checks.
+- [ ] **L3. Evaluate PR #11 parallel test trial against the serial baseline**; retain only if reliable and measurably faster.
+- [ ] **L4. Record slow tests and reduce runtime without deleting or weakening regression coverage.**
+- [ ] **L5. Ensure path filters/concurrency do not silently skip required checks** or cancel the only relevant validation run.
+- [ ] **L6. Add supported Python/OS compatibility coverage** based on actual project requirements, especially Windows behavior.
+- [ ] **L7. Document reproducible setup, environment variables, CLI commands, test commands, failure recovery and known limitations.**
+- [ ] **L8. Review dependency security and pinning** before changing or adding dependencies.
+- [ ] **L9. Produce a release checklist** for versioning, changelog, tests, protected-data checks, documentation and rollback plan.
+
+### M. Documentation and project handoff
+
+- [ ] **M1. Update this checklist after each meaningful task** and mark an item complete only with a commit/test/evaluation reference.
+- [ ] **M2. Keep previous work → current state → next action in README**, including Mermaid diagrams.
+- [ ] **M3. Record the exact CI-tested commit, not just a branch name.**
+- [ ] **M4. Keep “implemented”, “executed”, “measured” and “approved for integration” as separate statuses.**
+- [ ] **M5. Keep setup instructions aligned with the branch that actually contains the commands/modules.**
+- [ ] **M6. Maintain a decisions/deferred-work section** so optional integrations do not accidentally become mandatory scope.
+
+### Recommended order
+
+```mermaid
+flowchart TD
+    A[Verify current head and CI] --> B[Windows focused/full validation]
+    B --> C[Review Self-Developer diff and lifecycle]
+    C --> D[Resolve PR dependencies and stale failures]
+    D --> E[Tool permissions and real sandbox]
+    E --> F[Provider contract and runtime checks]
+    F --> G[Memory/retrieval evaluation]
+    G --> H[Teacher data and checkpoint safety]
+    H --> I[Held-out model quality benchmarks]
+    I --> J[Observability and end-to-end reliability]
+    J --> K[Optional MCP/UI/workflow integrations]
+    K --> L[Supervised push design, only if authorized]
+    L --> M[Release-readiness review and user approval]
+```
+
+### Definition of done for a future “TARA ready” claim
+
+- [ ] Required CI passes on the exact candidate commit.
+- [ ] Windows focused/full tests are recorded on the intended supported environment.
+- [ ] Critical permissions, secret handling, protected-data and sandbox tests pass.
+- [ ] Provider, memory, tools, training and voice claims have relevant runtime evidence.
+- [ ] Model-quality claims have reproducible held-out baseline comparisons.
+- [ ] All intended PR dependencies and diffs are reviewed.
+- [ ] User explicitly approves integration; no PR is merged by implication.
+
