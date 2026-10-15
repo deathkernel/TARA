@@ -9,10 +9,6 @@ from src.tara_core import CoreConfig, CoreStatus, TARACore
 from src.unified_cognitive_loop import ActionOutcome
 
 
-class DummyModel:
-    pass
-
-
 def test_runtime_composes_without_persistent_memory(tmp_path, monkeypatch):
     monkeypatch.delenv("TARA_LLM_BACKEND", raising=False)
     memory = LongTermMemory(tmp_path / "memory.json")
@@ -22,7 +18,7 @@ def test_runtime_composes_without_persistent_memory(tmp_path, monkeypatch):
     with pytest.raises(RuntimeError, match="removed"):
         memory.save()
 
-    brain = TARABrain(DummyModel(), memory=memory, seed=17)
+    brain = TARABrain(memory=memory)
     core = TARACore(brain, config=CoreConfig(seed=17, max_cycles=4, max_events=3))
     assert core.health().healthy
     assert provider_from_env() is None
