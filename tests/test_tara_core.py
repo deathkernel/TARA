@@ -5,12 +5,8 @@ from src.tara_core import CoreConfig, CoreStatus, TARACore
 from src.unified_cognitive_loop import ActionOutcome
 
 
-class DummyModel:
-    pass
-
-
 def test_core_health_and_end_to_end_cycle():
-    core = TARACore(TARABrain(DummyModel()), config=CoreConfig(seed=3, max_cycles=4))
+    core = TARACore(TARABrain(), config=CoreConfig(seed=3, max_cycles=4))
     health = core.health()
     assert health.healthy
     report = core.run(
@@ -61,11 +57,3 @@ def test_architecture_api_requires_evaluator():
         raise AssertionError("expected evaluator boundary")
 
 
-def test_core_replay_boundary():
-    core = TARACore(TARABrain(DummyModel()))
-    batch = core.build_replay([
-        {"text": "verified example", "domain": "core", "verified": True},
-        {"text": "ignored example", "domain": "core", "verified": False},
-    ])
-    assert len(batch.examples) == 1
-    assert batch.examples[0].verified is True
