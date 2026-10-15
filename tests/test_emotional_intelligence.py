@@ -56,6 +56,8 @@ def test_emotion_switch_moves_between_emotions_and_resets_on_neutral():
     assert (sad.previous, sad.current, sad.changed) == ("neutral", "sadness", True)
     assert (happy.previous, happy.current, happy.changed) == ("sadness", "joy", True)
     assert happy.reason == "current_message_cue"
+    explicit_shift = switch.update("I was sad, but now I feel happy")
+    assert explicit_shift.current == "joy"
     assert (neutral.previous, neutral.current, neutral.changed) == ("joy", "neutral", True)
     assert neutral.reason == "neutral_reset"
 
