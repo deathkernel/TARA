@@ -27,6 +27,9 @@ PROTECTED_PATHS = (
 MAX_PATCH_CHARS = 100_000
 MAX_CONTEXT_CHARS = 50_000
 COMMAND_TIMEOUT_SECONDS = 300
+DEFAULT_FULL_TEST_TIMEOUT_SECONDS = 3 * 60 * 60
+FULL_TEST_TIMEOUT_ENV = "TARA_SELF_DEVELOPER_FULL_TEST_TIMEOUT_SECONDS"
+MAX_FULL_TEST_TIMEOUT_SECONDS = 24 * 60 * 60
 _OUTPUT_LIMIT = 12_000
 
 
@@ -85,6 +88,27 @@ def _validation_commands(changed: list[str], *, available_tests: bool = True) ->
     for path in changed_python:
         commands.append([sys.executable, "-m", "py_compile", path])
     return commands
+
+
+def _validation_timeout(command: list[str]) -> int:
+    """Give the complete pytest suite a separate, configurable timeout."""
+    if command[1:] == ["-m", "pytest", "-q"]:
+        raw_timeout = os.environ.get(
+            FULL_TEST_TIMEOUT_ENV, str(DEFAULT_FULL_TEST_TIMEOUT_SECONDS)
+        )
+        try:
+            timeout = int(raw_timeout)
+        except ValueError as exc:
+            raise SelfDeveloperError(
+                f"{FULL_TEST_TIMEOUT_ENV} must be an integer number of seconds"
+            ) from exc
+        if not 60 <= timeout <= MAX_FULL_TEST_TIMEOUT_SECONDS:
+            raise SelfDeveloperError(
+                f"{FULL_TEST_TIMEOUT_ENV} must be between 60 and "
+                f"{MAX_FULL_TEST_TIMEOUT_SECONDS} seconds"
+            )
+        return timeout
+    return COMMAND_TIMEOUT_SECONDS
 
 
 class SelfDeveloper:
@@ -293,7 +317,7 @@ class SelfDeveloper:
                     )
                     for command in _validation_commands(changed, available_tests=available_tests):
                         result = _run(
-                            command, cwd=worktree, timeout=COMMAND_TIMEOUT_SECONDS,
+                            command, cwd=worktree, timeout=_validation_timeout(command),
                             runner=self._command_runner,
                         )
                         validation_outputs.append(

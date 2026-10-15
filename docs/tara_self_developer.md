@@ -7,7 +7,9 @@ TARA repository. It does not merge, push, publish releases, install packages,
 or edit the original working tree. A user must inspect the report and diff and
 manually integrate any accepted change.
 
-The runner uses argument-vector subprocess calls with shell disabled. Every candidate runs `compileall` against `src`. If a Python source file under `src/` changes, the runner also runs the full `pytest -q` suite because regressions may be outside the changed file. If only test files change, it runs pytest against those changed test files. Commands have a five-minute timeout and captured output is bounded in reports.
+The runner uses argument-vector subprocess calls with shell disabled. Every candidate runs `compileall` against `src`. If a Python source file under `src/` changes, the runner also runs the full `pytest -q` suite because regressions may be outside the changed file. If only test files change, it runs pytest against those changed test files. Git/compile checks and focused pytest commands keep a five-minute timeout; the complete suite has a separate three-hour default timeout because the recorded full suite can take over two hours. Captured output is bounded in reports.
+
+To override the full-suite timeout in Windows CMD, set `TARA_SELF_DEVELOPER_FULL_TEST_TIMEOUT_SECONDS` to an integer from `60` through `86400` (24 hours) before starting the CLI. For example, `set TARA_SELF_DEVELOPER_FULL_TEST_TIMEOUT_SECONDS=14400` allows four hours. The setting applies only to the complete `python -m pytest -q` command; it does not extend Git, compile, or focused-test timeouts. Invalid values fail validation rather than silently falling back.
 
 The patch gate rejects absolute paths, traversal, protected user artifacts,
 dependency files, and workflow files. The protected paths include
@@ -37,8 +39,9 @@ provider until TARA_LLM_BACKEND=ollama is set.
 
 Reports and candidate worktrees are stored outside the repository under
 %LOCALAPPDATA%\TARA\self-developer\. This avoids adding generated runtime
-artifacts to the user's working tree. Candidate worktrees are retained for
-inspection; review their diffs before any manual cleanup.
+artifacts to the user's working tree. Successful candidate worktrees are
+retained for inspection. Failed candidate worktrees and branches are cleaned up
+within the self-developer namespace while their diagnostic reports are retained.
 
 ## Review and integration
 
@@ -55,4 +58,4 @@ inspection; review their diffs before any manual cleanup.
 - Test success is necessary but not sufficient for correctness.
 - This version does not support automatic commits, pushes, merges, dependency
   installation, or arbitrary shell execution.
-- Failed runs retain their report and candidate worktree for diagnosis.
+- Failed runs retain their diagnostic report; their candidate worktree and branch are cleaned up when safe cleanup succeeds.
