@@ -138,3 +138,41 @@ def test_api_summary_formats_hacker_news_titles_and_links():
     assert "Found 1 Hacker News matches." in summary
     assert "A story (points: 12)" in summary
     assert "https://example.com/story" in summary
+
+
+
+def test_api_summary_formats_wikipedia_and_stackexchange_results():
+    wiki = SimpleNamespace(
+        provider="Wikipedia",
+        source_url="https://en.wikipedia.org/w/api.php",
+        retrieved_at=123.0,
+        trusted=False,
+        data=["query", ["TARA", "AI"], ["", ""], ["https://en.wikipedia.org/wiki/TARA", "https://en.wikipedia.org/wiki/AI"]],
+    )
+    stack = SimpleNamespace(
+        provider="Stack Exchange",
+        source_url="https://api.stackexchange.com/2.3/search/advanced",
+        retrieved_at=123.0,
+        trusted=False,
+        data={"items": [{"title": "How to test Python?", "link": "https://stackoverflow.com/q/1", "score": 4}]},
+    )
+    wiki_summary = _summarize_api_observation(wiki)
+    stack_summary = _summarize_api_observation(stack)
+    assert "Found 2 Wikipedia matches." in wiki_summary
+    assert "https://en.wikipedia.org/wiki/TARA" in wiki_summary
+    assert "Found 1 Stack Overflow questions." in stack_summary
+    assert "How to test Python? (score: 4)" in stack_summary
+    assert "https://stackoverflow.com/q/1" in stack_summary
+
+
+def test_api_summary_bounds_untrusted_fields():
+    observation = SimpleNamespace(
+        provider="Hacker News",
+        source_url="https://hn.algolia.com/api/v1/search",
+        retrieved_at=123.0,
+        trusted=False,
+        data={"hits": [{"title": "T" * 500, "url": "https://example.com"}]},
+    )
+    summary = _summarize_api_observation(observation)
+    assert "T" * 200 not in summary
+    assert "T" * 159 + "…" in summary
