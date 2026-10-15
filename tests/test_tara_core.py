@@ -23,7 +23,7 @@ def test_core_health_and_end_to_end_cycle():
 
 
 def test_core_stop_resume():
-    core = TARACore(TARABrain(DummyModel()))
+    core = TARACore(TARABrain())
     core.stop()
     assert core.status is CoreStatus.STOPPED
     try:
@@ -37,7 +37,7 @@ def test_core_stop_resume():
 
 
 def test_core_learning_and_manifest(tmp_path):
-    core = TARACore(TARABrain(DummyModel()))
+    core = TARACore(TARABrain())
     report = core.learn([Experience("e1", "s", "a", "ok", 1.0, True)])
     assert report.updates
     path = tmp_path / "runtime.json"
@@ -47,7 +47,7 @@ def test_core_learning_and_manifest(tmp_path):
 
 
 def test_architecture_api_requires_evaluator():
-    core = TARACore(TARABrain(DummyModel()))
+    core = TARACore(TARABrain())
     variant = ArchitectureVariant("base", (ArchitectureComponent("reasoner", critical=True),))
     try:
         core.optimize_architecture(variant)
