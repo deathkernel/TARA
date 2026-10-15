@@ -7,7 +7,7 @@ This product roadmap supplements the existing engineering phase ledger in the ro
 - [x] 3. Create the initial PostgreSQL migration and ownership-policy integration test.
 - [x] 4. Implement ownership-scoped conversation CRUD and user-message endpoints (production remains disabled until trusted authentication is wired).
 - [x] 5. Build the SSE chat interface with a mocked token stream (clearly labeled as local-only; no model calls or persistence).
-- [ ] 6. Create the Python inference service with a health endpoint.
+- [x] 6. Create a health-only FastAPI inference service shell (readiness stays 503 until provider integration).
 - [ ] 7. Connect the web backend to the inference adapter and run an end-to-end test.
 
 ## Architecture boundary

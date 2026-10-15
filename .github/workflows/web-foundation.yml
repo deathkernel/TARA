@@ -51,3 +51,15 @@ jobs:
         run: psql "$TARA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f db/migrations/0001_initial_chat_schema.sql
       - name: Test database ownership policies
         run: psql "$TARA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f db/tests/ownership_policies.sql
+
+  inference-health:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install inference service test dependencies
+        run: python -m pip install -r services/inference/requirements.txt
+      - name: Test inference health endpoints
+        run: python -m pytest services/inference/tests -q

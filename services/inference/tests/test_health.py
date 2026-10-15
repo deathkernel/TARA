@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from app import app
+from services.inference.app import app
 
 client = TestClient(app)
 
