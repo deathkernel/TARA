@@ -176,15 +176,6 @@ class TARACore:
         self._emit("speech", characters=len(text), bytes=len(audio))
         return audio
 
-    def evaluate_checkpoint(self, path: str | Path, *, output: str | Path | None = None, max_new_tokens: int = 32):
-        from .capability_suite import capability_cases
-        from .model_capability_runner import evaluate_checkpoint, write_evaluation
-        evaluation = evaluate_checkpoint(path, tuple(capability_cases()), max_new_tokens=max_new_tokens)
-        if output is not None:
-            write_evaluation(evaluation, output)
-        self._emit("capability_evaluation", checkpoint=str(path), score=evaluation.benchmark.overall_score)
-        return evaluation
-
     def perceive(self, observations):
         context = self.brain.perceive_multimodal(observations)
         self._emit("perception", modalities=",".join(item.modality for item in context.observations))
