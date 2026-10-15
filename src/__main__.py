@@ -1,10 +1,12 @@
 """Interactive TARA chat with no persistent conversation memory."""
 from __future__ import annotations
 
+import json
 import os
 
 from .brain import TARABrain
 from .llm_provider_factory import provider_from_env
+from .public_api_tools import PublicAPIError, PublicAPITools
 
 
 class OllamaChatBrain(TARABrain):
@@ -14,8 +16,42 @@ class OllamaChatBrain(TARABrain):
         raise RuntimeError("No local TARA checkpoint fallback is available; use the configured language provider.")
 
 
-def chat_loop(brain, *, input_fn=input, output_fn=print) -> None:
+def _run_api_command(command: str, api_tools: PublicAPITools) -> str | None:
+    """Run an explicit, read-only public API command; never execute model-proposed tools."""
+    parts = command.strip().split(maxsplit=2)
+    if len(parts) < 3 or parts[0].lower() != "/api":
+        return None
+    provider, query = parts[1].lower(), parts[2].strip()
+    if not query:
+        return "Usage: /api github <query> | /api wiki <query> | /api weather <city>"
+    try:
+        if provider == "github":
+            observation = api_tools.search_github_repositories(query)
+        elif provider in {"wiki", "wikipedia"}:
+            observation = api_tools.search_wikipedia(query)
+        elif provider in {"weather", "meteo"}:
+            observation = api_tools.get_weather(query)
+        else:
+            return "Unknown API provider. Use github, wiki, or weather."
+    except (PublicAPIError, ValueError) as exc:
+        return f"Public API request failed: {exc}"
+
+    payload = {
+        "provider": observation.provider,
+        "source_url": observation.source_url,
+        "retrieved_at": observation.retrieved_at,
+        "trusted": False,
+        "data": observation.data,
+    }
+    rendered = json.dumps(payload, ensure_ascii=False, indent=2, default=str)
+    if len(rendered) > 5000:
+        rendered = rendered[:5000] + "\n… [output truncated]"
+    return rendered
+
+
+def chat_loop(brain, *, input_fn=input, output_fn=print, api_tools=None) -> None:
     """Run chat without saving or recalling conversation history."""
+    api_tools = api_tools or PublicAPITools()
     output_fn("TARA chat is ready. Type /help for commands, /exit to quit.")
     while True:
         try:
@@ -31,7 +67,7 @@ def chat_loop(brain, *, input_fn=input, output_fn=print) -> None:
             output_fn("TARA: Bye, bhai!")
             return
         if command == "/help":
-            output_fn("Commands: /help, /exit, /emotion")
+            output_fn("Commands: /help, /exit, /emotion, /api github <query>, /api wiki <query>, /api weather <city>")
             continue
         if command == "/emotion":
             label = getattr(brain, "last_emotion", "neutral")
@@ -39,6 +75,10 @@ def chat_loop(brain, *, input_fn=input, output_fn=print) -> None:
             continue
         if command in {"/memory", "/learn", "/remember"} or command.startswith(("/learn ", "/remember ", "/forget ")):
             output_fn("TARA: Persistent conversation memory and memory commands have been removed.")
+            continue
+        if command.startswith("/api "):
+            result = _run_api_command(prompt, api_tools)
+            output_fn(f"TARA API: {result}" if result is not None else "Usage: /api github <query> | /api wiki <query> | /api weather <city>")
             continue
         try:
             provider = getattr(brain, "llm_provider", None)
