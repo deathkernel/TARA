@@ -47,8 +47,8 @@ The command performs the actual training. Importing the training module does not
 ```bash
 python train_algorithm_lm.py \
   --data data/teacher/approved.jsonl \
-  --output checkpoints/teacher_candidate_new.pt \
-  --resume checkpoints/teacher_candidate_new.pt \
+  --output checkpoints/teacher_candidate_resume.pt \
+  --resume checkpoints/teacher_candidate_existing.pt \
   --steps 1000
 ```
 
