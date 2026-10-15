@@ -228,3 +228,74 @@ Stages are separate on purpose: the CSV review is a human boundary, and each sta
 - No real Ollama generation or checkpoint training was executed while editing remotely.
 - Next: inspect CI and fix reproduced failures; run focused tests and full suites in a separate worktree; review dependency-stack diffs; ask for explicit merge approval before integration.
 - Preserve local `checkpoints/`, `outputs/`, conversation JSONL/manifests, and `test_voice.py`. Do not run destructive cleanup or merge without explicit approval.
+
+
+## Batch F — final runtime integration and release gate
+
+Batch F closes this implementation roadmap with a deterministic integration check across
+TARA's cognitive runtime, persistent memory, explicit provider selection, identity guardrails,
+and learning orchestration. It adds regression coverage and a dedicated CI workflow; it does
+not claim that a new foundation model has been trained or that live Ollama inference has passed.
+
+### Integrated runtime path
+
+```mermaid
+flowchart TD
+    A[Explicit provider configuration] --> B[TARABrain]
+    B --> C[TARACore health and bounded orchestration]
+    C --> D[Plan and execute deterministic test actions]
+    D --> E[Record verified learning experience]
+    E --> F[Persist and reload user memory]
+    F --> G[Write runtime manifest and fingerprint]
+    G --> H[Release regression gate]
+    H --> I[Full Python test suite]
+    H --> J[Rust tokenizer tests]
+    H --> K[Teacher pipeline CLI surface]
+    I --> L{All checks pass?}
+    J --> L
+    K --> L
+    L -->|Yes| M[Review exact commit and artifacts]
+    L -->|No| N[Fix evidenced failure and rerun]
+    M --> O[Human approval before merge]
+```
+
+### What Batch F adds
+
+- `tests/test_phase_f_integration.py` composes the existing brain/core, explicit provider
+  factory, persistent memory round-trip, runtime manifest, deterministic action cycle, and
+  verified-learning API in one regression path.
+- `.github/workflows/phase-f-release-gate.yml` runs the full Python suite, checks the teacher
+  pipeline CLI help without generating teacher data, and runs the Rust tokenizer tests.
+- The integration test uses a dummy model and deterministic actions. It does not contact
+  Ollama, call remote model APIs, generate teacher answers, train checkpoints, or promote a model.
+- Model/provider selection stays explicit. The default provider remains unchanged unless
+  `TARA_LLM_BACKEND` is configured.
+- Runtime memory, model checkpoints, teacher datasets, and generated evidence remain separate
+  artifacts; the release gate does not delete or overwrite user data.
+
+### Windows CMD validation
+
+Run these from a separate validation worktree so existing local artifacts and uncommitted work
+in the primary checkout remain untouched:
+
+```bat
+python -m pytest tests/test_phase_f_integration.py tests/test_tara_core.py tests/test_memory.py tests/test_llm_provider_factory.py -q
+python -m pytest -q
+python -m src.teacher_pipeline --help
+cargo test --manifest-path rust-tokenizer/Cargo.toml
+```
+
+The commands above are instructions, not proof that they have already passed. Confirm the exact
+Batch F commit's GitHub Actions runs and run the Python/Rust checks locally before considering
+the stack validated.
+
+### Batch F handoff — 15 October 2026
+
+- Branch: `feature/tara-phase-f-release-integration`, stacked on Batch E.
+- Pull request: create a draft PR targeting `feature/tara-phase-e-teacher-pipeline-integration`.
+- New files: `tests/test_phase_f_integration.py` and
+  `.github/workflows/phase-f-release-gate.yml`.
+- Validation remains pending until exact-head CI and separate-worktree Windows tests have been
+  inspected. No live teacher generation, real training, or Ollama inference is claimed.
+- Do not merge or close stacked PRs without explicit approval. Preserve local `checkpoints/`,
+  `outputs/`, conversation JSONL/manifests, and `test_voice.py`; do not run destructive cleanup.
