@@ -137,7 +137,7 @@ def _run_api_command(command: str, api_tools: PublicAPITools) -> str | None:
     rendered = json.dumps(payload, ensure_ascii=False, indent=2, default=str)
     if len(rendered) > 5000:
         # Keep the fallback machine-readable instead of slicing JSON mid-token.
-        preview = _display_text(json.dumps(observation.data, ensure_ascii=False, default=str), limit=3400)
+        preview = _display_text(json.dumps(observation.data, ensure_ascii=False, default=str), limit=1800)
         payload["data"] = {"truncated": True, "preview": preview}
         payload["truncated"] = True
         rendered = json.dumps(payload, ensure_ascii=False, indent=2, default=str)
