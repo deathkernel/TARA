@@ -1084,7 +1084,7 @@ Resume next: inspect the newest CI run; if focused tests pass, verify the full P
 
 ### CI re-verification — current Self-Developer branch (2026-10-14)
 
-Latest branch-head workflow: [TARA CI run #38615254519](https://github.com/deathkernel/TARA/actions/runs/38615254519). Both jobs completed successfully on GitHub-hosted Ubuntu:
+Latest completed CI for the code-bearing branch head before this README-only handoff update: [TARA CI run #38615254519](https://github.com/deathkernel/TARA/actions/runs/38615254519), on commit `19fc99df7d73584d98be9b549a15ce95fb08a94b`. Both jobs completed successfully on GitHub-hosted Ubuntu. The documentation commit adding this handoff does not yet have a workflow run visible in the connector:
 
 - Static repository audit: passed.
 - Focused regression suite: **121 passed**.
