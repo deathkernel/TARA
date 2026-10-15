@@ -3,7 +3,7 @@ from urllib.error import HTTPError
 
 import pytest
 
-from src.public_api_tools import APIObservation, PublicAPIClient, PublicAPIError, PublicAPITools
+from src.public_api_tools import APIObservation, PublicAPIClient, PublicAPIError, PublicAPITools, _NoRedirectHandler
 
 
 class FakeResponse:
@@ -111,3 +111,15 @@ def test_stackoverflow_search_validates_items_and_query_limits():
         tools.search_stackoverflow("x" * 201)
     with pytest.raises(PublicAPIError, match="missing items"):
         PublicAPITools(fake_client({"error_id": 400})).search_stackoverflow("python")
+
+
+def test_redirect_handler_rejects_redirects():
+    handler = _NoRedirectHandler()
+    request = __import__("urllib.request", fromlist=["Request"]).Request("https://api.github.com/example")
+    assert handler.redirect_request(request, None, 302, "Found", {}, "https://example.com/steal") is None
+
+
+def test_stackoverflow_surfaces_provider_error_before_missing_items():
+    tools = PublicAPITools(fake_client({"error_id": 400, "error_name": "bad_parameter"}))
+    with pytest.raises(PublicAPIError, match="API error"):
+        tools.search_stackoverflow("python")
