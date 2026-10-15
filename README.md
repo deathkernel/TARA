@@ -1047,3 +1047,45 @@ python -m src.teacher_pipeline train --dataset data\batch_e_approved.jsonl --bas
 - No real teacher generation or model training was run during remote editing.
 - Next: check CI logs, fix evidence-backed failures, run validation in a separate worktree, review the full stacked diff, and request explicit approval before merging.
 - Preserve local checkpoints, outputs, conversation JSONL/manifests, and `test_voice.py`; no destructive cleanup.
+
+
+## Batch F — final runtime integration and release gate
+
+Batch F adds a deterministic cross-component regression test and a dedicated CI release gate.
+The integration path exercises `TARABrain` + `TARACore`, explicit provider selection, a bounded
+cognitive cycle, verified learning records, persistent-memory save/reload, and a runtime manifest.
+
+```mermaid
+flowchart LR
+    A[Provider config] --> B[Brain + Core]
+    B --> C[Deterministic cycle]
+    C --> D[Verified learning]
+    D --> E[Persistent memory + manifest]
+    E --> F[Python regression suite]
+    E --> G[Rust tokenizer suite]
+    F --> H{Release gate}
+    G --> H
+    H --> I[Human review]
+```
+
+### Validate locally (Windows CMD)
+
+```bat
+python -m pytest tests/test_phase_f_integration.py tests/test_tara_core.py tests/test_memory.py tests/test_llm_provider_factory.py -q
+python -m pytest -q
+python -m src.teacher_pipeline --help
+cargo test --manifest-path rust-tokenizer/Cargo.toml
+```
+
+CI is defined in `.github/workflows/phase-f-release-gate.yml`. The tests use a dummy model and
+do not require Ollama, teacher generation, or real checkpoint training. Passing tests prove only
+the tested software contracts; they do not prove general intelligence, answer correctness, model
+improvement, or measured hardware performance.
+
+### Batch F handoff — 15 October 2026
+
+- Branch: `feature/tara-phase-f-release-integration` (stacked on Batch E).
+- Draft PR: pending creation, targeting `feature/tara-phase-e-teacher-pipeline-integration`.
+- Exact-head CI and Windows/full-suite validation: pending; do not infer a pass from remote edits.
+- No PR is merged automatically. Preserve local checkpoints, outputs, conversation JSONL/manifests,
+  and `test_voice.py`; no destructive cleanup.
