@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 
-from src.__main__ import _summarize_api_observation, chat_loop
+from src.__main__ import _run_api_command, _summarize_api_observation, chat_loop
 
 
 class FakeBrain:
@@ -176,3 +176,26 @@ def test_api_summary_bounds_untrusted_fields():
     summary = _summarize_api_observation(observation)
     assert "T" * 200 not in summary
     assert "T" * 159 + "…" in summary
+
+
+
+def test_large_api_output_stays_valid_json_when_truncated():
+    class LargeAPI:
+        def search_github_repositories(self, query):
+            return SimpleNamespace(
+                provider="GitHub",
+                source_url="https://api.github.com/search/repositories",
+                retrieved_at=123.0,
+                trusted=False,
+                data={"items": [{"full_name": "repo", "description": "x" * 12000}]},
+            )
+
+    result = _run_api_command("/api github test", LargeAPI())
+    assert result is not None
+    assert "Raw response (trusted=false):" in result
+    raw = result.split("Raw response (trusted=false):\\n", 1)[1]
+    import json
+    payload = json.loads(raw)
+    assert payload["truncated"] is True
+    assert payload["data"]["truncated"] is True
+    assert len(raw) < 5000
