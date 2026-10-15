@@ -894,7 +894,7 @@ flowchart TD
 Windows CMD quick run (choose a fresh output folder):
 
 ```bat
-python scripts/run_phase_b_smoke.py --output-dir artifacts\phase-b-smoke
+python -m scripts.run_phase_b_smoke --output-dir artifacts\phase-b-smoke
 python -m pytest tests\test_phase_b_smoke.py tests\test_learning_experiment.py tests\test_evaluation_orchestrator.py -q
 ```
 
@@ -911,7 +911,7 @@ teacher candidates with `python -m src.teacher_distillation`, manually review/fi
 separate dataset, and then train a new candidate against an existing baseline:
 
 ```bat
-python scripts/run_phase_b_experiment.py checkpoints\baseline.pt data\llama_teacher_reviewed.jsonl checkpoints\phase_b_candidate.pt --steps 100 --device cpu
+python -m scripts.run_phase_b_experiment checkpoints\baseline.pt data\llama_teacher_reviewed.jsonl checkpoints\phase_b_candidate.pt --steps 100 --device cpu
 ```
 
 The command audits the reviewed dataset, measures the baseline before training, trains into a

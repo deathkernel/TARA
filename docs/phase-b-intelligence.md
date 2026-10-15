@@ -31,7 +31,7 @@ From the repository root:
 
 ```bat
 python -m pip install -r requirements.txt
-python scripts/run_phase_b_smoke.py --output-dir artifacts\phase-b-smoke
+python -m scripts.run_phase_b_smoke --output-dir artifacts\phase-b-smoke
 python -m pytest tests\test_phase_b_smoke.py tests\test_learning_experiment.py tests\test_evaluation_orchestrator.py -q
 ```
 
@@ -80,7 +80,7 @@ After teacher-generated records have been reviewed and filtered, use the product
 runner with an existing baseline checkpoint and a **new** candidate path:
 
 ```bat
-python scripts/run_phase_b_experiment.py checkpoints\baseline.pt data\llama_teacher_reviewed.jsonl checkpoints\phase_b_candidate.pt --steps 100 --device cpu
+python -m scripts.run_phase_b_experiment checkpoints\baseline.pt data\llama_teacher_reviewed.jsonl checkpoints\phase_b_candidate.pt --steps 100 --device cpu
 ```
 
 The baseline is evaluated first, then `TrainingExperiment` audits and trains from the supplied
