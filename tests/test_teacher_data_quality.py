@@ -27,7 +27,7 @@ def test_audit_flags_tampered_fingerprint_and_malformed_json(tmp_path: Path):
     rows[0]["fingerprint"] = "not-the-real-fingerprint"
     dataset.write_text(json.dumps(rows[0]) + "\n{not-json}\n", encoding="utf-8")
     report = audit_teacher_dataset(dataset)
-    assert not report.passed
+    assert not report.passed and report.valid_records == 0
     assert {issue.code for issue in report.issues} >= {"fingerprint-mismatch", "malformed-json"}
 
 def test_review_export_import_only_emits_explicitly_approved_rows(tmp_path: Path):

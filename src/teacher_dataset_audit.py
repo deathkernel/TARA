@@ -93,6 +93,8 @@ def audit_teacher_dataset(path: str | Path) -> TeacherDatasetAudit:
             issues.append(AuditIssue("text-field-mismatch", "error", line_number, "text field differs from canonical domain/instruction/answer rendering"))
         fingerprints.append(item["fingerprint"])
         pairs.append(hashlib.sha256(f"{domain}\n{instruction.strip().casefold()}\n{answer.strip().casefold()}".encode()).hexdigest())
+        if not any(issue.severity == "error" and issue.line == line_number for issue in issues):
+            valid_record_count += 1
     fp_counts, pair_counts = Counter(fingerprints), Counter(pairs)
     duplicate_fingerprints = sum(count - 1 for count in fp_counts.values() if count > 1)
     duplicate_pairs = sum(count - 1 for count in pair_counts.values() if count > 1)
@@ -101,7 +103,7 @@ def audit_teacher_dataset(path: str | Path) -> TeacherDatasetAudit:
     if duplicate_pairs:
         issues.append(AuditIssue("duplicate-instruction-answer", "warning", None, f"{duplicate_pairs} duplicate domain/instruction/answer pair(s) found"))
     corpus_fingerprint = hashlib.sha256(json.dumps(sorted(fingerprints), separators=(",", ":")).encode()).hexdigest()
-    return TeacherDatasetAudit(str(source), len(lines), len(records), duplicate_fingerprints, duplicate_pairs,
+    return TeacherDatasetAudit(str(source), len(lines), valid_record_count, duplicate_fingerprints, duplicate_pairs,
                                {domain: domain_counts.get(domain, 0) for domain in DOMAIN_TASKS},
                                corpus_fingerprint, tuple(issues))
 
