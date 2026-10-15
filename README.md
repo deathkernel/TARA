@@ -47,12 +47,18 @@ flowchart TD
     P6["PR #6: conversation learning / persistent memory"]
     P7["PR #7: Llama teacher distillation"]
     P8["PR #8: Self-Developer v1"]
+    P12["PR #12: bounded full-suite timeout"]
+    P14["PR #14: Git metadata and case-collision guard"]
     P7 -->|"base branch dependency"| P8
+    P8 --> P12
+    P8 --> P14
 ```
 
 - **PR #6 — conversation learning/memory:** [PR #6 / branch](https://github.com/deathkernel/TARA/tree/feature/tara-conversation-learning). Adds user-approved persistent memory commands. Draft/open and not merged as last reported.
 - **PR #7 — teacher distillation:** [PR #7 / branch](https://github.com/deathkernel/TARA/tree/feature/tara-llama-distillation). Generates candidate multi-domain teacher examples with local Ollama. Examples need review; this does **not** train a TARA checkpoint. Draft/open and not merged as last reported.
 - **PR #8 — Self-Developer v1:** [review PR #8](https://github.com/deathkernel/TARA/pull/8) · [branch](https://github.com/deathkernel/TARA/tree/feature/tara-self-developer-v1). Based on PR #7's branch; draft/open and not merged as last reported.
+- **PR #12 — full-suite timeout:** [review PR #12](https://github.com/deathkernel/TARA/pull/12) · [branch](https://github.com/deathkernel/TARA/tree/fix/self-developer-full-suite-timeout). Draft/open; recorded CI run #1183 passed for its exact head, but the PR remains unmerged and dependent on PR #8.
+- **PR #14 — Git metadata guard:** [review PR #14](https://github.com/deathkernel/TARA/pull/14) · [branch](https://github.com/deathkernel/TARA/tree/fix/self-developer-gitmetadata-guard). Draft/open; exact-head CI runs #1246/#1247 were pending/queued at the last check. No merge or integration.
   - Self-Developer implementation commit: `198c2050c5b689c976b4edeec35a00a028347f07`.
   - README handoff commits: `ceba5cb002f2af8db8a390b11e5d59e9dd125daa`, `461686de55bfc078181d57b39f6b175b68384043`.
   - Adds `src/self_developer.py`, `src/self_developer_cli.py`, tests, and `docs/tara_self_developer.md`.
