@@ -22,6 +22,15 @@ def test_audit_accepts_generated_dataset_and_reports_all_domains(tmp_path: Path)
     assert set(report.domain_counts) == set(DOMAIN_TASKS)
     assert all(count == 1 for count in report.domain_counts.values()) and report.fingerprint
 
+def test_audit_blocks_unexpected_teacher_provenance(tmp_path: Path):
+    dataset = tmp_path / "teacher.jsonl"; rows = _dataset(dataset)
+    rows[0]["source"] = "unknown-source"
+    dataset.write_text(json.dumps(rows[0]) + "\n", encoding="utf-8")
+    report = audit_teacher_dataset(dataset)
+    assert not report.passed
+    assert report.valid_records == 0
+    assert any(issue.code == "unexpected-source" and issue.severity == "error" for issue in report.issues)
+
 def test_audit_flags_tampered_fingerprint_and_malformed_json(tmp_path: Path):
     dataset = tmp_path / "teacher.jsonl"; rows = _dataset(dataset)
     rows[0]["fingerprint"] = "not-the-real-fingerprint"
