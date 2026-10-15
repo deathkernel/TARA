@@ -1,4 +1,5 @@
 from src.polyglot.candidate import PolyglotCandidate
+from src.polyglot.benchmark import BenchmarkResult
 from src.polyglot.self_improvement import SelfImprovementEngine
 
 
@@ -18,7 +19,17 @@ def test_engine_uses_benchmark_feedback_and_keeps_verified_candidate():
                 "print(*sorted(data[1:1+n]))\n",
             )
 
-    result = SelfImprovementEngine().improve("sorting", generator, rounds=2, candidates_per_round=1)
+    class DeterministicBenchmark:
+        # This unit test exercises feedback orchestration, not host execution.
+        # Execution is intentionally disabled by the default safe executor.
+        def run(self, candidate, problem=None):
+            if "wrong" in candidate.source:
+                return BenchmarkResult(candidate, 0, 1, 0.0, 1.0, ("expected sorted output",))
+            return BenchmarkResult(candidate, 1, 1, 1.0, 1.0, ())
+
+    result = SelfImprovementEngine(benchmark=DeterministicBenchmark()).improve(
+        "sorting", generator, rounds=2, candidates_per_round=1
+    )
     assert result.best is not None
     assert result.best.verified
     assert len(result.history) == 2

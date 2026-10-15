@@ -7,7 +7,21 @@ on:
       - "experiments/compare_trained_profiles.py"
       - "experiments/run_profile_seeds.py"
       - "experiments/scaled_lm_diagnostics.py"
-      - "src/**"
+      # Only rerun the costly trained-profile experiment when its model/data
+      # implementation or experiment protocol changes. Routine src fixes should
+      # not trigger three independent training seeds on every feature push.
+      - "src/autograd.py"
+      - "src/embeddings.py"
+      - "src/gradient_clipping.py"
+      - "src/initialization.py"
+      - "src/language_dataset.py"
+      - "src/language_model.py"
+      - "src/numeric_inference.py"
+      - "src/optimizers.py"
+      - "src/positional.py"
+      - "src/schedulers.py"
+      - "src/tokenizer.py"
+      - "src/transformer.py"
       - "requirements.txt"
 
 jobs:

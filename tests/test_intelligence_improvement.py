@@ -32,7 +32,9 @@ def test_engine_accepts_only_strict_improvement_without_regression():
 
 def test_engine_rejects_candidate_with_category_regression():
     benchmark = _benchmark()
-    baseline = benchmark.run(lambda _: "ok")
+    # The engine intentionally skips experiments for a clean baseline, so give
+    # it a real coding failure that the candidate fixes while regressing memory.
+    baseline = benchmark.run(lambda prompt: "wrong" if prompt == "code" else "ok")
     candidate = benchmark.run(lambda prompt: "wrong" if prompt == "memory" else "ok")
     report = IntelligenceImprovementEngine().improve(baseline, lambda _: candidate)
     assert not report.decision.accepted

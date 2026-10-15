@@ -10,10 +10,30 @@ from __future__ import annotations
 import json
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 from .cognitive_memory import CognitiveMemory
 from .polyglot.knowledge import KnowledgeRecord
+
+
+def _candidate_payload(candidate: Any) -> dict[str, Any]:
+    """Convert candidate objects to JSON-safe, stable memory records."""
+    if hasattr(candidate, "__dataclass_fields__"):
+        payload = asdict(candidate)
+    elif isinstance(candidate, Mapping):
+        payload = dict(candidate)
+    else:
+        payload = {
+            name: getattr(candidate, name)
+            for name in ("language", "problem", "source", "metadata")
+            if hasattr(candidate, name)
+        }
+        if not payload:
+            payload = {"value": str(candidate)}
+
+    # Memory content is persisted as JSON; normalize unusual nested values
+    # instead of letting one custom object abort an otherwise valid cycle.
+    return json.loads(json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str))
 
 
 class LearningBridge:
@@ -42,7 +62,7 @@ class LearningBridge:
         kind = "verified_algorithm" if verified else "algorithm_failure"
         content = {
             "problem_id": problem_id,
-            "candidate": asdict(candidate) if hasattr(candidate, "__dataclass_fields__") else candidate,
+            "candidate": _candidate_payload(candidate),
             "benchmark": {
                 "passed": benchmark.passed,
                 "total": benchmark.total,

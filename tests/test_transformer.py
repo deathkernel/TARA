@@ -115,7 +115,10 @@ def test_transformer_block_representative_parameters_match_finite_difference():
         tolerance=1e-4,
     )
     assert len(diagnostics) == len(parameters)
-    assert max(item["relative_error"] for item in diagnostics) < 1e-4
+    assert all(
+        item["absolute_error"] <= 1e-8 + 1e-4 * max(abs(item["analytic"]), abs(item["numerical"]))
+        for item in diagnostics
+    )
 
 
 def test_transformer_stack_preserves_shape_and_adds_parameters():

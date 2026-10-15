@@ -4,6 +4,276 @@
 
 TARA is a research-first neural-network project built from mathematical and implementation fundamentals. The goal is a highly capable, inspectable artificial reasoning system that connects a neural language core with perception, memory, structured reasoning, advanced planning, intelligent tools, algorithm discovery, self-improvement, continual learning, reflection, autonomous tasks, scheduling, temporal context and an explicit world model.
 
+## Cross-chat project handoff (update this section after each meaningful task)
+
+> **Last updated:** 2026-10-15 (Phase A Git-metadata guard committed; exact-head CI and Windows validation pending)  
+> **Purpose:** Future ChatGPT chats should read this section first, verify the current GitHub state, and continue from the next action. Keep this section and its diagrams updated after meaningful work.
+
+### 1. TARA at a glance
+
+```mermaid
+flowchart TD
+    U[User] --> T[TARA: main assistant and orchestrator]
+    T --> M[Memory and context]
+    T --> R[Reasoning and planning]
+    T --> V[Verification and safety]
+    R <--> L[Local LLM: Ollama / Llama]
+    V --> A[Authorized tools and actions]
+    A --> E[Measured outcomes and learning evidence]
+    E --> M
+```
+
+**Core boundary:** TARA owns the cognitive/orchestration layer. Ollama/Llama supplies language generation and reasoning; it does not replace TARA. Current local model is `llama3.2:3b`, selected with `TARA_LLM_BACKEND=ollama`.
+
+### 2. Previous work → current state → next step
+
+```mermaid
+flowchart LR
+    P[Previous: audit existing TARA modules] --> D[Self-Developer safety and lifecycle tests]
+    D --> I[Current: reject .gitmodules and case-colliding paths]
+    I --> T[Regression tests committed]
+    T --> C{Exact-head CI and Windows tests pass?}
+    C -- No --> F[Fix evidence-backed failures]
+    F --> T
+    C -- Yes --> R[Run/review full validation and diff]
+    R --> A[Ask user approval]
+    A --> G[Integrate only after approval]
+```
+
+### 3. Current pull-request map
+
+```mermaid
+flowchart TD
+    P6["PR #6: conversation learning / persistent memory"]
+    P7["PR #7: Llama teacher distillation"]
+    P8["PR #8: Self-Developer v1"]
+    P12["PR #12: bounded full-suite timeout"]
+    P14["PR #14: Git metadata and case-collision guard"]
+    P7 -->|"base branch dependency"| P8
+    P8 --> P12
+    P8 --> P14
+```
+
+- **PR #6 — conversation learning/memory:** [PR #6 / branch](https://github.com/deathkernel/TARA/tree/feature/tara-conversation-learning). Adds user-approved persistent memory commands. Draft/open and not merged as last reported.
+- **PR #7 — teacher distillation:** [PR #7 / branch](https://github.com/deathkernel/TARA/tree/feature/tara-llama-distillation). Generates candidate multi-domain teacher examples with local Ollama. Examples need review; this does **not** train a TARA checkpoint. Draft/open and not merged as last reported.
+- **PR #8 — Self-Developer v1:** [review PR #8](https://github.com/deathkernel/TARA/pull/8) · [branch](https://github.com/deathkernel/TARA/tree/feature/tara-self-developer-v1). Based on PR #7's branch; draft/open and not merged as last reported.
+- **PR #12 — full-suite timeout:** [review PR #12](https://github.com/deathkernel/TARA/pull/12) · [branch](https://github.com/deathkernel/TARA/tree/fix/self-developer-full-suite-timeout). Draft/open; recorded CI run #1183 passed for its exact head, but the PR remains unmerged and dependent on PR #8.
+- **PR #14 — Git metadata guard:** [review PR #14](https://github.com/deathkernel/TARA/pull/14) · [branch](https://github.com/deathkernel/TARA/tree/fix/self-developer-gitmetadata-guard). Draft/open; run #1248 was queued for the preceding head. This README update creates a newer head, so its exact-head CI must be checked again. No merge or integration.
+  - Self-Developer implementation commit: `198c2050c5b689c976b4edeec35a00a028347f07`.
+  - README handoff commits: `ceba5cb002f2af8db8a390b11e5d59e9dd125daa`, `461686de55bfc078181d57b39f6b175b68384043`.
+  - Adds `src/self_developer.py`, `src/self_developer_cli.py`, tests, and `docs/tara_self_developer.md`.
+  - CLI commands: `status`, `plan`, `run`, `report`.
+  - Candidate worktree changes are not committed, pushed, merged, or integrated automatically.
+
+### 4. Self-Developer task lifecycle
+
+```mermaid
+flowchart TD
+    S[User task] --> PL[Plan using configured LLM]
+    PL --> WT[Create candidate Git worktree]
+    WT --> PG[Generate patch]
+    PG --> PV{Patch paths safe and allowed?}
+    PV -- No --> REJ[Reject patch and record report]
+    PV -- Yes --> AP[Apply patch in candidate worktree]
+    AP --> TS[Run targeted tests or compile check]
+    TS --> OK{Checks pass?}
+    OK -- No --> RT{Attempts remain?}
+    RT -- Yes --> RB[Rollback inside candidate worktree]
+    RB --> CLN[Clean untracked and ignored candidate artifacts]
+    CLN --> PG
+    RT -- No --> CL[Remove failed candidate worktree/branch]
+    CL --> RP[Retain failure report]
+    OK -- Yes --> KEEP[Retain candidate branch/worktree]
+    KEEP --> RV[Human reviews diff, tests and report]
+    RV -->|Approval required| IN[Integrate separately]
+```
+
+**Safety rules**
+- Controlled autonomy: code generation and tests may run in a candidate worktree; approval is required before integration.
+- A Git worktree is **not** a hostile-code security sandbox. Review generated code and test behavior.
+- Self-Developer protects `checkpoints/`, `outputs/`, `data/conversation_v1.jsonl`, `data/conversation_v1.jsonl.manifest.json`, and `test_voice.py`.
+- Never run `git clean`, destructive resets, or cleanup against the original user working tree. Preserve local untracked files and data.
+
+### 5. Validation status — do not guess
+
+**Latest verified PR #8 CI snapshot (2026-10-14):** [run #38598370679](https://github.com/deathkernel/TARA/actions/runs/38598370679), head commit `42691d05dd1a8aeb889d936225abdb5c174a7396), completed successfully. Evidence from the run:
+- Static repository audit: passed.
+- Focused regression tests: **121 passed** in 6.79 seconds.
+- Full Python suite: **499 passed** in 5,349.12 seconds (about 89 minutes).
+- XOR smoke experiment: passed.
+- Tiny language-model smoke experiment: passed.
+- Rust `cargo test --all-targets`: passed.
+
+This is a GitHub-hosted Ubuntu CI result for the recorded head commit; it is **not** a Windows-local test result. A README-only follow-up commit still needs its own CI result before claiming that newer commit is validated. Do not imply that the full suite ran locally.
+
+**CI queue mitigation applied in commit `8364a9b`:**
+- `.github/workflows/tests.yml` now uses pull-request and manual-dispatch triggers instead of running duplicate push + pull-request events for every feature-branch commit.
+- Workflow concurrency is keyed by PR number (or ref for manual runs) with `cancel-in-progress: true`, so superseded CI runs for the same PR can be cancelled.
+- `.github/workflows/experiments.yml` now triggers the expensive three-seed Tiny-vs-Scaled experiment only when its experiment scripts or relevant model/data/training files change, rather than on every `src/**` edit.
+- `.github/workflows/tests.yml` runs a focused regression subset before the full suite, so failures in recently changed paths surface early and can avoid another long full-suite run.
+- Older experiment jobs already queued under the previous broad path filter may still finish; narrowing future triggers does not cancel historical jobs.
+
+**Implemented on this branch (tests still require execution):**
+- Patch validation rejects unsafe/traversal/absolute/protected paths, dependency and workflow edits, nested `.git` metadata, mismatched diff headers/markers, rename/copy/binary metadata, unsafe file modes, and Windows-invalid names (reserved device names, ADS colons, invalid characters/control characters, trailing dots/spaces); ordinary new-file mode `100644` patches remain allowed.
+- Isolation: planning context is built from committed `HEAD`; run-task context comes from the candidate worktree, not dirty user checkout files. Candidate context resolves each file and skips paths resolving outside the worktree, preventing tracked symlinks or symlinked parents from exposing external file contents to the configured provider (`2fe38ce`, regression test `fc10f46`). During validation, intent-to-add is restricted to new file paths declared by the already-validated patch, so ignored candidate-generated tests remain discoverable without sweeping unrelated ignored files into the diff. A focused regression simulates an unrelated ignored artifact under `outputs/` and asserts it is excluded from changed-file reporting and the candidate diff. Failed attempts clean untracked/ignored generated artifacts using `git clean -fdx` **only inside the disposable candidate worktree**. If either candidate reset or cleanup fails, retries stop and the failure is reported rather than continuing in a contaminated worktree (`4974b70`, regression test `b7d00eb`). These are code/test changes, not passing-test claims.
+- Validation selection: always compiles `src`; source changes run full `pytest -q`; test-only changes run changed test files; docs-only changes compile source.
+- Lifecycle/reporting: bounded retries/timeouts, candidate-only rollback/cleanup, retained failure reports, cleanup warnings, and successful candidate retention for human review.
+- Teacher dataset audit: read-only JSONL schema/provenance/fingerprint/duplicate/UTF-8 checks, with `ready_for_training: false` regardless of structural success.
+- Regression tests were added for the behaviors above. **Code and test additions are not passing-test claims.**
+
+**Current gates after the successful PR #8 run:**
+- PR #8: inspect the final diff and perform the focused + full validation on the real Windows checkout; preserve the user's existing branch, untracked data, checkpoints, outputs, conversation files, and `test_voice.py`.
+- PR #9 (head `26078f1`): its older CI run [#38585922048](https://github.com/deathkernel/TARA/actions/runs/38585922048) failed in Python (22 failed, 468 passed); Rust passed. This run predates the latest PR #8 head and must be refreshed after the stacked branch is synchronized.
+- PR #10 (head `6064bc3`): its older CI run [#38586960158](https://github.com/deathkernel/TARA/actions/runs/38586960158) failed in Python (22 failed, 461 passed); Rust passed. This run also predates the latest PR #8 head and must be refreshed after the branch stack is synchronized.
+- Keep PRs draft/open and unmerged. No checkpoint promotion, training run, or NVIDIA/CUDA setup is authorized by this validation result.
+
+### Phase A update — Git metadata and case-collision guard (2026-10-15)
+
+- Branch: `fix/self-developer-gitmetadata-guard`, based on `feature/tara-self-developer-v1` at `b9f606aa846529ebf2dc5a239e5c24b0febdddf2`.
+- Implemented in `src/self_developer.py`: reject `.gitmodules` at any path depth and regardless of case; reject distinct patch path spellings that collide under Unicode case-folding (important for case-insensitive filesystems).
+- Added regression cases in `tests/test_self_developer.py` for `.gitmodules`, `.GITMODULES`, nested case variants, and two changed paths differing only by case.
+- Existing tests already cover candidate-only rollback/retry, patch-apply failure/retry, cleanup-warning/report retention, successful candidate retention, provider failure cleanup, and protection of dirty original-checkout contents. These test definitions exist, but their presence is not a pass claim.
+- Commit: `162529fdfbe9fb55e90c542f5f50929600335129` (guard) and `19d412f11ad330e5931d281e01186e48199e9bbb` (regression tests).
+- **Validation pending:** tests have not run in this GitHub-only session. Exact-head CI is queued; re-check the latest run after this README update, then run the focused test and full suite on the Windows checkout before declaring Phase A complete.
+- Safety boundary unchanged: no merge, no protected-artifact changes, no changes to checkpoints, outputs, conversation JSONL/manifest files, or `test_voice.py`.
+
+```mermaid
+flowchart TD
+    G[Guard: reject .gitmodules and case collisions] --> T[Focused regression tests]
+    T --> CI[Exact commit CI]
+    CI --> W[Windows focused tests]
+    W --> F[Full Python suite + Rust tests]
+    F --> R[Review diff and protected-file status]
+    R --> A[Explicit user approval]
+    A --> I[Integrate separately]
+```
+
+### Teacher dataset audit — read-only
+
+Generate candidate examples as before, then audit the file without calling Ollama or changing the dataset:
+
+```bat
+python -m src.teacher_distillation --audit data/llama_teacher_v1.jsonl
+```
+
+```mermaid
+flowchart TD
+    J[Candidate JSONL] --> S[Parse each line]
+    S --> P[Check schema and provenance]
+    P --> H[Recompute text and SHA-256]
+    H --> D[Detect duplicate fingerprints]
+    D --> R[Write audit report to stdout]
+    R --> U[Still unverified; human semantic review required]
+```
+
+Exit code is `0` when every record passes structural/provenance checks, `1` when records are invalid, and missing files raise a clear error. Even a clean audit **never certifies training readiness**; it cannot determine whether a teacher answer is factually correct, safe, or pedagogically useful.
+
+### 6. Next actions — follow in order
+
+```mermaid
+flowchart TD
+    A[PR #8 CI: 499 Python tests + Rust passed] --> B[Run focused and full tests on Windows]
+    B --> C[Review Self-Developer safety, reports, and final diff]
+    C --> D[Sync stacked PR #9 with updated PR #8 base]
+    D --> E[Re-run PR #9 CI and review research docs]
+    E --> F[Sync PR #10 with updated PR #9 base]
+    F --> G[Re-run PR #10 CI and review cleanup diff]
+    G --> H[Human approval required before integration]
+```
+
+**Windows CMD — preserve local data**
+
+```bat
+git status --short
+git fetch origin
+git switch feature/tara-self-developer-v1
+git pull --ff-only
+```
+
+If the branch does not exist locally, use `git switch --track origin/feature/tara-self-developer-v1`. Check `git status --short` first. Do not clean/reset the original checkout; preserve `checkpoints/`, `outputs/`, conversation JSONL/manifest files, and `test_voice.py`.
+
+Run focused tests and CLI smoke checks:
+
+```bat
+python -m pytest -q tests/test_self_developer.py tests/test_self_developer_cli.py tests/test_teacher_distillation.py
+python -m src.self_developer_cli status
+python -m src.repository_audit .
+```
+
+Then run the full suite:
+
+```bat
+python -m pytest -q
+```
+
+Use the exact output as evidence in this handoff. Do not claim success from a command that was not executed.
+
+### 7. Keep these distinctions clear
+
+```mermaid
+flowchart TD
+    G[Generated teacher examples] --> Q[Review and curate]
+    Q --> DS[Prepared training dataset]
+    DS --> TR[Explicit training run]
+    TR --> CK[Checkpoint]
+    CK --> EV[Measured evaluation]
+    EV -->|Evidence supports it| PR[Consider promotion]
+```
+
+- Persistent conversation memory **is not** model-weight training.
+- Teacher-generated examples are not automatically correct and are not TARA's raw pretraining corpus.
+- A script or provider integration in source code is not proof that training ran, an API authenticated, or a capability was achieved.
+- Report only results supported by actual test/CI output or measured evaluation.
+- Previous commands for `src.self_developer_cli` failed before the module existed. The module is now on the PR #8 branch; switch to that branch before using the commands above.
+
+### Additional audit — Self-Developer validation coverage (2026-10-14)
+
+- **Finding:** changed Python files outside `src/` and `tests/` (for example root-level training/data CLIs) were not explicitly compiled by the candidate validator.
+- **Fix:** append a fixed `python -m py_compile <changed-file>` command for each changed Python file outside those two directories. Existing source changes still trigger the full test suite; test-only changes still run the changed test files.
+- **Regression coverage:** added tests for root-level script-only changes and mixed test/script changes.
+- **Validation status:** committed for CI verification; not locally executed in this environment.
+
+### Additional audit — teacher dataset atomic-write safety (2026-10-14)
+
+- **Finding:** the generator used a predictable sibling path named `<output>.tmp`. If that path already belonged to the user, generation could truncate it and a failed provider call could delete it.
+- **Fix:** use a uniquely created temporary file in the destination directory, then atomically replace the destination only after successful generation. Failure cleanup removes only the temporary file created by that invocation.
+- **Regression coverage:** added tests for successful generation and provider failure with a pre-existing `<output>.tmp` neighbor.
+- **Validation status:** code and tests are committed for CI verification; no passing-test claim until CI completes.
+- **Next:** inspect the fresh CI run, continue queue diagnosis, then audit persistent memory and teacher-data workflow.
+
+### Additional audit — Self-Developer report persistence (2026-10-14)
+
+- **Finding:** Self-Developer wrote every JSON report through a predictable `.json.tmp` sibling. A pre-existing file with that name could be truncated, and a failed serialization/write could leave an incomplete staging file behind.
+- **Fix:** create a unique temporary file in the report directory, serialize fully there, atomically replace the final report only after success, and clean up only the unique temporary file owned by the current write.
+- **Regression coverage:** added tests that preserve a pre-existing `report-safety.json.tmp` neighbor on success and preserve both a known-good existing report and the neighbor when JSON serialization fails.
+- **Commits:** source hardening `8526069a8f86019ba16632a1d849ec988e78a750`; regression tests `807d09257a5b184224b53f6b72024d168cae447d`.
+- **Validation status:** committed for CI; not locally executed in this authoring environment. The latest PR #8 run is queued; do not infer that these new tests passed.
+- **Write lifecycle:**
+
+```mermaid
+flowchart TD
+    R[Build report payload] --> T[Create unique sibling temp file]
+    T --> S[Serialize and write complete JSON]
+    S -->|Success| A[Atomic replace final report]
+    S -->|Failure| C[Delete only this run's temp file]
+    A --> D[Return report path]
+    C --> F[Propagate failure; preserve prior report]
+```
+
+### 8. Update protocol for every meaningful task
+
+After a meaningful change, update this section with:
+1. **What changed** — files/features and a short explanation.
+2. **Where** — branch, commit and PR link.
+3. **Evidence** — exact tests/CI run and pass/fail/pending result.
+4. **Still pending** — blockers and decisions awaiting user approval.
+5. **Next step** — the next command or review action.
+6. **Diagrams** — adjust these when architecture, PR dependencies or task flow changes.
+
+Do not mark work as tested or merged until there is evidence. Keep the diagrams useful and simple; add one when it explains a flow better than a paragraph.
+
+---
+
 ## Pre-training readiness — complete
 
 The repository now has an explicit readiness gate before the first real training run:
@@ -751,4 +1021,415 @@ audio = core.speak(response.text)
 
 The API key is never stored in the repository. The ElevenLabs voice ID is also configuration-driven, so you can change TARA's voice without changing code.
 
-ElevenLabs' current Python SDK supports `text_to_speech.convert(...)` with a selected `voice_id`, model and output format. See the official API documentation for the current parameters. 
+ElevenLabs' current Python SDK supports `text_to_speech.convert(...)` with a selected `voice_id`, model and output format. See the official API documentation for the current parameters.
+
+---
+
+## Current engineering handoff — 2026-10-14
+
+### Latest CI diagnosis: Self-Developer / model evaluation
+
+The latest reviewed Python CI run reported **7 failures and 112 passes**. The Rust test job passed. The Python full-suite and optional smoke experiments were skipped after the focused regression stage failed. The failure report is evidence for what to investigate, not proof that the current branch is validated.
+
+The first audit isolated these causes:
+
+1. **Model benchmark lookup mismatch.** `ModelCapabilityRunner` stores generated observations by benchmark case ID, but `IntelligenceBenchmark.run()` calls the solver with the case prompt. The previous lookup therefore raised a `KeyError` for a prompt such as `x`. The runner now adapts case-ID observations to prompt-keyed solver lookup, with a regression test.
+2. **Empty-suite handling in Self-Developer.** Source changes normally trigger the full pytest suite. In a minimal candidate worktree with no test files, pytest exits with code 5 (“no tests collected”), which incorrectly marked an otherwise valid candidate as failed. Validation now detects whether test files exist before scheduling pytest; Python source compilation still runs. A regression test covers this branch.
+3. **Timeout fixture construction.** The timeout test itself used `TimeoutExpired(args=...)`, which is not the Python API; it now constructs `TimeoutExpired(cmd=...)` so the intended timeout handling can actually be tested.
+
+### Validation flow after the fix
+
+```mermaid
+flowchart TD
+    A[Candidate patch applied in disposable worktree] --> B[Compile src]
+    B --> C{Any Python tests in candidate?}
+    C -- Yes --> D[Run full suite for source changes]
+    C -- No --> E[Skip empty pytest invocation]
+    D --> F{All selected checks pass?}
+    E --> F
+    F -- Yes --> G[Retain candidate for manual review]
+    F -- No --> H[Rollback only candidate worktree]
+    H --> I[Retry within configured limit]
+    G --> J[No merge or push]
+```
+
+### Current status and next actions
+
+- Fixes for the three findings above are committed to `feature/tara-self-developer-v1`.
+- Regression coverage was added for prompt-based benchmark scoring and for source validation when no test suite exists.
+- **CI after these commits is the next acceptance gate.** Do not describe the branch as passing until the new GitHub Actions run completes successfully.
+- Two cognitive-loop/core end-to-end tests also failed in the previous run. Their underlying cause is not yet established; inspect the new CI output and trace report/step status before changing runtime behavior.
+- Keep the Self-Developer timeout, rollback, protected-path and atomic-report tests enabled.
+- Preserve `checkpoints/`, `outputs/`, conversation JSONL/manifest files, and `test_voice.py`.
+- Keep all PRs unmerged unless the user explicitly approves integration.
+
+### Resume checklist for the next session
+
+1. Check the newest workflow run for PR #8 and inspect all job results.
+2. If the Python suite still fails, fetch the complete traceback and the report/trace state for each remaining cognitive-loop/core failure; fix the cause and add a focused regression test.
+3. Confirm the benchmark test reports a passing case and the Self-Developer retry tests reach `candidate_ready_for_review`.
+4. Wait for the complete Python suite and Rust job; report only the checks that actually ran.
+5. Update this handoff section with the new run URL, counts, and remaining blockers before moving to the next PR.
+
+### Follow-up audit — dependency-aware scheduler (2026-10-14)
+
+The earlier end-to-end failures in both `UnifiedCognitiveLoop` and `TARACore` shared a planner bug: `AdaptivePlan.ready_steps()` changed a pending step to `READY`, but later calls only selected `PENDING` steps. After completing the first step, the next scheduler query therefore found no ready step and the run stopped after one cycle. The scheduler now returns dependency-satisfied steps in either `PENDING` or `READY` state; a regression test verifies repeated discovery before execution. This preserves the existing state model and fixes the shared root cause instead of weakening the end-to-end assertions.
+
+```mermaid
+flowchart TD
+    A[Query ready steps] --> B{Status pending or ready?}
+    B -- No --> C[Skip step]
+    B -- Yes --> D{Dependencies completed?}
+    D -- No --> C
+    D -- Yes --> E[Return eligible step]
+    E --> F[Execute and verify]
+    F --> G[Mark completed]
+    G --> A
+```
+
+The next CI run must verify the scheduler fix and the previous Self-Developer/model-evaluation changes together. Candidate retry/report failures are not yet considered resolved until their detailed report errors and CI assertions are checked.
+
+
+### CI follow-up — Git worktree branch marker (2026-10-14)
+
+- Latest run [#1168](https://github.com/deathkernel/TARA/actions/runs/38597619110) completed with the repository static audit passing, **120 focused regression tests passing and 1 failing**, and Rust tests passing. The full Python suite and smoke experiments were skipped because the focused step failed.
+- The sole failure was in `test_successful_candidate_is_retained_for_manual_review`: Git prints a `+ ` marker before a branch checked out in a linked worktree. The test compared raw `git branch --list` output to the bare branch name, so it rejected valid Git output; candidate retention itself had succeeded.
+- The assertion now normalizes Git's `*` (current branch) and `+` (linked-worktree branch) display markers before comparing the branch name. It still checks that the candidate branch exists and does not weaken candidate isolation assertions.
+- Validation status: this is a test correction based on the actual CI traceback. The fix has **not yet been validated by a new CI run**. Wait for focused tests, full Python suite, smoke experiments, and Rust tests to finish before describing PR #8 as passing.
+
+```mermaid
+flowchart TD
+    A[git branch --list] --> B{Display marker?}
+    B -- "* current" --> C[Strip marker]
+    B -- "+ linked worktree" --> C
+    B -- None --> C
+    C --> D[Compare exact branch name]
+    D --> E[Keep candidate retention checks]
+```
+
+Resume next: inspect the newest CI run; if focused tests pass, verify the full Python suite and smoke experiments. Do not merge any PR without explicit approval.
+
+### CI re-verification — current Self-Developer branch (2026-10-14)
+
+Latest completed CI for the code-bearing branch head before this README-only handoff update: [TARA CI run #38615254519](https://github.com/deathkernel/TARA/actions/runs/38615254519), on commit `19fc99df7d73584d98be9b549a15ce95fb08a94b`. Both jobs completed successfully on GitHub-hosted Ubuntu. The documentation commit adding this handoff does not yet have a workflow run visible in the connector:
+
+- Static repository audit: passed.
+- Focused regression suite: **121 passed**.
+- Full Python suite: **499 passed** in about 2 hours 11 minutes.
+- XOR training smoke command: exited successfully and printed predictions.
+- Tiny language-model smoke command: exited successfully, **but its generated sample was low quality** (repetitive text such as `tara rrrr arrrrr...`). This proves the training/generation script executed, not that the model has useful language ability.
+- Rust `cargo test --all-targets`: passed.
+
+This is CI evidence for the recorded branch head, not a Windows-local run. Do not generalize a passing test suite into a claim that every feature works in real-world use.
+
+```mermaid
+flowchart TD
+    A[Source and tests] --> B[Focused regression suite: 121 passed]
+    B --> C[Full Python suite: 499 passed]
+    C --> D[XOR smoke: command passed]
+    D --> E[Tiny LM smoke: command passed]
+    E --> F{Is output useful?}
+    F -- Not established --> G[Do not claim language capability from exit code]
+    F -- Measured separately --> H[Record benchmark and baseline comparison]
+    C --> I[Rust tests passed]
+```
+
+### Capability reality check — source code vs. verified behavior
+
+| Area | Repository evidence | What is not established |
+|---|---|---|
+| Cognitive modules | Memory, perception, reasoning, planning, reflection, task scheduling | Reliable success on arbitrary complex tasks |
+| LLM providers | Optional local Ollama/Llama provider and provider interfaces | Provider availability without local configuration, model, or credentials |
+| Persistent memory | Explicit remember/learn/forget workflow | Updating model weights or learning correct facts automatically |
+| Teacher data and training | Candidate dataset generation, training/checkpoint and evaluation workflows | Dataset correctness or measurable intelligence improvement without evaluation |
+| Voice | Optional ElevenLabs speech output | Working voice without API access and configuration |
+| Self-Developer | CLI, isolated candidate worktree, guarded patch application, bounded validation/retries, rollback and report retention | Perfect bug discovery, independent proof of correctness, or safe arbitrary-code sandboxing |
+| GitHub write actions | Current Self-Developer documents and code avoid automatic push/merge | Automatic push or merge is not part of the current Self-Developer workflow |
+
+### Next engineering actions
+
+1. Keep PR #8 unmerged. Review the final diff and run focused/full validation on the user's actual Windows checkout while preserving user-owned files and data.
+2. Treat the successful Ubuntu CI run as a meaningful milestone, not as proof of Windows behavior or real-world autonomy.
+3. Synchronize and revalidate the stacked research/cleanup branches (#9 and #10) against the accepted Self-Developer base; their older CI runs had Python failures and are not current green evidence.
+4. Improve the Tiny LM evaluation so a successful process exit cannot be mistaken for useful generation: record a reproducible held-out metric and compare against a baseline before making quality claims.
+5. Only after review, design any future GitHub push capability as a separate, explicitly authorized feature: dedicated branch/PR, required checks, least-privilege token, audit log, and no automatic merge.
+6. Preserve `checkpoints/`, `outputs/`, conversation JSONL/manifest files, and `test_voice.py`. Never merge a PR without the user's explicit approval.
+
+---
+
+## Master remaining-work inventory — 2026-10-15
+
+This is the consolidated remaining-work checklist based on the current README handoff, Self-Developer documentation, AI ecosystem research roadmap, and known pull-request/CI records. It is not a claim that every conceivable future improvement can be predicted. Update checkboxes only when evidence is available.
+
+### A. Immediate acceptance gates — do these first
+
+- [ ] **A1. Verify current branch head and CI.** Recheck the latest head of `feature/tara-self-developer-v1`, inspect workflow results and confirm whether README-only commits have a completed run. The last verified code-bearing CI snapshot is run [#38615254519](https://github.com/deathkernel/TARA/actions/runs/38615254519), on commit `19fc99df7d73584d98be9b549a15ce95fb08a94b`.
+- [ ] **A2. Run the documented focused tests on the actual Windows checkout**, including Self-Developer, CLI, teacher-distillation and repository-audit tests. Record exact command output; do not imply Ubuntu CI is Windows validation.
+- [ ] **A3. Run the full Python suite on Windows** and record pass/fail counts, duration and environment. Preserve the user's branch, untracked files and local artifacts.
+- [ ] **A4. Review PR #8's final diff and candidate lifecycle**: patch guards, symlink/external-file protection, intent-to-add/ignored artifacts, timeout, retry limit, rollback, candidate cleanup, atomic report persistence, candidate retention, and report accuracy.
+- [ ] **A5. Review all open PRs and branch dependencies** before integration. Keep PRs draft/open/unmerged until the user explicitly approves; do not merge as part of automated cleanup.
+- [ ] **A6. Preserve protected user data:** `checkpoints/`, `outputs/`, conversation JSONL/manifest files and `test_voice.py`. Never run destructive cleanup against the original working tree.
+
+### B. Self-Developer — make controlled code improvement trustworthy
+
+- [ ] **B1. Prove bug reproduction:** require a failing regression test or an explicit, reproducible failure before claiming a bug has been identified.
+- [ ] **B2. Verify repair quality:** require the new regression test to fail before the fix and pass after it where feasible; also run relevant existing tests.
+- [ ] **B3. Review retry and failure reports** for all terminal states, including provider errors, malformed patches, rejected paths, validation failures, timeout, rollback failure, cleanup failure and report-write failure.
+- [ ] **B4. Add/finish adversarial tests** for malicious patch paths, symlink escape, protected artifacts, ignored files, nested Git metadata, Windows-invalid paths, unsafe file modes and dependency/workflow modifications.
+- [ ] **B5. Add a real execution boundary.** A Git worktree isolates edits but is not a hostile-code sandbox. Design and test least-privilege execution with restricted mounts, secrets unavailable, network policy, CPU/RAM/time ceilings and a Windows-first implementation or clearly documented Windows-compatible option.
+- [ ] **B6. Keep fixed validation commands and bounded output/timeouts.** Do not let generated model text choose arbitrary shell commands, install dependencies or widen its own permissions.
+- [ ] **B7. Add human-readable diff/review UX** with changed paths, validation commands/results, risks, report location and explicit approval state.
+- [ ] **B8. Keep current default safe:** no automatic integration, push or merge. Only design a future push feature after review and acceptance gates are defined.
+- [ ] **B9. If authorized later, implement supervised push as a separate feature:** dedicated branch, least-privilege credential, required checks, audit log, explicit opt-in, no automatic merge and fail-closed behavior. Never expose secrets to generated code.
+- [ ] **B10. Add end-to-end acceptance tests** proving the CLI can go from task → candidate → validation → retained report, without changing the original checkout.
+
+### C. Pull requests and branch hygiene
+
+- [ ] **C1. PR #8 — Self-Developer v1:** review final code/diff and complete Windows validation; retain manual approval boundary.
+- [ ] **C2. PR #9 — AI ecosystem research:** sync its base with the accepted upstream branch as appropriate, rerun CI, verify documentation links and roadmap claims, and review its complete diff.
+- [ ] **C3. PR #10 — unused-component cleanup:** rebase/sync only after dependency/base decisions, rerun full CI, verify deletions and ensure the custom model/training/benchmark/Polyglot stack and protected artifacts remain intact.
+- [ ] **C4. PR #11 — parallel pytest experiment:** compare two-worker runtime with serial baseline; verify no shared-state races, flaky tests, resource pressure or lost coverage. Revert if no meaningful benefit.
+- [ ] **C5. PR #6 — persistent conversation memory:** verify it is included in the intended integration sequence, run targeted and full tests, inspect privacy/path behavior and review the diff.
+- [ ] **C6. PR #7 — teacher distillation:** verify generation, overwrite protection, provenance, audit and dataset-review workflow; run targeted and full tests before integration.
+- [ ] **C7. PR #5 and other older branches/PRs:** decide whether their provider/voice work is already present in the intended base, obsolete, or still needs integration. Avoid duplicate or conflicting provider implementations.
+- [ ] **C8. Resolve stacked-PR order explicitly.** Document each PR's base, dependency and merge order; rerun CI after any rebase/base change.
+- [ ] **C9. Review remaining branches** such as checkpoint-preservation, upstream-integration and algorithm-loop branches. Classify each as active, superseded, archive-only or candidate for a separately reviewed PR; do not bulk-merge branches.
+- [ ] **C10. Confirm default-branch status** after user approval and only then mark accepted PRs complete. Keep README handoff and diagrams synchronized with actual repository state.
+
+### D. Model providers and inference reliability
+
+- [ ] **D1. Define one provider contract** for completion, timeout, normalized errors, selected-model reporting, availability/health status and usage metadata.
+- [ ] **D2. Add deterministic provider tests** for valid and malformed responses, connection failures, timeouts, environment parsing, model selection and fallback behavior.
+- [ ] **D3. Test Ollama locally** with the configured `llama3.2:3b` model; record model availability, latency, timeout and response behavior.
+- [ ] **D4. Test optional external providers** only with explicitly configured credentials; confirm failures do not leak secrets or falsely report success.
+- [ ] **D5. Document cost/privacy/network behavior** for every external provider and preserve local inference as an explicit option.
+- [ ] **D6. Benchmark Ollama vs llama.cpp** before any runtime switch, recording hardware/software, first-token latency, tokens/sec, peak RAM/VRAM, context length, compatibility, error rate and output quality.
+- [ ] **D7. Do not auto-download models or start services silently.** Any model install, large download or external call must be explicit and observable.
+
+### E. Tools, permissions and execution safety
+
+- [ ] **E1. Inventory existing `src/tools/` and `SafetyPolicy`** and reuse them rather than introducing a duplicate tool system.
+- [ ] **E2. Standardize tool metadata:** stable name, description, argument schema, permission, side-effect class, timeout/resource limits and result/error format.
+- [ ] **E3. Route every tool call through one default-deny policy gate** and create an auditable event for allow/deny/result.
+- [ ] **E4. Require explicit confirmation** for destructive or externally visible actions: deletion, sending/publishing, settings changes, risky host commands, commits, pushes and merges.
+- [ ] **E5. Add negative tests** for denied calls, malformed arguments, repeated calls, timeouts, partial failures, forged model requests and audit-write errors.
+- [ ] **E6. Verify generated code remains fail-closed on the host.** Code execution that is required for an evaluation must use an explicitly injected isolated backend.
+- [ ] **E7. Test permissions end-to-end** so an untrusted model response cannot gain host capabilities merely by naming a tool.
+
+### F. Memory, retrieval and user-controlled data
+
+- [ ] **F1. Define memory scopes:** global preferences, project facts, session state and task-run history must not be accidentally mixed.
+- [ ] **F2. Add provenance where useful:** timestamps, source references, confidence/status and origin of each durable fact.
+- [ ] **F3. Test persistent memory on the target OS** for save, restart, retrieval, list, export, forget/delete and custom path handling.
+- [ ] **F4. Ensure secrets and sensitive content are not silently persisted or included in logs.**
+- [ ] **F5. Build a small retrieval benchmark** with known expected results before adding a vector database or RAG framework.
+- [ ] **F6. Add source-grounded answers and citations** for document retrieval; test deletion/forget behavior and stale-source handling.
+- [ ] **F7. Only then evaluate AnythingLLM/Dify-style document connectors**; keep one canonical memory/retrieval contract rather than fragmented stores.
+
+### G. Teacher data, training and checkpoint lifecycle
+
+- [ ] **G1. Test teacher generation and read-only audit** on valid, malformed, duplicate, corrupt-UTF-8 and missing files.
+- [ ] **G2. Manually review/curate teacher answers** for factuality, code correctness, safety, duplication and usefulness; structural audit alone is insufficient.
+- [ ] **G3. Keep train/validation/test data separated** and prevent benchmark/test contamination in generated or curated training data.
+- [ ] **G4. Run an explicit small training experiment** only on a reviewed dataset and a separate candidate checkpoint.
+- [ ] **G5. Compare baseline and candidate on held-out evaluations** with reproducible seeds, data fingerprints and recorded hardware/configuration.
+- [ ] **G6. Verify checkpoint resume/recovery** and that interrupted/failed training cannot overwrite the best known-good checkpoint.
+- [ ] **G7. Complete the checkpoint-preservation audit** on branch `audit/preserve-best-validation-checkpoint`; verify best-validation checkpoint selection, resume determinism, promotion gates and failure recovery before integrating it.
+- [ ] **G8. Test CPU fallback and CUDA compatibility** on supported environments; do not require NVIDIA/CUDA setup as a side effect.
+- [ ] **G9. Profile memory/throughput and consider AMP only with numerical regression tests** and measured benefit.
+- [ ] **G10. Do not promote a checkpoint automatically** unless explicit measurable gates pass and the promotion workflow has been reviewed/authorized.
+
+### H. Model quality and evaluation — high priority
+
+- [ ] **H1. Fix the Tiny LM acceptance gap:** smoke command success is not quality. Add a reproducible held-out metric and compare with a baseline.
+- [ ] **H2. Establish baseline scores** for coding, reasoning, memory retrieval, tool selection, safety-denial and task completion.
+- [ ] **H3. Track regression across commits** with stable benchmark cases and fingerprints.
+- [ ] **H4. Separate syntax/compilation, unit tests, task success and output quality** in reports; never collapse them into one generic “passed”.
+- [ ] **H5. Report uncertainty and failed cases** rather than presenting only aggregate scores.
+- [ ] **H6. Ensure model-evaluation reports identify the checkpoint, dataset, model/provider, configuration, seeds and software version.**
+- [ ] **H7. Measure actual end-to-end task completion** and verify side effects; fluent text or a zero exit code alone is insufficient.
+- [ ] **H8. Avoid claims of general intelligence or human-level reasoning** without an appropriate, reproducible evaluation.
+
+### I. Cognitive loop, planner and observability
+
+- [ ] **I1. Retain regression tests for the dependency-aware scheduler** and verify multi-step plans progress beyond the first ready step.
+- [ ] **I2. Test cognitive-loop/core end-to-end paths** for empty plans, dependencies, retries, cancellation, tool failures and incomplete verification.
+- [ ] **I3. Trace task IDs, plan revisions, tool decisions, provider latency/errors, validation outcomes and final results.**
+- [ ] **I4. Redact secrets and sensitive user data from traces and reports.**
+- [ ] **I5. Make failure reasons explicit** so “no action”, “denied”, “timeout”, “provider unavailable” and “task completed” cannot be confused.
+- [ ] **I6. Add deterministic replay/regression fixtures** for previously failing orchestration and scheduler cases.
+
+### J. Voice, chat UX and interfaces
+
+- [ ] **J1. Verify local chat on Windows** with Ollama running and a model installed; check clear errors when unavailable.
+- [ ] **J2. Test ElevenLabs TTS with explicitly configured credentials** and document provider/model/voice/output-format errors.
+- [ ] **J3. Keep secrets and voice configuration out of Git.**
+- [ ] **J4. Decide whether a stable API/session/auth boundary is needed** before considering Open WebUI or another UI.
+- [ ] **J5. Keep CLI and core functional without an optional web UI.**
+- [ ] **J6. Add UI only for a concrete use case and with acceptance tests; do not build UI merely because an ecosystem project offers one.**
+
+### K. Optional AI ecosystem integrations — after core contracts stabilize
+
+- [ ] **K1. MCP exposure:** define schemas, permissions, confirmations and audit logging; expose only selected TARA capabilities.
+- [ ] **K2. n8n:** consider a narrow webhook/event adapter only when a concrete automation requirement exists; review current licensing/terms before reuse or redistribution.
+- [ ] **K3. Langflow/Dify:** evaluate as optional prototypes or external services, not as a second TARA orchestrator.
+- [ ] **K4. Open WebUI:** consider only after stable API, authentication and session boundaries; review extensions as potentially executable server code.
+- [ ] **K5. AnythingLLM:** consider only for a defined document/RAG requirement after retrieval contracts and evaluations exist.
+- [ ] **K6. Agent Zero, AutoAgent and OpenHands:** continue design comparisons; do not run several competing autonomous controllers inside TARA.
+- [ ] **K7. Check current licenses and third-party dependencies** before copying code, vendoring components or redistributing integrations.
+- [ ] **K8. Keep heavy/optional dependencies lazy and optional** so core CPU/local operation does not require every ecosystem runtime.
+
+### L. CI, performance and release engineering
+
+- [ ] **L1. Revalidate latest README commits and branch head**; record the exact tested commit SHA and CI URL.
+- [ ] **L2. Preserve static repository audit, focused tests, full Python suite, smoke tests and Rust tests** as distinct checks.
+- [ ] **L3. Evaluate PR #11 parallel test trial against the serial baseline**; retain only if reliable and measurably faster.
+- [ ] **L4. Record slow tests and reduce runtime without deleting or weakening regression coverage.**
+- [ ] **L5. Ensure path filters/concurrency do not silently skip required checks** or cancel the only relevant validation run.
+- [ ] **L6. Add supported Python/OS compatibility coverage** based on actual project requirements, especially Windows behavior.
+- [ ] **L7. Document reproducible setup, environment variables, CLI commands, test commands, failure recovery and known limitations.**
+- [ ] **L8. Review dependency security and pinning** before changing or adding dependencies.
+- [ ] **L9. Produce a release checklist** for versioning, changelog, tests, protected-data checks, documentation and rollback plan.
+
+### M. Documentation and project handoff
+
+- [ ] **M1. Update this checklist after each meaningful task** and mark an item complete only with a commit/test/evaluation reference.
+- [ ] **M2. Keep previous work → current state → next action in README**, including Mermaid diagrams.
+- [ ] **M3. Record the exact CI-tested commit, not just a branch name.**
+- [ ] **M4. Keep “implemented”, “executed”, “measured” and “approved for integration” as separate statuses.**
+- [ ] **M5. Keep setup instructions aligned with the branch that actually contains the commands/modules.**
+- [ ] **M6. Maintain a decisions/deferred-work section** so optional integrations do not accidentally become mandatory scope.
+
+### Recommended order
+
+```mermaid
+flowchart TD
+    A[Verify current head and CI] --> B[Windows focused/full validation]
+    B --> C[Review Self-Developer diff and lifecycle]
+    C --> D[Resolve PR dependencies and stale failures]
+    D --> E[Tool permissions and real sandbox]
+    E --> F[Provider contract and runtime checks]
+    F --> G[Memory/retrieval evaluation]
+    G --> H[Teacher data and checkpoint safety]
+    H --> I[Held-out model quality benchmarks]
+    I --> J[Observability and end-to-end reliability]
+    J --> K[Optional MCP/UI/workflow integrations]
+    K --> L[Supervised push design, only if authorized]
+    L --> M[Release-readiness review and user approval]
+```
+
+### Definition of done for a future “TARA ready” claim
+
+- [ ] Required CI passes on the exact candidate commit.
+- [ ] Windows focused/full tests are recorded on the intended supported environment.
+- [ ] Critical permissions, secret handling, protected-data and sandbox tests pass.
+- [ ] Provider, memory, tools, training and voice claims have relevant runtime evidence.
+- [ ] Model-quality claims have reproducible held-out baseline comparisons.
+- [ ] All intended PR dependencies and diffs are reviewed.
+- [ ] User explicitly approves integration; no PR is merged by implication.
+
+
+
+## Live repository audit and bulk-progress snapshot — 2026-10-15
+
+> This snapshot supersedes older CI statements below where the same PR/head now has newer evidence. It is a GitHub-hosted repository audit, not a claim that the Windows working copy was tested. Keep PRs unmerged until the user explicitly approves integration.
+
+### Verified branch / PR graph
+
+```mermaid
+flowchart TD
+    P5["PR #5: optional Ollama provider"] --> P6["PR #6: conversation memory"]
+    P6 --> P7["PR #7: teacher dataset pipeline"]
+    P7 --> P8["PR #8: Self-Developer v1"]
+    P8 --> P9["PR #9: AI ecosystem research"]
+    P9 --> P10["PR #10: cleanup candidates"]
+    P8 --> P11["PR #11: pytest-xdist trial"]
+    P6 -. "separate older base chain; verify dependency" .-> REVIEW["Review all diffs before integration"]
+    P10 --> REVIEW
+    P11 --> REVIEW
+```
+
+- PR #6 is based on `feature/local-llama-ollama-backend`; PR #7 is based on PR #6's branch; PR #8 is based on PR #7's branch; PR #9 is based on PR #8's branch; PR #10 is based on PR #9's branch. This is a stacked chain, so each base/head must be reviewed in order and synchronized deliberately.
+- PR #11 is a separate CI experiment based on an older PR #8 head (`19fc99d`), so its result does not validate the current PR #8 commit.
+- Current PR #6–#11 snapshots are open, draft, and unmerged. The connector reports them as mergeable, but that is not a substitute for CI, review, or user approval.
+
+### Newer CI evidence (exact heads only)
+
+| PR | Head commit | Latest observed run | Evidence / status |
+|---|---|---|---|
+| #6 | `32dec8730ff63938fe56ec26ae50d41efcdcd0d9` | [#38434430200](https://github.com/deathkernel/TARA/actions/runs/38434430200) | Python suite failed; Rust passed. Stale base chain needs diagnosis/retest. |
+| #7 | `641faa150af4737a29a22d90d0dbbb4c3651b98b` | [#38434787693](https://github.com/deathkernel/TARA/actions/runs/38434787693) | Python suite failed; Rust passed. Stale base chain needs diagnosis/retest. |
+| #8 | `3a53ef2c868cf8ca3be381af24f5ef4ed76d1b2b` | [#38683205509](https://github.com/deathkernel/TARA/actions/runs/38683205509) | Rust passed; Python job was still running at last check (dependency installation step). Do not call the full run green yet. |
+| #9 | `059062a091663d556657e7c893a3e5ab7f7c28a6` | [#38616099162](https://github.com/deathkernel/TARA/actions/runs/38616099162) | Python and Rust jobs passed on this exact head. Still review branch freshness/base relationship and docs claims. |
+| #10 | `2d32dda3d5c8becb88654c90f12f9e27ab73a8b5` | [#38616218993](https://github.com/deathkernel/TARA/actions/runs/38616218993) | Python and Rust jobs passed on this exact head. Still review cleanup diff carefully before integration. |
+| #11 | `d5dd719374cda63bb23fead3cd833a2d4b20e194` | [#38615869611](https://github.com/deathkernel/TARA/actions/runs/38615869611) | Static audit and focused tests passed; bounded parallel full-suite step was cancelled; smoke steps skipped. Performance experiment is inconclusive, not a pass. |
+
+### Bulk audit decisions
+
+- [x] Verify current PR #8 head SHA and inspect latest run/job state.
+- [x] Check the open/draft/unmerged state of PRs #6–#11 and record their stacked bases.
+- [x] Replace stale blanket statements that PR #9/#10 still have only failing CI with the newer successful exact-head run evidence above.
+- [x] Record PR #11 as inconclusive because the full parallel suite was cancelled.
+- [ ] Diagnose Python failures on PR #6 and #7 using exact failed test output; do not infer root cause from the red status alone.
+- [ ] Wait for PR #8 run #1177 to finish, then capture job-level results and exact test counts.
+- [ ] Re-run/refresh PR #6/#7 only after confirming intended stacked base commits; avoid rebasing or retargeting branches without checking dependent PR diffs.
+- [ ] Benchmark PR #11 against a serial baseline with comparable runner conditions; retain xdist only if it is reliable and materially faster.
+- [ ] Review PR #10 deletion candidates against imports, tests, scripts, docs and user artifacts before approving cleanup.
+- [ ] Run documented focused and full tests on the actual Windows checkout; GitHub Ubuntu CI is not a substitute.
+- [ ] Explicitly inspect protected data and untracked artifacts on the user's real checkout; the GitHub connector cannot prove local filesystem preservation.
+- [ ] No PR merged, closed, retargeted, or rebased during this audit.
+
+### Next bulk execution order
+
+```mermaid
+flowchart TD
+    A[Wait for PR #8 run #1177] --> B[Capture failed test names / counts if any]
+    B --> C[Fix confirmed shared regressions on the appropriate branch]
+    C --> D[Validate PR #6 then #7 in dependency order]
+    D --> E[Revalidate PR #8 against the updated stack]
+    E --> F[Review #9 docs and #10 deletions]
+    F --> G[Compare #11 serial vs xdist]
+    G --> H[Windows acceptance + protected-artifact audit]
+    H --> I[User review / explicit integration approval]
+```
+
+**Important limitation:** GitHub metadata and job status alone do not expose the complete failed pytest output in this connector response. Root-cause fixes require retrieving logs or reproducing locally; do not mark those tasks done until actual failure details are available.
+
+
+## Historical failure signatures — PR #6 / PR #7 (log-backed, 2026-10-15)
+
+Fetched the actual Python job logs for [PR #6 run #38434430200](https://github.com/deathkernel/TARA/actions/runs/38434430200) and [PR #7 run #38434787693](https://github.com/deathkernel/TARA/actions/runs/38434787693). Both Python jobs failed while their Rust jobs passed. The failures are highly overlapping and point to pre-existing/shared integration regressions; this is evidence for triage, not proof that every root cause is already understood.
+
+- PR #6 exact summary: **18 failed, 400 passed**.
+- PR #7 exact summary: **18 failed, 403 passed**.
+- Shared failure signatures captured from both logs:
+  - Continual-learning export: `Candidate` is not JSON serializable (two tests).
+  - Dataset acquisition: expected module-import behavior differed (`assert 0 == 1`).
+  - Evaluation orchestrator: missing `CheckpointEvaluator.overall_tolerance` (two tests); test factory lambda signature mismatch (one test).
+  - Improvement gate: category regression (memory) not detected in a benchmark scenario.
+  - Small language model capacity profile: expected embedding parameter count 16 but observed 512.
+  - Learning experiment: candidate checkpoint lookup raised `KeyError` for a temporary `candidate.pt` path.
+  - Model adapter: expected `src.polyglot.model_adapter.load_checkpoint` attribute was absent.
+  - Capability runner: fake model did not expose `eval()` expected by the runner.
+  - Image perception: PNG metadata fixture was rejected as unsupported (expected PNG or JPEG).
+  - Scheduler retry: retry event left report pending rather than failed.
+  - Self-improvement benchmark: candidate was not verified because host process execution was disabled by TARA's safety boundary.
+  - TARA Core and unified cognitive loop: end-to-end cycle did not complete.
+  - Transformer gradient check: tiny gradients produced a relative-error mismatch.
+  - Unified cognitive loop tool selection: a string was used where an object with `.tool` was expected.
+- These logs are from older heads and must not be treated as the current state of PR #8. Several subsequent commits may have changed the relevant modules. The current PR #8 full suite is still running; compare its final failure list before selecting fixes.
+- Avoid broad fixes that weaken safety (especially host-process execution restrictions) just to satisfy a test. Where the test assumes execution, either use a properly constrained test double/sandbox or adjust the expectation to match the intended policy.
+
+### Triage order for the shared failure family
+
+```mermaid
+flowchart TD
+    A[Capture current PR #8 full-suite result] --> B{Same failures remain?}
+    B -- No --> C[Record resolved tests and keep remaining failures separate]
+    B -- Yes --> D[Group by root cause: serialization, API contract, fixture, scheduler, model math]
+    D --> E[Add minimal regression tests per root cause]
+    E --> F[Fix one coherent module at a time]
+    F --> G[Focused tests then full suite]
+    G --> H[Recheck stacked PR #6 -> #7 -> #8]
+    H --> I[Update evidence and pending list]
+```
