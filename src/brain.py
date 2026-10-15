@@ -27,7 +27,7 @@ from .tool_intelligence import ToolAttempt, ToolCapability, ToolIntelligence
 from .world_state import WorldContext, WorldModel
 from .groq_provider import GroqProvider
 from .elevenlabs_tts import ElevenLabsTTS
-from .emotional_intelligence import EmotionalIntelligence
+from .emotional_intelligence import EmotionSwitch, EmotionalIntelligence
 
 def _tara_system_prompt(model_name: str | None) -> str:
     """Return a truthful identity prompt for the configured TARA language backend."""
@@ -101,6 +101,7 @@ class TARABrain:
         self.llm_provider = llm_provider
         # Deterministic local heuristics; no second model or extra inference pass.
         self.emotional_intelligence = EmotionalIntelligence()
+        self.emotion_switch = EmotionSwitch(self.emotional_intelligence)
         self.last_emotion = "neutral"
         self.voice = ElevenLabsTTS.from_env() if voice is None else voice
         self.cognitive_loop = cognitive_loop or UnifiedCognitiveLoop(
@@ -231,15 +232,16 @@ class TARABrain:
 
     def respond(self, prompt, *, remember_key=None, importance=1.0, max_new_tokens=32,
                 temperature=1.0, top_k=None, top_p=None, speak=False):
-        emotion = self.emotional_intelligence.assess(prompt)
-        self.last_emotion = emotion.label
+        transition = self.emotion_switch.update(prompt)
+        emotion = transition.assessment
+        self.last_emotion = transition.current
         self.observe(prompt, remember_key=remember_key, importance=importance, source="user", kind="prompt")
         recalled = tuple(self.memory.retrieve(prompt))
         context = self.build_reasoning_context(prompt, recalled=recalled)
         if self.llm_provider is not None:
             try:
                 system_prompt = _tara_system_prompt(getattr(self.llm_provider, "model", None))
-                system_prompt += "\n\n" + self.emotional_intelligence.system_guidance(emotion)
+                system_prompt += "\n\n" + self.emotional_intelligence.system_guidance(emotion, transition)
                 text = self.llm_provider.complete(
                     context,
                     system=system_prompt,
