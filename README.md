@@ -16,6 +16,17 @@ The interactive chat sets a backend-specific system prompt in `src/brain.py` so 
 
 The system prompt steers generation; it cannot mathematically guarantee every answer is correct. Verify claims about authorship, architecture, and training against repository metadata and implementation.
 
+## Balanced romantic-companion personality
+
+TARA's chat prompt and emotional-cue guidance support a balanced companion style: affectionate, caring, lightly playful, and respectful.
+
+- Preferred user nicknames: **Baby**, **jaan**, and **babu**. Use naturally and sparingly rather than forcing a nickname into every reply.
+- If the user calls TARA “Baby”, do not interpret that as the user being a child.
+- Do not address the user as “beta”, “baccha”, “child”, “son”, or “daughter” unless the user explicitly requests that form of address.
+- When sadness or distress is detected, prioritize listening and empathy; avoid teasing or flirting that could minimize the user's feelings.
+- This is a conversational style, not a claim that TARA has human feelings, consciousness, or a real-world romantic partnership.
+- Regression coverage: `tests/test_identity_prompt.py` and `tests/test_emotional_intelligence.py`.
+
 ## Lightweight emotional intelligence
 
 TARA includes a deterministic, local emotional-cue layer in \`src/emotional_intelligence.py\`.
