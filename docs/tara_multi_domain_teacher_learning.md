@@ -160,3 +160,71 @@ The report records the dataset fingerprint and per-domain counts, training manif
 - Start with a small `--steps` value and monitor RAM, CPU/GPU, disk, and runtime.
 - A generated candidate is not automatically the production checkpoint.
 - Remote code edits do not establish that tests passed. Exact-head CI and Windows/full-suite validation must be checked separately.
+
+
+## Batch E — end-to-end teacher pipeline integration
+
+Batch E connects the earlier generation, audit, human-review, curation, training, and held-out evaluation pieces into one recoverable command-line workflow. It intentionally pauses for a human to review the CSV; it never auto-approves teacher answers.
+
+```mermaid
+flowchart TD
+    A[Local Ollama teacher] --> B[prepare: generate candidates]
+    B --> C[Structural and provenance audit]
+    C --> D[Export review CSV and manifest]
+    D --> E[Human verifies every answer]
+    E --> F[curate: import explicit approve/reject]
+    F --> G[Approved-only JSONL and curation manifest]
+    G --> H[train: train separate TARA candidate]
+    H --> I[Evaluate baseline and candidate]
+    I --> J{Strict improvement without regression?}
+    J -->|Yes| K[Record accepted evidence]
+    J -->|No| L[Record rejected evidence]
+    K --> M[Manual review only; never auto-promote]
+    L --> M
+```
+
+### Stage 1 — generate, audit, and export the review queue
+
+Configure the local provider and verify Ollama/model availability first:
+
+```bat
+ollama list
+set TARA_LLM_BACKEND=ollama
+python -m src.teacher_pipeline prepare --dataset outputs\batch_e_candidates.jsonl --audit-report outputs\batch_e_audit.json --review-csv outputs\batch_e_review.csv --manifest outputs\batch_e_prepare_manifest.json --per-domain 2
+```
+
+The example requests 18 candidate examples (two per each of the nine domains). Start small. Each output path must be new and all artifact paths must be distinct. The command refuses to overwrite the dataset, generator temporary file, audit report, review CSV, or manifest. A clean audit establishes schema/provenance consistency only—not factual correctness.
+
+### Stage 2 — human review and curation
+
+Open `outputs\batch_e_review.csv` in a spreadsheet editor. Independently verify each answer, fill every `decision` with exactly `approve` or `reject`, and provide a reviewer identifier. Never approve an answer solely because it sounds fluent.
+
+```bat
+python -m src.teacher_pipeline curate --dataset outputs\batch_e_candidates.jsonl --review-csv outputs\batch_e_review.csv --approved-dataset data\batch_e_approved.jsonl --manifest outputs\batch_e_curation_manifest.json
+```
+
+Curation refuses incomplete decisions, changed content, unknown/duplicate fingerprints, missing reviewer attribution, duplicate records, and existing output paths. The output JSONL contains only explicitly approved rows. Candidate JSONL and review CSV are inputs and are not edited by this command.
+
+### Stage 3 — train a separate candidate and evaluate it
+
+Use an existing baseline checkpoint, but choose a new candidate checkpoint and evidence-report path:
+
+```bat
+python -m src.teacher_pipeline train --dataset data\batch_e_approved.jsonl --baseline checkpoints\baseline.pt --candidate checkpoints\batch_e_candidate.pt --report outputs\batch_e_evidence.json --steps 100
+```
+
+The training stage repeats the approval/provenance checks, trains TARA's own small model (not Llama weights), and evaluates baseline and candidate on the same held-out capability suite. The report includes dataset/training fingerprints, category deltas, and the evidence-gate decision. A rejected candidate is retained for inspection; no checkpoint is promoted or deleted automatically.
+
+### Recovery model
+
+Stages are separate on purpose: the CSV review is a human boundary, and each stage emits a new artifact. If a stage fails, inspect the last successful manifest/report and fix the issue; do not delete or overwrite artifacts blindly. Use new output paths for reruns. If training fails after curation, the approved JSONL remains available and can be passed to `python -m src.teacher_training` directly with fresh candidate/report paths.
+
+### Batch E handoff — 15 October 2026
+
+- Branch: `feature/tara-phase-e-teacher-pipeline-integration`, stacked on Batch D `feature/tara-phase-d-model-learning`.
+- Added `src/teacher_pipeline.py` with `prepare`, `curate`, and `train` stages; tests are in `tests/test_teacher_pipeline.py`.
+- CI workflow adds Batch E branch/path triggers and the new focused test module.
+- Exact-head CI and local Windows/full Python/Rust validation must be checked; remote edits alone are not test evidence.
+- No real Ollama generation or checkpoint training was executed while editing remotely.
+- Next: inspect CI and fix reproduced failures; run focused tests and full suites in a separate worktree; review dependency-stack diffs; ask for explicit merge approval before integration.
+- Preserve local `checkpoints/`, `outputs/`, conversation JSONL/manifests, and `test_voice.py`. Do not run destructive cleanup or merge without explicit approval.
