@@ -7,7 +7,9 @@ on:
       - feature/tara-llama-distillation
     paths:
       - "scripts/run_phase_b_smoke.py"
+      - "scripts/run_phase_b_experiment.py"
       - "tests/test_phase_b_smoke.py"
+      - "tests/test_phase_b_experiment.py"
       - "src/training_pipeline.py"
       - "src/training_experiment.py"
       - "src/learning_experiment.py"
@@ -35,7 +37,7 @@ jobs:
       - name: Run real CPU train/evaluate/gate cycle
         run: python scripts/run_phase_b_smoke.py --output-dir phase-b-artifacts --steps 2 --max-new-tokens 4
       - name: Run focused regression tests
-        run: python -m pytest tests/test_phase_b_smoke.py tests/test_learning_experiment.py tests/test_evaluation_orchestrator.py -q
+        run: python -m pytest tests/test_phase_b_smoke.py tests/test_phase_b_experiment.py tests/test_learning_experiment.py tests/test_evaluation_orchestrator.py -q
       - name: Upload Phase B evidence
         if: always()
         uses: actions/upload-artifact@v4

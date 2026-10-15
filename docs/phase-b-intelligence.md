@@ -72,3 +72,23 @@ The dedicated GitHub Actions workflow runs only the bounded smoke path and its f
 tests, then uploads the report/checkpoints/metrics as an artifact. A passing job means
 the workflow and regression gate executed; it does not mean the candidate passed the
 improvement gate.
+
+
+## Full reviewed-data experiment (separate from the smoke run)
+
+After teacher-generated records have been reviewed and filtered, use the production experiment
+runner with an existing baseline checkpoint and a **new** candidate path:
+
+```bat
+python scripts/run_phase_b_experiment.py checkpoints\baseline.pt data\llama_teacher_reviewed.jsonl checkpoints\phase_b_candidate.pt --steps 100 --device cpu
+```
+
+The baseline is evaluated first, then `TrainingExperiment` audits and trains from the supplied
+reviewed dataset into a separate candidate checkpoint, then the same capability suite and
+regression gate decide whether the candidate improved. Training configuration, data fingerprint,
+step metrics, benchmark results, category deltas, and decision are retained as JSON evidence.
+The command returns exit code 2 when the candidate fails to strictly improve; it still keeps the
+candidate and report for diagnosis and never promotes or overwrites the baseline.
+
+Do not use unreviewed teacher output as a trusted dataset. The smoke workflow uses synthetic data
+only to prove the software path and cannot replace this real experiment.

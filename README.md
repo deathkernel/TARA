@@ -902,3 +902,20 @@ See [docs/phase-b-intelligence.md](docs/phase-b-intelligence.md) for artifact me
 the CI contract, and the remaining full teacher/student distillation and real-checkpoint
 validation. **A passing smoke run proves the pipeline executed; it does not prove an
 intelligence improvement.** Candidate promotion remains evidence-gated and separate.
+
+
+### Run a reviewed teacher-data experiment
+
+The bounded smoke runner is for CI wiring. For an actual curated-data experiment, first generate
+teacher candidates with `python -m src.teacher_distillation`, manually review/filter them into a
+separate dataset, and then train a new candidate against an existing baseline:
+
+```bat
+python scripts/run_phase_b_experiment.py checkpoints\baseline.pt data\llama_teacher_reviewed.jsonl checkpoints\phase_b_candidate.pt --steps 100 --device cpu
+```
+
+The command audits the reviewed dataset, measures the baseline before training, trains into a
+new checkpoint path, measures the candidate with the same deterministic capability suite, and
+writes training/evaluation manifests plus an overall/category regression decision. It refuses to
+overwrite existing outputs. A rejected candidate is retained for inspection but is not promoted.
+The command's non-zero exit for a rejected candidate is intentional.
