@@ -199,7 +199,7 @@ Prefer mocked responses for deterministic unit tests. Live integrations may requ
 
 ## Web product roadmap
 
-The web product is being built alongside TARA's existing Python architecture. The first implementation batch adds a responsive Next.js/TypeScript UI and a PostgreSQL schema with row-level ownership policies; the chat screen is currently a UI preview, not a connected inference client.
+The web product is being built alongside TARA's existing Python architecture. The initial web batch adds a responsive Next.js/TypeScript UI, PostgreSQL row-level ownership policies, and ownership-scoped conversation/message endpoints. The chat screen remains a UI preview and is not connected to inference yet.
 
 Run the web workspace from the repository root with Node.js 20.9+:
 
@@ -208,4 +208,4 @@ npm install
 npm run web:dev
 ```
 
-See [the web product roadmap](docs/roadmap/web-product-roadmap.md), [web app setup](apps/web/README.md), and [database/RLS notes](db/README.md). Authentication and API routes are not yet implemented. Database queries must set transaction-local `tara.user_id` from trusted server-side identity and use a dedicated non-owner runtime role.
+See [the web product roadmap](docs/roadmap/web-product-roadmap.md), [web app setup](apps/web/README.md), [web server helper notes](apps/web/src/lib/README.md), and [database/RLS notes](db/README.md). The API includes `GET/POST /api/conversations`, `GET/PATCH/DELETE /api/conversations/:id`, and `GET/POST /api/conversations/:id/messages`. Authentication is not implemented: production API requests fail closed with HTTP 401; only local non-production development can opt into one fixed `TARA_DEV_USER_ID`. Database queries set transaction-local `tara.user_id` and require a dedicated non-owner runtime role.
