@@ -113,7 +113,7 @@ def test_generation_respects_requested_length_and_top_k():
     [
         {"vocab_size": 1},
         {"embedding_dim": 15, "num_heads": 4},
-        {"embedding_dim": 12, "num_heads": 3},  # odd RoPE head dimension
+        {"embedding_dim": 12, "num_heads": 4},  # odd RoPE head dimension
         {"num_heads": 4, "num_kv_heads": 3},
         {"num_layers": 0},
         {"max_context": 0},
