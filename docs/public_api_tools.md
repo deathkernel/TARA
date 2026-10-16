@@ -26,3 +26,8 @@ host allowlist, request timeouts, bounded response reads, basic per-host pacing,
 limits, JSON/shape validation, and explicit rate-limit/error handling. HTTP redirects are
 rejected so an allowlisted host cannot forward a request to an untrusted destination.
 Provider errors are surfaced rather than silently converted into empty results.
+
+Open-Meteo weather lookup validates the geocoding result-list and result-object shapes,
+requires finite latitude/longitude values within geographic bounds, and requires the
+forecast response to include a `current` object. Invalid city types and malformed provider
+payloads return controlled validation errors rather than leaking indexing/type exceptions.
