@@ -7,6 +7,7 @@ import os
 from .brain import TARABrain
 from .llm_provider_factory import provider_from_env
 from .public_api_tools import PublicAPIError, PublicAPITools
+from .memory import LongTermMemory
 
 
 def _display_text(value, *, limit=180) -> str:
@@ -137,6 +138,69 @@ def _run_api_command(command: str, api_tools: PublicAPITools) -> str | None:
     return _summarize_api_observation(observation) + "\n\nRaw response (trusted=false):\n" + rendered
 
 
+def _run_memory_command(command_text: str, brain) -> str | None:
+    """Handle explicit persistent-memory commands without involving the LLM."""
+    parts = command_text.strip().split(maxsplit=1)
+    if not parts:
+        return None
+    verb = parts[0].lower()
+    if verb not in {"/memory", "/remember", "/learn", "/forget"}:
+        return None
+    argument = parts[1].strip() if len(parts) > 1 else ""
+    memory = getattr(brain, "memory", None)
+    if memory is None:
+        return "Memory is not configured for this chat session."
+
+    try:
+        if verb == "/memory":
+            if argument:
+                results = memory.retrieve(argument, limit=5)
+                if not results:
+                    return "No matching saved memories."
+                lines = ["Matching saved memories:"]
+                for item in results:
+                    if isinstance(item, dict):
+                        key = _display_text(item.get("key"), limit=120)
+                        value = _display_text(item.get("value"), limit=300)
+                        score = item.get("score")
+                        suffix = f" (score: {score:.2f})" if isinstance(score, (int, float)) else ""
+                        lines.append(f"- {key}: {value}{suffix}")
+                return "\n".join(lines)
+            keys = memory.keys()
+            if not keys:
+                return "No saved memories yet. Use /remember key=value to save one."
+            lines = ["Saved memories:"]
+            for key in keys[:20]:
+                lines.append(f"- {_display_text(key, limit=120)}: {_display_text(memory.recall(key), limit=300)}")
+            if len(keys) > 20:
+                lines.append(f"... and {len(keys) - 20} more.")
+            return "\n".join(lines)
+
+        if verb in {"/remember", "/learn"}:
+            if "=" not in argument:
+                return "Usage: /remember key=value (or /learn key=value)"
+            key, value = (part.strip() for part in argument.split("=", 1))
+            if not key or not value:
+                return "Both memory key and value are required."
+            if len(key) > 120 or len(value) > 2000:
+                return "Memory key must be at most 120 characters and value at most 2,000 characters."
+            memory.remember(key, value)
+            memory.save()
+            return f"Saved memory: {_display_text(key, limit=120)}"
+
+        if not argument:
+            return "Usage: /forget key"
+        if len(argument) > 120:
+            return "Memory key must be at most 120 characters."
+        removed = memory.forget(argument)
+        if removed is None:
+            return f"No saved memory found for: {_display_text(argument, limit=120)}"
+        memory.save()
+        return f"Forgot memory: {_display_text(argument, limit=120)}"
+    except (OSError, TypeError, ValueError) as exc:
+        return f"Memory operation failed: {_display_text(exc, limit=240)}"
+
+
 def chat_loop(brain, *, input_fn=input, output_fn=print, api_tools=None) -> None:
     """Run chat without saving or recalling conversation history."""
     api_tools = api_tools or PublicAPITools()
@@ -161,9 +225,11 @@ def chat_loop(brain, *, input_fn=input, output_fn=print, api_tools=None) -> None
             label = getattr(brain, "last_emotion", "neutral")
             output_fn(f"TARA: Last detected emotional cue: {label}. This is a lightweight text estimate, not a diagnosis.")
             continue
-        if command in {"/memory", "/learn", "/remember"} or command.startswith(("/learn ", "/remember ", "/forget ")):
-            output_fn("TARA: Persistent conversation memory and memory commands have been removed.")
-            continue
+        if command == "/memory" or command.startswith(("/memory ", "/learn ", "/remember ", "/forget ")):
+            result = _run_memory_command(prompt, brain)
+            if result is not None:
+                output_fn(f"TARA: {result}")
+                continue
         if command == "/api" or command.startswith("/api "):
             result = _run_api_command(prompt, api_tools)
             output_fn(f"TARA API: {result}" if result is not None else "Usage: /api github <query> | /api wiki <query> | /api weather <city> | /api hn <query> | /api stackoverflow <query>")
@@ -195,7 +261,11 @@ def main() -> int:
         if provider is None:
             print("TARA chat needs a language provider. Set TARA_LLM_BACKEND=ollama.")
             return 2
-        brain = TARABrain(model=None, llm_provider=provider)
+        memory_path = os.getenv("TARA_MEMORY_PATH", "data/tara_memory.json").strip()
+        if not memory_path:
+            raise ValueError("TARA_MEMORY_PATH must not be empty")
+        memory = LongTermMemory(memory_path)
+        brain = TARABrain(model=None, llm_provider=provider, memory=memory)
     except (ValueError, RuntimeError, OSError) as exc:
         print(f"TARA could not start: {exc}")
         return 2
