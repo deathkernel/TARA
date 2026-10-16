@@ -17,6 +17,7 @@ class OllamaToolCalling:
 
     MAX_TOOL_ROUNDS = 3
     MAX_TOOL_RESULT_CHARS = 6000
+    MAX_TOOL_CALLS_PER_TURN = 5
 
     def __init__(
         self,
@@ -199,6 +200,7 @@ class OllamaToolCalling:
             {"role": "user", "content": prompt.strip()},
         ]
         rounds = 0
+        total_tool_calls = 0
         while True:
             response = self.client.chat(
                 model=self.model,
@@ -223,7 +225,9 @@ class OllamaToolCalling:
                 return content
             messages.append(self._message_dict(message))
             if rounds >= self.max_tool_rounds:
-                return content or "I couldn't finish safely because the tool-call limit was reached."
+                return content or "I couldn't finish safely because the tool-call round limit was reached."
+            if total_tool_calls + len(tool_calls) > self.MAX_TOOL_CALLS_PER_TURN:
+                return content or "I stopped safely because the per-turn tool-call limit was reached."
             for call in tool_calls:
                 name, arguments = self._tool_call_parts(call)
                 result = self._dispatch(name, arguments)
@@ -232,6 +236,7 @@ class OllamaToolCalling:
                     "tool_name": name if name in self._registry else "rejected_tool",
                     "content": result,
                 })
+                total_tool_calls += 1
             rounds += 1
 
 
