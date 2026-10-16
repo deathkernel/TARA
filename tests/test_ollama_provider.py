@@ -1,3 +1,5 @@
+import pytest
+
 from src.ollama_provider import OllamaProvider
 
 
@@ -94,9 +96,6 @@ def test_ollama_provider_loads_environment(monkeypatch):
     assert provider.model == "llama3.2:1b"
     assert provider.base_url == "http://127.0.0.1:11434"
     assert provider.timeout == 30.0
-
-
-import pytest
 
 
 @pytest.mark.parametrize("timeout", [True, float("nan"), float("inf"), 0, -1, 3601, 10**1000, "30"])
