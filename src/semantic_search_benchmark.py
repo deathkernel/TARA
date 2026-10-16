@@ -49,7 +49,7 @@ def evaluate_retrieval(
             raise ValueError("each case query must be non-empty")
         if not case.relevant_document_ids:
             raise ValueError("each case must define at least one relevant document ID")
-        if any(not isinstance(doc_id, str) or not doc_id for doc_id in case.relevant_document_ids):
+        if any(not isinstance(doc_id, str) or not doc_id.strip() for doc_id in case.relevant_document_ids):
             raise ValueError("relevant document IDs must be non-empty strings")
 
     recall_values: list[float] = []
@@ -57,7 +57,8 @@ def evaluate_retrieval(
     ndcg_values: list[float] = []
     fingerprints: list[dict[str, object]] = []
     for case in items:
-        relevant = set(case.relevant_document_ids)
+        # Index IDs are normalized at ingestion; normalize expected IDs the same way.
+        relevant = {doc_id.strip() for doc_id in case.relevant_document_ids}
         results = index.search(case.query, top_k=k)
         ranked_ids: list[str] = []
         for result in results:
