@@ -63,7 +63,7 @@ The exact commands depend on the branch you run. This branch's local CLI also su
 /forget key
 ```
 
-These commands save and retrieve local memory only when explicitly requested. Memory retrieval may also be included in TARA's reasoning context. The default store is `data/tara_memory.json`; do not use it for secrets.
+These commands save and retrieve local memory only when explicitly requested. Memory retrieval may also be included in TARA's reasoning context. The default store is `data/tara_memory.json`, which is git-ignored; do not use it for secrets.
 
 This branch's local chat CLI exposes the following explicit, read-only commands:
 
@@ -180,7 +180,7 @@ This index preserves the project's phase history so progress remains trackable. 
 ### Local persistent-memory restoration — 2026-10-16
 
 - [x] Restore explicit `/remember`, `/learn`, `/memory`, and `/forget` CLI commands backed by TARA's existing `LongTermMemory`.
-- [x] Persist local memory to a dedicated configurable file (`TARA_MEMORY_PATH`, default `data/tara_memory.json`) without repurposing conversation dataset artifacts.
+- [x] Persist local memory to a dedicated configurable file (`TARA_MEMORY_PATH`, default `data/tara_memory.json`) without repurposing conversation dataset artifacts; ignore the default store in Git.
 - [x] Add bounded input/output handling and regression tests for save, recall, forget, and missing-memory configuration.
 - [ ] Verify the CLI memory tests and exact-head full Python/Rust CI before treating the restoration as validated.
 
