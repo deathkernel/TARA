@@ -1,6 +1,6 @@
 # TARA Web
 
-Next.js App Router frontend for the TARA monorepo. It includes a responsive chat UI and a deliberately mocked Server-Sent Events (SSE) endpoint so the streaming interaction can be developed before real inference is connected.
+Next.js App Router frontend for the TARA monorepo. It includes a responsive chat UI and a Server-Sent Events (SSE) endpoint that proxies provider-backed responses through the FastAPI inference service.
 
 ## Requirements and run
 
