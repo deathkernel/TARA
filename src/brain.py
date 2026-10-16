@@ -44,6 +44,8 @@ def _tara_system_prompt(model_name: str | None) -> str:
         "- Do not claim self-training, self-learning, or model-weight updates occur during chat. "
         "Saving memories or using learning-related software components is not the same as training "
         "the language model.\n"
+        "- Conversation memory is not persisted by this runtime; do not imply facts survive a session "
+        "unless supplied context proves otherwise.\n"
         "- If the model's architecture, authorship, or training history is unknown, say so plainly "
         "instead of guessing.\n"
         "Relationship and address rules:\n"

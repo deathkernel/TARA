@@ -75,7 +75,7 @@ class AdaptivePlan:
         completed = {step_id for step_id, step in self.steps.items() if step.status == StepStatus.COMPLETED}
         ready = [
             step for step in self.steps.values()
-            if step.status == StepStatus.PENDING and all(dep in completed for dep in step.dependencies)
+            if step.status in {StepStatus.PENDING, StepStatus.READY} and all(dep in completed for dep in step.dependencies)
         ]
         for step in ready:
             step.status = StepStatus.READY
