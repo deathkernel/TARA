@@ -12,7 +12,7 @@ TARA is a modular Python reasoning project. Its architecture separates language-
 |---|---|---|
 | Local chat | Current workflow | Ollama supplies language-model inference; TARA provides the application/runtime around it. |
 | Cognitive architecture | Architecture area | Perception, reasoning, planning, tools, reflection, world context, and orchestration are separate concerns. |
-| Public read-only API tools | In progress in the PR stack | GitHub, Wikipedia, Open-Meteo, Hacker News, and Stack Exchange command integration is proposed in the open changes; do not assume it is on `main` until merged. |
+| Public read-only API tools | In progress in the PR stack | GitHub, Wikipedia, Open-Meteo, Hacker News, and Stack Exchange commands; an opt-in allowlisted Ollama tool-call loop is added in the follow-up branch. Not shipped on `main` until the PR stack is merged. |
 | Voice output | Optional integration | Requires local provider configuration and credentials. |
 | Training/data/checkpoints | Removed from active runtime | Custom model training, dataset pipelines, local-model checkpoints, and training workflows are removed. Historical phase notes remain for provenance only. |
 | Tests/CI | Required validation | Run the test suite and check CI before considering code changes ready. |
@@ -27,7 +27,7 @@ ollama pull llama3.2:3b
 python -m src
 ```
 
-Set `TARA_LLM_BACKEND` as needed; see [`.env.example`](.env.example) for the supported settings in your checkout. Use `/help` in chat to see the commands available in the version you are running.
+Set `TARA_LLM_BACKEND` as needed; see [`.env.example`](.env.example) for supported settings. `TARA_TOOL_CALLING_ENABLED=true` enables the official Ollama SDK's bounded tool-call loop for the read-only public API allowlist. TARA validates every tool name and argument; model output cannot select arbitrary URLs, shell commands, or file operations. Set it to `false` to use plain completion. Use `/help` in chat to see the commands available in the version you are running.
 
 ## Runtime and architecture map
 
