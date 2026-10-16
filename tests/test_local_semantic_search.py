@@ -287,3 +287,29 @@ def test_retrieval_benchmark_rejects_invalid_cases_and_k():
         evaluate_retrieval(index, [RetrievalCase("query", ("doc",))], k=0)
     with pytest.raises(ValueError, match="relevant"):
         evaluate_retrieval(index, [RetrievalCase("query", ())])
+
+
+
+def test_retrieval_benchmark_normalizes_expected_document_ids():
+    from src.semantic_search_benchmark import RetrievalCase, evaluate_retrieval
+
+    index = LocalSemanticIndex(FakeEmbedder())
+    index.add_document("pets", "Cats are small pets. A kitten needs care.")
+
+    result = evaluate_retrieval(
+        index,
+        [RetrievalCase("kitten and cat", (" pets ", "pets"))],
+        k=1,
+    )
+
+    assert result.recall_at_k == 1.0
+    assert result.mean_reciprocal_rank == 1.0
+    assert result.mean_ndcg_at_k == 1.0
+
+
+def test_retrieval_benchmark_rejects_whitespace_only_relevance_ids():
+    from src.semantic_search_benchmark import RetrievalCase, evaluate_retrieval
+
+    index = LocalSemanticIndex(FakeEmbedder())
+    with pytest.raises(ValueError, match="relevant document IDs"):
+        evaluate_retrieval(index, [RetrievalCase("query", ("   ",))])
