@@ -18,6 +18,9 @@ JsonTransport = Callable[[str, dict[str, Any], float], dict[str, Any]]
 
 MAX_RESPONSE_BYTES = 8 * 1024 * 1024
 MAX_COMPLETION_TOKENS = 4096
+MAX_CONTEXT_TOKENS = 32768
+MAX_CPU_THREADS = 256
+MAX_BATCH_SIZE = 2048
 
 
 class _NoRedirectHandler(HTTPRedirectHandler):
@@ -129,12 +132,12 @@ class OllamaProvider:
         self.num_ctx = profile["num_ctx"] if num_ctx is None else num_ctx
         self.num_thread = profile["num_thread"] if num_thread is None else num_thread
         self.num_batch = profile["num_batch"] if num_batch is None else num_batch
-        if type(self.num_ctx) is not int or self.num_ctx <= 0:
-            raise ValueError("num_ctx must be a positive integer")
-        if type(self.num_thread) is not int or self.num_thread < 0:
-            raise ValueError("num_thread must be zero (auto) or a positive integer")
-        if type(self.num_batch) is not int or self.num_batch <= 0:
-            raise ValueError("num_batch must be a positive integer")
+        if type(self.num_ctx) is not int or not 1 <= self.num_ctx <= MAX_CONTEXT_TOKENS:
+            raise ValueError(f"num_ctx must be an integer between 1 and {MAX_CONTEXT_TOKENS}")
+        if type(self.num_thread) is not int or not 0 <= self.num_thread <= MAX_CPU_THREADS:
+            raise ValueError(f"num_thread must be an integer between 0 (auto) and {MAX_CPU_THREADS}")
+        if type(self.num_batch) is not int or not 1 <= self.num_batch <= MAX_BATCH_SIZE:
+            raise ValueError(f"num_batch must be an integer between 1 and {MAX_BATCH_SIZE}")
         if keep_alive is not None and not isinstance(keep_alive, str):
             raise ValueError("keep_alive must be a non-empty string")
         self.keep_alive = profile["keep_alive"] if keep_alive is None else keep_alive
