@@ -4,7 +4,7 @@
 
 TARA is a modular Python reasoning project. Its architecture separates language-model inference from perception, planning, memory, tool selection, reflection, world-state context, verification, and task orchestration. This README serves two purposes: a quick-start guide for the current runtime and a progress ledger for the project's engineering phases.
 
-> **Runtime rule:** the normal chat workflow uses Ollama (or another configured inference provider). It does not require training TARA's own language model. Dataset, training, and checkpoint experiments listed in the history below are historical engineering work, not startup steps.
+> **Runtime rule:** the normal chat workflow uses Ollama (or another configured inference provider). It does not require training TARA's own language model at startup. Scratch training remains a separate project goal; historical training/data/checkpoint work must not be removed without explicit approval.
 
 ## Current status at a glance
 
@@ -27,7 +27,7 @@ ollama pull llama3.2:3b
 python -m src
 ```
 
-Set `TARA_LLM_BACKEND` as needed; see [`.env.example`](.env.example) for the supported settings in your checkout. Use `/help` in chat to see the commands available in the version you are running.
+Set `TARA_LLM_BACKEND` as needed; see [`.env.example`](.env.example) for the supported settings in your checkout. The local CLI persists explicit memories to `data/tara_memory.json` by default; override the location with `TARA_MEMORY_PATH`. This store is separate from `data/conversation_v1.jsonl` and its manifest. Do not save passwords, API keys, or other secrets as memory values. Use `/help` in chat to see the commands available in the version you are running.
 
 ## Runtime and architecture map
 
@@ -54,7 +54,16 @@ The provider generates language; it does not replace TARA's orchestration or aut
 
 ## Current and proposed chat commands
 
-The exact commands depend on the branch you run. The baseline chat interface supports `/help` and `/exit`; other commands are branch-dependent.
+The exact commands depend on the branch you run. This branch's local CLI also supports explicit memory operations:
+
+```text
+/remember key=value
+/learn key=value
+/memory [query]
+/forget key
+```
+
+These commands save and retrieve local memory only when explicitly requested. Memory retrieval may also be included in TARA's reasoning context. The default store is `data/tara_memory.json`; do not use it for secrets.
 
 This branch's local chat CLI exposes the following explicit, read-only commands:
 
@@ -167,6 +176,13 @@ This index preserves the project's phase history so progress remains trackable. 
 **Important:** the phase ledger is project history, not a set of instructions to run. No dataset, preflight, training, checkpoint, or learning-experiment commands are listed as current setup steps. For normal local use, start Ollama and run TARA as described above.
 
 ## Active work / review queue
+
+### Local persistent-memory restoration — 2026-10-16
+
+- [x] Restore explicit `/remember`, `/learn`, `/memory`, and `/forget` CLI commands backed by TARA's existing `LongTermMemory`.
+- [x] Persist local memory to a dedicated configurable file (`TARA_MEMORY_PATH`, default `data/tara_memory.json`) without repurposing conversation dataset artifacts.
+- [x] Add bounded input/output handling and regression tests for save, recall, forget, and missing-memory configuration.
+- [ ] Verify the CLI memory tests and exact-head full Python/Rust CI before treating the restoration as validated.
 
 ### Public API hardening batch — 2026-10-16
 
