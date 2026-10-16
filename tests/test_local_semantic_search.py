@@ -213,3 +213,38 @@ def test_batch_indexing_replaces_existing_id_only_after_success():
     embedder.fail = False
     assert index.document_count == 1
     assert index.search("cats")[0].source == "old.md"
+
+
+def test_retrieval_benchmark_reports_recall_mrr_ndcg_and_stable_fingerprint():
+    from src.semantic_search_benchmark import RetrievalCase, evaluate_retrieval
+
+    index = LocalSemanticIndex(FakeEmbedder())
+    index.add_documents([
+        ("pets", "Cats are small pets. A kitten needs care."),
+        ("space", "Planets and space exploration are fascinating."),
+    ])
+    cases = [
+        RetrievalCase("kitten and cat", ("pets",)),
+        RetrievalCase("planet and space", ("space",)),
+    ]
+    first = evaluate_retrieval(index, cases, k=2)
+    second = evaluate_retrieval(index, cases, k=2)
+
+    assert first.case_count == 2
+    assert first.recall_at_k == 1.0
+    assert first.mean_reciprocal_rank == 1.0
+    assert first.mean_ndcg_at_k == 1.0
+    assert len(first.fingerprint) == 64
+    assert first.fingerprint == second.fingerprint
+
+
+def test_retrieval_benchmark_rejects_invalid_cases_and_k():
+    from src.semantic_search_benchmark import RetrievalCase, evaluate_retrieval
+
+    index = LocalSemanticIndex(FakeEmbedder())
+    with pytest.raises(ValueError, match="at least one"):
+        evaluate_retrieval(index, [])
+    with pytest.raises(ValueError, match="k"):
+        evaluate_retrieval(index, [RetrievalCase("query", ("doc",))], k=0)
+    with pytest.raises(ValueError, match="relevant"):
+        evaluate_retrieval(index, [RetrievalCase("query", ())])
