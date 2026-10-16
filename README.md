@@ -168,6 +168,17 @@ This index preserves the project's phase history so progress remains trackable. 
 
 ## Active work / review queue
 
+### Bulk CI regression batch — 2026-10-16
+
+- [x] Fix unified cognitive-loop tool selection to treat `ToolSelection.selected` as the selected tool-name string.
+- [x] Convert lightweight candidate objects into explicit JSON-safe fields before storing learning records.
+- [x] Budget scheduler execution steps for each selected task's bounded retries.
+- [x] Separate Stack Exchange provider-error and missing-items regression fixtures.
+- [x] Correct the PNG test fixture to use a valid PNG signature.
+- [ ] Verify focused regressions and the full Python/Rust CI on the exact batch commit before treating the batch as validated.
+
+Keep this section updated as PRs change; do not mark proposed features as shipped until they are merged and validated.
+
 Keep this section updated as PRs change; do not mark proposed features as shipped until they are merged and validated.
 
 - [ ] Review the proposed dataset/training cleanup only after verifying it preserves `checkpoints/`, `outputs/`, `data/conversation_v1.jsonl`, `data/conversation_v1.jsonl.manifest.json`, and `test_voice.py`; do not retire any integration without explicit approval.
