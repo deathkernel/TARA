@@ -1,5 +1,10 @@
 name: TARA experiments
 
+# Avoid stacking costly experiment jobs while newer code is already queued.
+concurrency:
+  group: tara-experiments-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   workflow_dispatch:
   push:
