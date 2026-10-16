@@ -7,6 +7,7 @@ output never selects a URL, shell command, file path, or arbitrary Python callab
 from __future__ import annotations
 
 import json
+import math
 from typing import Any, Callable
 
 from .public_api_tools import APIObservation, PublicAPIError, PublicAPITools
@@ -35,10 +36,10 @@ class OllamaToolCalling:
             raise ValueError("model must not be empty")
         if not isinstance(host, str) or not host.strip():
             raise ValueError("host must not be empty")
-        if timeout <= 0:
-            raise ValueError("timeout must be positive")
-        if not 0 <= max_tool_rounds <= self.MAX_TOOL_ROUNDS:
-            raise ValueError(f"max_tool_rounds must be between 0 and {self.MAX_TOOL_ROUNDS}")
+        if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or not math.isfinite(timeout) or timeout <= 0:
+            raise ValueError("timeout must be a finite positive number")
+        if type(max_tool_rounds) is not int or not 0 <= max_tool_rounds <= self.MAX_TOOL_ROUNDS:
+            raise ValueError(f"max_tool_rounds must be an integer between 0 and {self.MAX_TOOL_ROUNDS}")
         self.model = model.strip()
         self.host = host.rstrip("/")
         self.timeout = float(timeout)
@@ -117,17 +118,29 @@ class OllamaToolCalling:
     @staticmethod
     def _message_dict(message: Any) -> dict[str, Any]:
         if hasattr(message, "model_dump"):
-            return message.model_dump(exclude_none=True)
+            dumped = message.model_dump(exclude_none=True)
+            if isinstance(dumped, dict):
+                return dumped
+            raise RuntimeError("Ollama returned an unsupported assistant message shape")
         if isinstance(message, dict):
             return message
         raise RuntimeError("Ollama returned an unsupported assistant message shape")
 
     @staticmethod
+    def _message_field(message: Any, field: str, default: Any = None) -> Any:
+        if isinstance(message, dict):
+            return message.get(field, default)
+        return getattr(message, field, default)
+
+    @staticmethod
     def _tool_call_parts(call: Any) -> tuple[str, Any]:
         function = call.get("function") if isinstance(call, dict) else getattr(call, "function", None)
         if isinstance(function, dict):
-            return str(function.get("name", "")), function.get("arguments")
-        return str(getattr(function, "name", "")), getattr(function, "arguments", None)
+            name, arguments = function.get("name"), function.get("arguments")
+        else:
+            name, arguments = getattr(function, "name", None), getattr(function, "arguments", None)
+        # Only exact strings may select a registry entry.
+        return (name if isinstance(name, str) else ""), arguments
 
     def _dispatch(self, name: str, arguments: Any) -> str:
         """Validate a model-requested call, then run only a registered API tool."""
@@ -185,8 +198,13 @@ class OllamaToolCalling:
             raise ValueError("prompt must not be empty")
         if type(max_completion_tokens) is not int or max_completion_tokens <= 0:
             raise ValueError("max_completion_tokens must be a positive integer")
-        if not isinstance(temperature, (int, float)) or not 0 <= temperature <= 2:
-            raise ValueError("temperature must be between 0 and 2")
+        if (
+            isinstance(temperature, bool)
+            or not isinstance(temperature, (int, float))
+            or not math.isfinite(temperature)
+            or not 0 <= temperature <= 2
+        ):
+            raise ValueError("temperature must be a finite number between 0 and 2")
 
         safety = (
             "Tool policy: only the provided read-only public information tools are available. "
@@ -214,11 +232,15 @@ class OllamaToolCalling:
                     "num_predict": max_completion_tokens,
                 },
             )
-            message = getattr(response, "message", None)
+            message = self._message_field(response, "message")
             if message is None:
                 raise RuntimeError("Ollama tool response did not contain a message")
-            tool_calls = getattr(message, "tool_calls", None) or []
-            content = getattr(message, "content", "") or ""
+            tool_calls = self._message_field(message, "tool_calls", None)
+            if tool_calls is None:
+                tool_calls = []
+            if not isinstance(tool_calls, list):
+                raise RuntimeError("Ollama tool response tool_calls must be a list")
+            content = self._message_field(message, "content", "") or ""
             if not tool_calls:
                 if not isinstance(content, str):
                     raise RuntimeError("Ollama response content was not text")
