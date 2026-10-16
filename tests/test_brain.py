@@ -229,3 +229,35 @@ def test_brain_exposes_atomic_bulk_document_indexing():
 
     brain = TARABrain(llm_provider=FakeProvider(), semantic_index=FakeIndex())
     assert brain.index_documents([("guide", "Local docs.")]) == {"guide": 1}
+
+
+
+def test_semantic_retrieval_failure_falls_back_to_other_chat_context(monkeypatch):
+    class FailingIndex:
+        def search(self, query, *, top_k=5, min_score=-1.0):
+            raise RuntimeError("local Ollama embedding server is offline")
+
+    provider = FakeProvider()
+    brain = TARABrain(llm_provider=provider, semantic_index=FailingIndex())
+    monkeypatch.setenv("TARA_SEMANTIC_RETRIEVAL_ENABLED", "true")
+
+    context = brain.build_reasoning_context("How does TARA work?", recalled=())
+
+    assert "User/task: How does TARA work?" in context
+    assert "Semantic retrieval unavailable for this turn" in context
+    assert "local Ollama embedding server is offline" not in context
+
+
+def test_semantic_retrieval_fallback_does_not_disable_explicit_document_limit_validation():
+    class FailingIndex:
+        def search(self, query, *, top_k=5, min_score=-1.0):
+            raise RuntimeError("must not be called")
+
+    brain = TARABrain(llm_provider=FakeProvider(), semantic_index=FailingIndex())
+
+    try:
+        brain.build_reasoning_context("query", recalled=(), include_documents=True, document_limit=True)
+    except ValueError as exc:
+        assert "document_limit" in str(exc)
+    else:
+        raise AssertionError("invalid document_limit must still fail")
