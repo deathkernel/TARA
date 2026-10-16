@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 
 from src.__main__ import _run_api_command, _summarize_api_observation, chat_loop
+from src.memory import LongTermMemory
 
 
 class FakeBrain:
@@ -60,18 +61,44 @@ def test_help_lists_non_persistent_and_public_api_commands():
     chat_loop(brain, input_fn=lambda _: next(inputs), output_fn=output.append, api_tools=FakeAPIs())
     assert brain.prompts == []
     help_line = next(line for line in output if "Commands:" in line)
-    assert "/learn" not in help_line and "/memory" not in help_line
+    assert "/memory [query]" in help_line and "/remember key=value" in help_line
+    assert "/forget key" in help_line
     assert "/api github" in help_line and "/api weather" in help_line
     assert "/api hn" in help_line and "/api stackoverflow" in help_line
     assert any("Last detected emotional cue" in line for line in output)
 
 
-def test_memory_commands_are_disabled():
+def test_memory_commands_persist_retrieve_and_forget(tmp_path):
     brain = FakeBrain()
-    inputs = iter(["/learn preferred_language=Hinglish", "/memory", "/forget project", "/exit"])
+    memory_path = tmp_path / "tara_memory.json"
+    brain.memory = LongTermMemory(memory_path)
+    inputs = iter([
+        "/remember preferred_language=Hinglish",
+        "/memory language",
+        "/learn editor=DaVinci Resolve",
+        "/memory",
+        "/forget editor",
+        "/exit",
+    ])
     output = []
     chat_loop(brain, input_fn=lambda _: next(inputs), output_fn=output.append, api_tools=FakeAPIs())
-    assert all("Persistent conversation memory" in line for line in output if "removed" in line)
+
+    assert any("Saved memory: preferred_language" in line for line in output)
+    assert any("Hinglish" in line for line in output)
+    assert any("editor: DaVinci Resolve" in line for line in output)
+    assert any("Forgot memory: editor" in line for line in output)
+    assert brain.prompts == []
+    assert memory_path.exists()
+    reloaded = LongTermMemory(memory_path)
+    assert reloaded.keys() == ["preferred_language"]
+
+
+def test_memory_commands_fail_gracefully_when_memory_is_not_configured():
+    brain = FakeBrain()
+    inputs = iter(["/memory", "/remember language=Hinglish", "/exit"])
+    output = []
+    chat_loop(brain, input_fn=lambda _: next(inputs), output_fn=output.append, api_tools=FakeAPIs())
+    assert sum("Memory is not configured" in line for line in output) == 2
     assert brain.prompts == []
 
 
