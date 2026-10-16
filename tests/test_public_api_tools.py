@@ -37,15 +37,6 @@ def test_client_returns_untrusted_source_linked_observation():
     assert result.trusted is False
 
 
-@pytest.mark.parametrize("url", [
-    "http://api.github.com/repos",
-    "https://example.com/data",
-    "https://user:pass@api.github.com/repos",
-    "https://@api.github.com/repos",
-    "https://api.github.com/repos#fragment",
-    "https://api.github.com/repos#",
-    "https://api.github.com:444/repos",
-])
 def test_client_reserves_per_host_request_slots(monkeypatch):
     import src.public_api_tools as module
 
@@ -66,6 +57,15 @@ def test_client_reserves_per_host_request_slots(monkeypatch):
     assert sleeps == pytest.approx([0.25, 0.25])
 
 
+@pytest.mark.parametrize("url", [
+    "http://api.github.com/repos",
+    "https://example.com/data",
+    "https://user:pass@api.github.com/repos",
+    "https://@api.github.com/repos",
+    "https://api.github.com/repos#fragment",
+    "https://api.github.com/repos#",
+    "https://api.github.com:444/repos",
+])
 def test_client_rejects_non_allowlisted_or_unsafe_urls(url):
     client = fake_client({})
     with pytest.raises(PublicAPIError):
