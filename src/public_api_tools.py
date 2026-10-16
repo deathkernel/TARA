@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import math
+import threading
 import time
 from dataclasses import dataclass
 from urllib.error import HTTPError, URLError
@@ -60,7 +61,8 @@ class PublicAPIClient:
         self.max_response_bytes = max_response_bytes
         self.min_interval = min_interval
         self._opener = opener or build_opener(_NoRedirectHandler()).open
-        self._last_request = {}
+        self._next_request_at = {}
+        self._rate_lock = threading.Lock()
 
     def get_json(self, url, *, provider):
         if not isinstance(url, str) or not url or any(not char.isprintable() for char in url):
@@ -79,13 +81,15 @@ class PublicAPIClient:
             or port not in (None, 443)
         ):
             raise PublicAPIError("URL is not an allowlisted HTTPS public API endpoint")
-        now = time.monotonic()
-        previous = self._last_request.get(parsed.hostname)
-        if previous is not None:
-            delay = self.min_interval - (now - previous)
-            if delay > 0:
-                time.sleep(delay)
-        self._last_request[parsed.hostname] = time.monotonic()
+        # Reserve per-host request start slots atomically so concurrent callers
+        # cannot all pass the same pacing check at once.
+        with self._rate_lock:
+            now = time.monotonic()
+            slot = max(now, self._next_request_at.get(parsed.hostname, now))
+            self._next_request_at[parsed.hostname] = slot + self.min_interval
+        delay = slot - now
+        if delay > 0:
+            time.sleep(delay)
         try:
             request = Request(url, headers={"Accept": "application/json", "User-Agent": "TARA-PublicAPI-Tools/1.0"})
         except (TypeError, ValueError) as exc:
