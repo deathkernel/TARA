@@ -41,6 +41,8 @@ def test_client_returns_untrusted_source_linked_observation():
     "http://api.github.com/repos",
     "https://example.com/data",
     "https://user:pass@api.github.com/repos",
+    "https://@api.github.com/repos",
+    "https://api.github.com/repos#fragment",
     "https://api.github.com:444/repos",
 ])
 def test_client_rejects_non_allowlisted_or_unsafe_urls(url):
