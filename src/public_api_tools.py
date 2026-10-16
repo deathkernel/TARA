@@ -77,7 +77,7 @@ class PublicAPIClient:
             or parsed.hostname not in self.ALLOWED_HOSTS
             or parsed.username is not None
             or parsed.password is not None
-            or parsed.fragment
+            or "#" in url
             or port not in (None, 443)
         ):
             raise PublicAPIError("URL is not an allowlisted HTTPS public API endpoint")
