@@ -1,6 +1,6 @@
 import pytest
 
-from src.ollama_provider import OllamaProvider
+from src.ollama_provider import MAX_COMPLETION_TOKENS, OllamaProvider, _http_json
 
 
 def test_ollama_provider_sends_chat_request_and_returns_text():
@@ -146,3 +146,69 @@ def test_ollama_provider_rejects_non_object_transport_response():
     provider = OllamaProvider(transport=lambda *_: ["unexpected"])
     with pytest.raises(RuntimeError, match="invalid JSON response"):
         provider.complete("Hello")
+
+
+@pytest.mark.parametrize("base_url", [
+    "ftp://127.0.0.1:11434",
+    "file:///etc/passwd",
+    "http:///missing-host",
+    "http://user:password@127.0.0.1:11434",
+    "http://127.0.0.1:11434/path",
+    "http://127.0.0.1:11434/?query=1",
+    "http://127.0.0.1:11434/#fragment",
+    "http://127.0.0.1:99999",
+])
+def test_ollama_provider_rejects_unsafe_or_malformed_base_url(base_url):
+    with pytest.raises(ValueError, match="base_url"):
+        OllamaProvider(base_url=base_url)
+
+
+def test_ollama_provider_caps_completion_tokens():
+    provider = OllamaProvider(transport=lambda *_: {"message": {"content": "ok"}})
+    with pytest.raises(ValueError, match="max_completion_tokens"):
+        provider.complete("Hello", max_completion_tokens=MAX_COMPLETION_TOKENS + 1)
+
+
+def test_http_json_rejects_oversized_response(monkeypatch):
+    import src.ollama_provider as module
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def read(self, size=-1):
+            assert size == module.MAX_RESPONSE_BYTES + 1
+            return b"x" * size
+
+    class FakeOpener:
+        def open(self, request, timeout):
+            return FakeResponse()
+
+    monkeypatch.setattr(module, "build_opener", lambda *_: FakeOpener())
+    with pytest.raises(RuntimeError, match="8 MiB safety limit"):
+        _http_json("http://127.0.0.1:11434/api/chat", {}, 1.0)
+
+
+def test_http_json_rejects_malformed_json(monkeypatch):
+    import src.ollama_provider as module
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def read(self, size=-1):
+            return b"not-json"
+
+    class FakeOpener:
+        def open(self, request, timeout):
+            return FakeResponse()
+
+    monkeypatch.setattr(module, "build_opener", lambda *_: FakeOpener())
+    with pytest.raises(RuntimeError, match="malformed JSON"):
+        _http_json("http://127.0.0.1:11434/api/chat", {}, 1.0)
