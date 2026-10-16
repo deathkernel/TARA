@@ -78,6 +78,28 @@ The model can request only these named tools: weather, GitHub repository search,
 
 Install the SDK through `python -m pip install -r requirements.txt`. Ollama itself must be running and the configured model must already be pulled. SDK tool calling depends on the selected model's ability to produce tool calls; when a model cannot use tools reliably, switch the setting off or select a tool-capable model. This feature does not train or fine-tune the model.
 
+## Local semantic document search (free and in-memory)
+
+TARA includes an optional document index that uses Ollama's local `/api/embed` endpoint. It needs no hosted embedding API, paid key, vector database, or extra Python dependency. Install the embedding model once:
+
+```bash
+ollama pull embeddinggemma
+```
+
+The `TARA_EMBEDDING_MODEL` setting selects the model (default: `embeddinggemma`); `OLLAMA_HOST` selects the Ollama server. Use the index explicitly through `TARABrain`:
+
+```python
+from src.brain import TARABrain
+
+brain = TARABrain()
+brain.index_document("setup-guide", "TARA uses Ollama for local inference.", source="setup.md")
+matches = brain.search_documents("How does TARA run its model?", top_k=3)
+for match in matches:
+    print(match.score, match.source, match.text)
+```
+
+Documents are split into overlapping chunks and ranked by cosine similarity. The index has configurable document/chunk limits, validates embedding responses, and keeps all text/vectors in process memory only. Use `remove_indexed_document(id)` or `clear_document_index()` to discard indexed content. Restarting the process clears the index; it does not automatically ingest files, alter normal chat responses, or persist conversation memory. Ollama and the embedding model must be installed locally; there is no automatic paid fallback.
+
 ## Engineering principles
 
 1. **Inference is not training.** Running a model with Ollama is a normal inference workflow; it does not train the model.

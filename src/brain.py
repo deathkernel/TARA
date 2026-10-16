@@ -24,6 +24,7 @@ from .tool_intelligence import ToolAttempt, ToolCapability, ToolIntelligence
 from .world_state import WorldContext, WorldModel
 from .elevenlabs_tts import ElevenLabsTTS
 from .public_api_tools import PublicAPITools
+from .local_semantic_search import LocalSemanticIndex, SemanticSearchResult
 from .emotional_intelligence import EmotionSwitch, EmotionalIntelligence
 
 def _tara_system_prompt(model_name: str | None) -> str:
@@ -72,7 +73,7 @@ class TARABrain:
                  progress=None, orchestrator=None, world=None, events=None, temporal=None,
                  temporal_history=256, reasoner=None, planner=None, tools=None, improver=None,
                  multimodal=None, researcher=None, experimenter=None, architecture_optimizer=None, cognitive_loop=None, experience_learning=None,
-                 intelligence_improver=None, llm_provider=None, voice=None, public_tools=None):
+                 intelligence_improver=None, llm_provider=None, voice=None, public_tools=None, semantic_index=None):
         self.engine = TARAEngine() if engine is None else engine
         self.memory = LongTermMemory() if memory is None else memory
         self.agent = AgentLoop(engine=self.engine, memory=self.memory)
@@ -94,6 +95,8 @@ class TARABrain:
         self.intelligence_improver = intelligence_improver or IntelligenceImprovementEngine()
         self.llm_provider = llm_provider
         self.public_tools = public_tools or PublicAPITools()
+        # Optional local document retrieval; the index is in-memory and never writes to disk.
+        self.semantic_index = semantic_index or LocalSemanticIndex()
         # Deterministic local heuristics; no second model or extra inference pass.
         self.emotional_intelligence = EmotionalIntelligence()
         self.emotion_switch = EmotionSwitch(self.emotional_intelligence)
@@ -107,6 +110,22 @@ class TARABrain:
     def perceive_multimodal(self, observations: list[MultimodalObservation]) -> MultimodalContext: return self.multimodal.perceive(observations)
     def perceive_text(self, text: str, *, confidence=1.0) -> MultimodalObservation: return self.multimodal.text(text, confidence=confidence)
     def perceive_document(self, text: str, *, path="", confidence=1.0) -> MultimodalObservation: return self.multimodal.document(text, path=path, confidence=confidence)
+
+    def index_document(self, document_id: str, text: str, *, source="") -> int:
+        """Index local text for explicit semantic retrieval; no data is persisted."""
+        return self.semantic_index.add_document(document_id, text, source=source)
+
+    def search_documents(self, query: str, *, top_k=5, min_score=-1.0) -> list[SemanticSearchResult]:
+        """Search documents explicitly indexed in this process."""
+        return self.semantic_index.search(query, top_k=top_k, min_score=min_score)
+
+    def remove_indexed_document(self, document_id: str) -> bool:
+        """Remove one document from the process-local semantic index."""
+        return self.semantic_index.remove_document(document_id)
+
+    def clear_document_index(self) -> None:
+        """Clear every document/vector from the process-local semantic index."""
+        self.semantic_index.clear()
     def perceive_image(self, data: bytes, *, confidence=0.8) -> MultimodalObservation: return self.multimodal.image(data, confidence=confidence)
     def perceive_audio(self, data: bytes, *, confidence=0.7) -> MultimodalObservation: return self.multimodal.audio(data, confidence=confidence)
     def perceive_screen(self, elements, *, confidence=0.9) -> MultimodalObservation: return self.multimodal.screen(elements, confidence=confidence)
