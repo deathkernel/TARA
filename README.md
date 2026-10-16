@@ -88,6 +88,9 @@ ollama pull embeddinggemma
 
 The `TARA_EMBEDDING_MODEL` setting selects the model (default: `embeddinggemma`); `OLLAMA_HOST` selects the Ollama server. Use the index explicitly through `TARABrain`:
 
+For multiple documents, use `brain.index_documents([("guide", "Text...", "guide.md"), ("faq", "More text...")])`. Batch indexing validates duplicate IDs and stages changes before committing, so an invalid item or embedding failure does not partially replace the current index. `src/semantic_search_benchmark.py` also provides deterministic Recall@k, MRR, NDCG@k and a result fingerprint for measuring retrieval quality on fixed query/document cases.
+
+
 ```python
 from src.brain import TARABrain
 
