@@ -16,6 +16,19 @@ from .cognitive_memory import CognitiveMemory
 from .polyglot.knowledge import KnowledgeRecord
 
 
+def _candidate_payload(candidate: Any) -> dict[str, Any]:
+    """Convert dataclass and lightweight candidate objects to JSON-safe fields."""
+    if hasattr(candidate, "__dataclass_fields__"):
+        return asdict(candidate)
+    if isinstance(candidate, dict):
+        return dict(candidate)
+    fields = ("problem", "language", "source", "metadata")
+    payload = {name: getattr(candidate, name) for name in fields if hasattr(candidate, name)}
+    if payload:
+        return payload
+    raise TypeError("candidate must expose serializable problem/language/source fields")
+
+
 class LearningBridge:
     """Persist discovery experiences and export verified replay examples."""
 
@@ -42,7 +55,7 @@ class LearningBridge:
         kind = "verified_algorithm" if verified else "algorithm_failure"
         content = {
             "problem_id": problem_id,
-            "candidate": asdict(candidate) if hasattr(candidate, "__dataclass_fields__") else candidate,
+            "candidate": _candidate_payload(candidate),
             "benchmark": {
                 "passed": benchmark.passed,
                 "total": benchmark.total,
