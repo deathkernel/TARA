@@ -4,7 +4,7 @@
 
 TARA is a modular Python reasoning project. Its architecture separates language-model inference from perception, planning, memory, tool selection, reflection, world-state context, verification, and task orchestration. This README serves two purposes: a quick-start guide for the current runtime and a progress ledger for the project's engineering phases.
 
-> **Runtime rule:** the normal chat workflow uses Ollama (or another configured inference provider). It does not require training TARA's own language model. Dataset, training, and checkpoint experiments listed in the history below are historical engineering work, not startup steps.
+> **Runtime rule:** the normal chat workflow uses Ollama (or another configured inference provider). It does not require training TARA's own language model at startup. Scratch training remains a separate project goal; historical training/data/checkpoint work must not be removed without explicit approval.
 
 ## Current status at a glance
 
@@ -27,7 +27,7 @@ ollama pull llama3.2:3b
 python -m src
 ```
 
-Set `TARA_LLM_BACKEND` as needed; see [`.env.example`](.env.example) for the supported settings in your checkout. Use `/help` in chat to see the commands available in the version you are running.
+Set `TARA_LLM_BACKEND` as needed; see [`.env.example`](.env.example) for the supported settings in your checkout. The local CLI persists explicit memories to `data/tara_memory.json` by default; override the location with `TARA_MEMORY_PATH`. This store is separate from `data/conversation_v1.jsonl` and its manifest. Do not save passwords, API keys, or other secrets as memory values. Use `/help` in chat to see the commands available in the version you are running.
 
 ## Runtime and architecture map
 
@@ -54,9 +54,18 @@ The provider generates language; it does not replace TARA's orchestration or aut
 
 ## Current and proposed chat commands
 
-The exact commands depend on the branch you run. The baseline chat interface supports `/help` and `/exit`; other commands are branch-dependent.
+The exact commands depend on the branch you run. This branch's local CLI also supports explicit memory operations:
 
-The open public-API chat work proposes the following explicit, read-only commands:
+```text
+/remember key=value
+/learn key=value
+/memory [query]
+/forget key
+```
+
+These commands save and retrieve local memory only when explicitly requested. Memory retrieval may also be included in TARA's reasoning context. The default store is `data/tara_memory.json`, which is git-ignored; do not use it for secrets.
+
+This branch's local chat CLI exposes the following explicit, read-only commands:
 
 ```text
 /api github <query>
@@ -66,7 +75,7 @@ The open public-API chat work proposes the following explicit, read-only command
 /api stackoverflow <query>
 ```
 
-The library-level API client is separate from command routing. These commands remain unavailable on `main` until the command-routing change is reviewed and merged; the client rejects redirects and marks remote results as untrusted.
+The library-level API client is separate from command routing. This branch wires the commands into the interactive CLI; they remain unavailable on `main` until this branch is reviewed and merged. API results are summarized deterministically, marked untrusted, bounded for display, and are not sent to the language model or saved as conversation memory.
 
 ## Engineering principles
 
@@ -168,6 +177,20 @@ This index preserves the project's phase history so progress remains trackable. 
 
 ## Active work / review queue
 
+### Local persistent-memory restoration — 2026-10-16
+
+- [x] Restore explicit `/remember`, `/learn`, `/memory`, and `/forget` CLI commands backed by TARA's existing `LongTermMemory`.
+- [x] Persist local memory to a dedicated configurable file (`TARA_MEMORY_PATH`, default `data/tara_memory.json`) without repurposing conversation dataset artifacts; ignore the default store in Git.
+- [x] Add bounded input/output handling and regression tests for save, recall, forget, and missing-memory configuration.
+- [ ] Verify the CLI memory tests and exact-head full Python/Rust CI before treating the restoration as validated.
+
+### Public API hardening batch — 2026-10-16
+
+- [x] Reject ambiguous empty URL credentials, URL fragments (including an empty `#` delimiter), and non-printable URL characters before issuing requests.
+- [x] Make per-host request pacing reserve start slots atomically across concurrent callers.
+- [x] Add regression coverage for unsafe URL forms and deterministic host pacing.
+- [ ] Run focused public API tests and the full Python/Rust CI on the exact latest branch head before treating the batch as validated.
+
 ### Bulk CI regression batch — 2026-10-16
 
 - [x] Fix unified cognitive-loop tool selection to treat `ToolSelection.selected` as the selected tool-name string.
@@ -181,13 +204,19 @@ This index preserves the project's phase history so progress remains trackable. 
 
 Keep this section updated as PRs change; do not mark proposed features as shipped until they are merged and validated.
 
-Keep this section updated as PRs change; do not mark proposed features as shipped until they are merged and validated.
-
 - [ ] Review the proposed dataset/training cleanup only after verifying it preserves `checkpoints/`, `outputs/`, `data/conversation_v1.jsonl`, `data/conversation_v1.jsonl.manifest.json`, and `test_voice.py`; do not retire any integration without explicit approval.
 - [ ] Review the integration-preserving read-only public API toolkit branch and its security tests; redirect protection is covered by regression tests, but the work remains unshipped until exact-commit CI passes.
-- [ ] Review the explicit chat commands for GitHub, Wikipedia, weather, Hacker News, and Stack Exchange.
-- [ ] Confirm the main-branch README and command list match the actual runtime after the PR stack is resolved.
+- [x] Add explicit read-only chat commands for GitHub, Wikipedia, weather, Hacker News, and Stack Exchange on the isolated CLI branch; validate routing with mocked API clients. Full CI is still required before treating the branch as ready.
+- [ ] Confirm the main-branch README and command list match the actual runtime after the PR stack is resolved; `python -m src` becomes executable only with the new CLI entry point in this branch.
 - [ ] Run the canonical CI/test suite and record its result before calling the work complete.
+
+### Local Ollama provider and CI hardening — 2026-10-16
+
+- [x] Validate Ollama endpoint origins, timeout bounds, resource settings, system prompts, temperature, and completion-token types.
+- [x] Prevent configured Ollama endpoints from following HTTP redirects; cap response bodies at 8 MiB and completion output at 4,096 tokens.
+- [x] Add regression coverage for invalid endpoint URLs, oversized/malformed responses, invalid configuration, and completion options.
+- [x] Bound CI job duration, cancel superseded branch runs, and avoid running the expensive three-seed profile experiment for unrelated source changes.
+- [ ] Verify Python/Rust CI and the three-seed experiment on the exact latest branch head; these results are not yet confirmed.
 
 ### Public API input-validation follow-up — 2026-10-16
 
