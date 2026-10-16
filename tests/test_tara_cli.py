@@ -54,7 +54,7 @@ def test_chat_loop_routes_messages_and_exits():
     assert output[-1] == "TARA: Bye, bhai!"
 
 
-def test_help_lists_non_persistent_and_public_api_commands():
+def test_help_lists_memory_and_public_api_commands():
     brain = FakeBrain()
     inputs = iter(["", "/help", "/emotion", "/quit"])
     output = []
@@ -91,6 +91,27 @@ def test_memory_commands_persist_retrieve_and_forget(tmp_path):
     assert memory_path.exists()
     reloaded = LongTermMemory(memory_path)
     assert reloaded.keys() == ["preferred_language"]
+
+
+def test_memory_commands_reject_empty_and_oversized_values(tmp_path):
+    brain = FakeBrain()
+    memory_path = tmp_path / "tara_memory.json"
+    brain.memory = LongTermMemory(memory_path)
+    inputs = iter([
+        "/remember =value",
+        "/remember key=",
+        "/remember " + ("k" * 121) + "=value",
+        "/remember key=" + ("v" * 2001),
+        "/exit",
+    ])
+    output = []
+    chat_loop(brain, input_fn=lambda _: next(inputs), output_fn=output.append, api_tools=FakeAPIs())
+
+    assert any("Both memory key and value are required" in line for line in output)
+    assert sum("at most" in line for line in output) == 2
+    assert brain.memory.keys() == []
+    assert not memory_path.exists()
+    assert brain.prompts == []
 
 
 def test_memory_commands_fail_gracefully_when_memory_is_not_configured():
