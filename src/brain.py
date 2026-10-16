@@ -223,7 +223,16 @@ class TARABrain:
             raise ValueError("document_limit must be an integer from 1 to 10")
         document_context = ""
         if include_documents:
-            matches = self.search_documents(prompt, top_k=document_limit)
+            try:
+                matches = self.search_documents(prompt, top_k=document_limit)
+            except (RuntimeError, ValueError, OSError):
+                # Retrieval is optional: an unavailable local embedding server must
+                # not prevent the chat model from answering with its other context.
+                matches = None
+                document_context = (
+                    "\n\nSemantic retrieval unavailable for this turn; "
+                    "answer using the remaining context without retrieved documents."
+                )
             if matches:
                 snippets = []
                 for match in matches:
