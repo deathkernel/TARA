@@ -140,6 +140,45 @@ def test_index_enforces_document_chunk_and_query_limits():
         index.search("   ")
 
 
+def test_index_rejects_mixed_dimensions_before_committing_new_document():
+    class SwitchingEmbedder:
+        def __init__(self):
+            self.dimensions = 2
+
+        def embed(self, texts):
+            return [[1.0] * self.dimensions for _ in texts]
+
+    embedder = SwitchingEmbedder()
+    index = LocalSemanticIndex(embedder)
+    index.add_document("first", "First document.")
+    embedder.dimensions = 3
+
+    with pytest.raises(RuntimeError, match="existing index"):
+        index.add_document("second", "Second document.")
+
+    assert index.document_count == 1
+    assert index.chunk_count == 1
+    assert index.search("query")[0].document_id == "first"
+
+
+def test_replacing_only_document_can_change_embedding_dimensions():
+    class SwitchingEmbedder:
+        def __init__(self):
+            self.dimensions = 2
+
+        def embed(self, texts):
+            return [[1.0] * self.dimensions for _ in texts]
+
+    embedder = SwitchingEmbedder()
+    index = LocalSemanticIndex(embedder)
+    index.add_document("only", "Original document.")
+    embedder.dimensions = 3
+
+    assert index.add_document("only", "Replacement document.") == 1
+    assert index.document_count == 1
+    assert index.search("replacement")[0].document_id == "only"
+
+
 def test_index_rejects_dimension_mismatch_during_search():
     class MismatchEmbedder:
         def __init__(self):

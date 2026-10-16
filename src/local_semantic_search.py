@@ -223,6 +223,17 @@ class LocalSemanticIndex:
         if self._chunk_count - len(old) + len(pieces) > self.max_chunks:
             raise ValueError(f"index chunk limit reached ({self.max_chunks})")
 
+        # Keep one vector space across the whole index. A mixed-dimension index
+        # cannot produce meaningful cosine scores; reject it before committing.
+        existing_dimensions = {
+            len(chunk.vector)
+            for existing_id, chunks in self._documents.items()
+            if existing_id != document_id
+            for chunk in chunks
+        }
+        if len(existing_dimensions) > 1:
+            raise RuntimeError("index contains inconsistent embedding dimensions")
+
         vectors = self.embedder.embed(pieces)
         if len(vectors) != len(pieces):
             raise RuntimeError("embedder returned the wrong number of vectors")
@@ -238,6 +249,8 @@ class LocalSemanticIndex:
                 dimensions = len(vector)
             if len(vector) != dimensions:
                 raise RuntimeError("embedder returned inconsistent vector dimensions")
+            if existing_dimensions and len(vector) not in existing_dimensions:
+                raise RuntimeError("embedding dimensions do not match the existing index")
             prepared.append(_Chunk(document_id, source, piece, vector, index))
 
         # Commit only after every embedding validates; a failed replacement keeps old data.
