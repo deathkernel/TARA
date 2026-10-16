@@ -29,7 +29,10 @@ class TaskScheduler:
             requested_retries = int(task.metadata.get("retries", 0)) if isinstance(task.metadata, dict) else 0
             retries = min(max(0, requested_retries), self.budget.max_retries)
             queue.append(TaskNode(task.task_id, task.description, priority=task.priority, retries=retries))
-        orchestrator = AutonomousOrchestrator(max_steps=self.budget.max_tasks)
+        # Each selected task may run once plus its bounded retry allowance.
+        # Count those attempts explicitly so retries can finish in this invocation.
+        max_steps = max(1, sum(1 + node.retries for node in queue))
+        orchestrator = AutonomousOrchestrator(max_steps=max_steps)
         orchestrator.queue.extend(queue)
         report = orchestrator.run(executor)
         if self.store:
