@@ -1,0 +1,35 @@
+name: Runner Provisioning Smoke Test
+
+on:
+  push:
+    branches:
+      - diagnose/actions-runner-smoke-20261016
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  runner-smoke:
+    name: runner-smoke (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        runner:
+          - ubuntu-latest
+          - ubuntu-22.04
+          - ubuntu-24.04
+    steps:
+      - name: Confirm runner provisioning and command execution
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "TARA_RUNNER_SMOKE_OK"
+          echo "runner_os=${RUNNER_OS:-unknown}"
+          echo "runner_arch=${RUNNER_ARCH:-unknown}"
+          uname -a
+          python --version
+          rustc --version
