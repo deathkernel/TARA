@@ -12,7 +12,7 @@ TARA is a modular Python reasoning project. Its architecture separates language-
 |---|---|---|
 | Local chat | Current workflow | Ollama supplies language-model inference; TARA provides the application/runtime around it. |
 | Cognitive architecture | Architecture area | Perception, reasoning, planning, tools, reflection, world context, and orchestration are separate concerns. |
-| Public read-only API tools | In progress in the PR stack | GitHub, Wikipedia, Open-Meteo, Hacker News, and Stack Exchange command integration is proposed in the open changes; do not assume it is on `main` until merged. |
+| Public read-only API tools | In progress in the PR stack | GitHub, Wikipedia, Open-Meteo, Hacker News, and Stack Exchange commands; an opt-in allowlisted Ollama tool-call loop is added in the follow-up branch. Not shipped on `main` until the PR stack is merged. |
 | Voice output | Optional integration | Requires local provider configuration and credentials. |
 | Training/data/checkpoints | Removed from active runtime | Custom model training, dataset pipelines, local-model checkpoints, and training workflows are removed. Historical phase notes remain for provenance only. |
 | Tests/CI | Required validation | Run the test suite and check CI before considering code changes ready. |
@@ -27,7 +27,7 @@ ollama pull llama3.2:3b
 python -m src
 ```
 
-Set `TARA_LLM_BACKEND` as needed; see [`.env.example`](.env.example) for the supported settings in your checkout. Use `/help` in chat to see the commands available in the version you are running.
+Set `TARA_LLM_BACKEND` as needed; see [`.env.example`](.env.example) for supported settings. `TARA_TOOL_CALLING_ENABLED=true` enables the official Ollama SDK's bounded tool-call loop for the read-only public API allowlist. TARA validates every tool name and argument; model output cannot select arbitrary URLs, shell commands, or file operations. Set it to `false` to use plain completion. Use `/help` in chat to see the commands available in the version you are running.
 
 ## Runtime and architecture map
 
@@ -64,6 +64,19 @@ The exact commands depend on the branch you run. The baseline chat interface sup
 ```
 
 These commands are implemented on this branch, but are not available on `main` until the relevant PR stack is reviewed and merged. Remote results must be shown with source links and treated as untrusted input, not as instructions.
+
+## Model-assisted tool calling (opt-in)
+
+The Ollama SDK integration adds a bounded tool-call loop for the read-only public API allowlist. Enable it in local `.env` with:
+
+```dotenv
+TARA_TOOL_CALLING_ENABLED=true
+TARA_TOOL_MAX_ROUNDS=3
+```
+
+The model can request only these named tools: weather, GitHub repository search, Wikipedia search, Hacker News search, and Stack Overflow search. TARA validates each tool name and argument, limits search result counts, caps the number of tool rounds and tool-result size, and marks returned external data as untrusted. Model output cannot select arbitrary URLs, execute shell commands, read/write files, or trigger non-allowlisted functions. Set `TARA_TOOL_CALLING_ENABLED=false` to use the existing plain-completion path.
+
+Install the SDK through `python -m pip install -r requirements.txt`. Ollama itself must be running and the configured model must already be pulled. SDK tool calling depends on the selected model's ability to produce tool calls; when a model cannot use tools reliably, switch the setting off or select a tool-capable model. This feature does not train or fine-tune the model.
 
 ## Engineering principles
 

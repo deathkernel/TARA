@@ -23,6 +23,7 @@ from .temporal_perception import TemporalContext, TemporalPerception
 from .tool_intelligence import ToolAttempt, ToolCapability, ToolIntelligence
 from .world_state import WorldContext, WorldModel
 from .elevenlabs_tts import ElevenLabsTTS
+from .public_api_tools import PublicAPITools
 from .emotional_intelligence import EmotionSwitch, EmotionalIntelligence
 
 def _tara_system_prompt(model_name: str | None) -> str:
@@ -71,7 +72,7 @@ class TARABrain:
                  progress=None, orchestrator=None, world=None, events=None, temporal=None,
                  temporal_history=256, reasoner=None, planner=None, tools=None, improver=None,
                  multimodal=None, researcher=None, experimenter=None, architecture_optimizer=None, cognitive_loop=None, experience_learning=None,
-                 intelligence_improver=None, llm_provider=None, voice=None):
+                 intelligence_improver=None, llm_provider=None, voice=None, public_tools=None):
         self.engine = TARAEngine() if engine is None else engine
         self.memory = LongTermMemory() if memory is None else memory
         self.agent = AgentLoop(engine=self.engine, memory=self.memory)
@@ -92,6 +93,7 @@ class TARABrain:
         self.experience_learning = experience_learning or ExperienceLearningEngine()
         self.intelligence_improver = intelligence_improver or IntelligenceImprovementEngine()
         self.llm_provider = llm_provider
+        self.public_tools = public_tools or PublicAPITools()
         # Deterministic local heuristics; no second model or extra inference pass.
         self.emotional_intelligence = EmotionalIntelligence()
         self.emotion_switch = EmotionSwitch(self.emotional_intelligence)
@@ -227,12 +229,25 @@ class TARABrain:
         context = self.build_reasoning_context(prompt, recalled=recalled)
         system_prompt = _tara_system_prompt(getattr(self.llm_provider, "model", None))
         system_prompt += "\n\n" + self.emotional_intelligence.system_guidance(emotion, transition)
-        text = self.llm_provider.complete(
-            context,
-            system=system_prompt,
-            max_completion_tokens=max_new_tokens,
-            temperature=temperature,
-        )
+        tool_calling_enabled = os.getenv("TARA_TOOL_CALLING_ENABLED", "false").strip().lower() in {
+            "1", "true", "yes", "on",
+        }
+        tool_completion = getattr(self.llm_provider, "complete_with_tools", None)
+        if tool_calling_enabled and callable(tool_completion):
+            text = tool_completion(
+                context,
+                system=system_prompt,
+                max_completion_tokens=max_new_tokens,
+                temperature=temperature,
+                public_tools=self.public_tools,
+            )
+        else:
+            text = self.llm_provider.complete(
+                context,
+                system=system_prompt,
+                max_completion_tokens=max_new_tokens,
+                temperature=temperature,
+            )
         if speak:
             self.speak(text)
         return BrainResponse(

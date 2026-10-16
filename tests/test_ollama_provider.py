@@ -94,3 +94,46 @@ def test_ollama_provider_loads_environment(monkeypatch):
     assert provider.model == "llama3.2:1b"
     assert provider.base_url == "http://127.0.0.1:11434"
     assert provider.timeout == 30.0
+
+
+def test_provider_exposes_sdk_tool_calling_without_changing_plain_transport():
+    from types import SimpleNamespace
+
+    calls = []
+
+    class FakeClient:
+        def chat(self, **kwargs):
+            calls.append(kwargs)
+            return SimpleNamespace(
+                message=SimpleNamespace(content="Tool-enabled answer", tool_calls=[]),
+            )
+
+    provider = OllamaProvider(
+        model="llama3.2:3b",
+        base_url="http://127.0.0.1:11434",
+        transport=lambda *_: {"message": {"content": "plain answer"}},
+    )
+    result = provider.complete_with_tools(
+        "What is the weather in Pune?",
+        client=FakeClient(),
+        max_completion_tokens=48,
+    )
+
+    assert result == "Tool-enabled answer"
+    assert len(calls) == 1
+    assert calls[0]["model"] == "llama3.2:3b"
+    assert calls[0]["keep_alive"] == "2m"
+    assert calls[0]["options"]["num_ctx"] == 2048
+    assert calls[0]["options"]["num_predict"] == 48
+    assert len(calls[0]["tools"]) == 5
+
+
+def test_provider_rejects_invalid_tool_round_environment(monkeypatch):
+    provider = OllamaProvider(transport=lambda *_: {"message": {"content": "ok"}})
+    monkeypatch.setenv("TARA_TOOL_MAX_ROUNDS", "99")
+    try:
+        provider.complete_with_tools("hello", client=object())
+    except ValueError as exc:
+        assert "TARA_TOOL_MAX_ROUNDS" in str(exc)
+    else:
+        raise AssertionError("Expected tool-call round limit to be rejected")
