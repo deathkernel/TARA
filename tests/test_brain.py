@@ -261,3 +261,55 @@ def test_semantic_retrieval_fallback_does_not_disable_explicit_document_limit_va
         assert "document_limit" in str(exc)
     else:
         raise AssertionError("invalid document_limit must still fail")
+
+
+
+def test_respond_completes_when_opt_in_semantic_retrieval_is_unavailable(monkeypatch):
+    class FailingIndex:
+        def search(self, query, *, top_k=5, min_score=-1.0):
+            raise RuntimeError("embedding service unavailable")
+
+    provider = FakeProvider()
+    brain = TARABrain(llm_provider=provider, semantic_index=FailingIndex())
+    monkeypatch.setenv("TARA_SEMANTIC_RETRIEVAL_ENABLED", "true")
+
+    response = brain.respond("Explain TARA briefly")
+
+    assert response.text.startswith("reply to ")
+    assert "Semantic retrieval unavailable for this turn" in provider.prompts[0]
+    assert "embedding service unavailable" not in provider.prompts[0]
+
+
+def test_respond_combines_opt_in_semantic_context_with_opt_in_tool_calling(monkeypatch):
+    class Match:
+        document_id = "guide"
+        source = "guide.md"
+        score = 0.88
+        text = "TARA supports local semantic search."
+
+    class FakeIndex:
+        def search(self, query, *, top_k=5, min_score=-1.0):
+            return [Match()]
+
+    class ToolProvider(FakeProvider):
+        def __init__(self):
+            super().__init__()
+            self.tool_calls = []
+
+        def complete_with_tools(self, prompt, *, system=None, max_completion_tokens=32,
+                                temperature=0.6, public_tools=None):
+            self.tool_calls.append({"prompt": prompt, "system": system, "public_tools": public_tools})
+            return "Answer generated with approved tools."
+
+    provider = ToolProvider()
+    brain = TARABrain(llm_provider=provider, semantic_index=FakeIndex())
+    monkeypatch.setenv("TARA_SEMANTIC_RETRIEVAL_ENABLED", "true")
+    monkeypatch.setenv("TARA_TOOL_CALLING_ENABLED", "true")
+
+    response = brain.respond("How does TARA search documents?")
+
+    assert response.text == "Answer generated with approved tools."
+    assert len(provider.tool_calls) == 1
+    assert "TARA supports local semantic search." in provider.tool_calls[0]["prompt"]
+    assert "untrusted reference data" in provider.tool_calls[0]["prompt"]
+    assert provider.tool_calls[0]["public_tools"] is brain.public_tools
