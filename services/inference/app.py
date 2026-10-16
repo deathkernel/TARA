@@ -40,7 +40,7 @@ def _authorized(authorization: str | None) -> bool:
 
 
 def _sse(event: dict[str, str]) -> bytes:
-    return f"data: {json.dumps(event, ensure_ascii=False)}\\n\\n".encode("utf-8")
+    return f"data: {json.dumps(event, ensure_ascii=False)}\n\n".encode("utf-8")
 
 
 @app.get("/health/live", tags=["health"])
