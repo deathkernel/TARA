@@ -138,6 +138,49 @@ def test_brain_keeps_plain_completion_when_tool_calling_is_disabled(monkeypatch)
     assert len(provider.prompts) == 1
 
 
+def test_semantic_retrieval_is_opt_in_and_adds_untrusted_sources(monkeypatch):
+    class Match:
+        document_id = "guide"
+        source = "guide.md"
+        score = 0.91
+        text = "Ollama runs locally."
+
+    class FakeIndex:
+        def __init__(self):
+            self.queries = []
+
+        def search(self, query, *, top_k=5, min_score=-1.0):
+            self.queries.append((query, top_k))
+            return [Match()]
+
+    index = FakeIndex()
+    brain = TARABrain(llm_provider=FakeProvider(), semantic_index=index)
+    monkeypatch.setenv("TARA_SEMANTIC_RETRIEVAL_ENABLED", "false")
+
+    without_docs = brain.build_reasoning_context("How does Ollama run?", recalled=())
+    assert "Retrieved document excerpts" not in without_docs
+    assert index.queries == []
+
+    with_docs = brain.build_reasoning_context(
+        "How does Ollama run?", recalled=(), include_documents=True, document_limit=2
+    )
+    assert "Ollama runs locally." in with_docs
+    assert "guide.md" in with_docs
+    assert "untrusted reference data" in with_docs
+    assert index.queries == [("How does Ollama run?", 2)]
+
+
+def test_semantic_retrieval_rejects_unbounded_document_limit():
+    brain = make_brain()
+    for limit in (0, 11, True):
+        try:
+            brain.build_reasoning_context("query", recalled=(), include_documents=True, document_limit=limit)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("invalid document_limit should fail")
+
+
 def test_brain_exposes_explicit_local_document_index_without_persisting():
     from src.local_semantic_search import LocalSemanticIndex
 
