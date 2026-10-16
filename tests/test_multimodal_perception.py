@@ -14,7 +14,7 @@ def test_text_screen_and_fusion_are_deterministic():
 
 def test_image_png_metadata():
     import struct
-    data = b"\\x89PNG\\r\\n\\x1a\\n" + b"0" * 8 + struct.pack(">II", 64, 32)
+    data = b"\x89PNG\r\n\x1a\n" + b"0" * 8 + struct.pack(">II", 64, 32)
     observation = MultimodalPerception().image(data)
     assert observation.modality == "image"
     assert dict(observation.metadata)["width"] == "64"
@@ -28,7 +28,7 @@ def test_audio_wav_metadata():
         wav.setnchannels(1)
         wav.setsampwidth(2)
         wav.setframerate(8000)
-        wav.writeframes(b"\\x00\\x00" * 800)
+        wav.writeframes(b"\x00\x00" * 800)
     observation = MultimodalPerception().audio(out.getvalue())
     assert observation.modality == "audio"
     assert dict(observation.metadata)["sample_rate"] == "8000"

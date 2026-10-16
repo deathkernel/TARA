@@ -172,6 +172,22 @@ This index preserves the project's phase history so progress remains trackable. 
 - [x] Update the self-improvement regression test to use a deterministic fake executor, preserving feedback-loop coverage without executing generated source.
 - [ ] Verify Python test collection and full Python/Rust CI on the exact follow-up commit.
 
+### CI regression batch — 2026-10-16
+
+- [x] Keep dependency-ready `READY` plan steps discoverable on subsequent cognitive-loop cycles.
+- [x] Record the selected tool name using the actual `ToolSelection.selected` string contract.
+- [x] Allow the bounded task scheduler's step budget to include configured retry attempts.
+- [x] Correct the category-regression test so the candidate runner is exercised only when the baseline has failures; preserve the no-training-on-clean-baseline rule.
+- [x] Fix the PNG and WAV test fixtures to use actual binary bytes, and state the non-persistent conversation-memory boundary in the identity prompt.
+- [ ] Re-run focused regressions, the full Python suite, static audit, and Rust tests on the combined commit.
+
+### Polyglot API regression follow-up — 2026-10-16
+
+- [x] Restore `src/polyglot/archive.py`, required by novelty analysis, knowledge extraction, and self-improvement imports.
+- [x] Export `CandidateArchive`, `BenchmarkResult`, `PolyglotBenchmark`, and `rank_benchmarks` from the package API.
+- [x] Restore archive regression tests and add a package-export smoke test.
+- [ ] Verify Python collection, the full Python suite, static repository audit, and Rust tests on the combined batch.
+
 ### Repository audit discovery — 2026-10-16
 
 - [x] Use Git's standard ignore rules when discovering Python files in a checkout.
