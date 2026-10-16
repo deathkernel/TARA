@@ -124,3 +124,50 @@ def test_stackoverflow_surfaces_provider_error_before_missing_items():
     tools = PublicAPITools(fake_client({"error_id": 400, "error_name": "bad_parameter"}))
     with pytest.raises(PublicAPIError, match="API error"):
         tools.search_stackoverflow("python")
+
+
+@pytest.mark.parametrize("city", [None, 1, object()])
+def test_weather_rejects_non_string_city(city):
+    tools = PublicAPITools(fake_client({}))
+    with pytest.raises(ValueError, match="city must be a string"):
+        tools.get_weather(city)
+
+
+@pytest.mark.parametrize("payload", [
+    {},
+    {"results": {"name": "Pune"}},
+    {"results": "Pune"},
+])
+def test_weather_rejects_malformed_geocoding_results(payload):
+    tools = PublicAPITools(fake_client(payload))
+    with pytest.raises(PublicAPIError, match="results list"):
+        tools.get_weather("Pune")
+
+
+def test_weather_rejects_non_object_geocoding_result():
+    tools = PublicAPITools(fake_client({"results": ["Pune"]}))
+    with pytest.raises(PublicAPIError, match="result must be an object"):
+        tools.get_weather("Pune")
+
+
+def test_weather_rejects_non_finite_coordinates():
+    tools = PublicAPITools(fake_client({
+        "results": [{"name": "Pune", "latitude": float("nan"), "longitude": 73.85}]
+    }))
+    with pytest.raises(PublicAPIError, match="coordinates are out of range"):
+        tools.get_weather("Pune")
+
+
+def test_weather_rejects_malformed_forecast_response():
+    responses = [
+        {"results": [{"name": "Pune", "country": "India", "latitude": 18.52, "longitude": 73.85}]},
+        {"hourly": {"temperature_2m": [30]}},
+    ]
+
+    def opener(request, timeout):
+        return FakeResponse(json.dumps(responses.pop(0)).encode())
+
+    tools = PublicAPITools(PublicAPIClient(opener=opener, min_interval=0))
+    with pytest.raises(PublicAPIError, match="missing current weather data"):
+        tools.get_weather("Pune")
+
