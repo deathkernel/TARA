@@ -219,13 +219,13 @@ def chat_loop(brain, *, input_fn=input, output_fn=print, api_tools=None) -> None
             output_fn("TARA: Bye, bhai!")
             return
         if command == "/help":
-            output_fn("Commands: /help, /exit, /emotion, /api github <query>, /api wiki <query>, /api weather <city>, /api hn <query>, /api stackoverflow <query>")
+            output_fn("Commands: /help, /exit, /emotion, /memory [query], /remember key=value, /forget key, /api github <query>, /api wiki <query>, /api weather <city>, /api hn <query>, /api stackoverflow <query>")
             continue
         if command == "/emotion":
             label = getattr(brain, "last_emotion", "neutral")
             output_fn(f"TARA: Last detected emotional cue: {label}. This is a lightweight text estimate, not a diagnosis.")
             continue
-        if command == "/memory" or command.startswith(("/memory ", "/learn ", "/remember ", "/forget ")):
+        if command in {"/memory", "/learn", "/remember", "/forget"} or command.startswith(("/memory ", "/learn ", "/remember ", "/forget ")):
             result = _run_memory_command(prompt, brain)
             if result is not None:
                 output_fn(f"TARA: {result}")
