@@ -2,3 +2,4 @@ numpy
 pyttsx3
 pytest
 elevenlabs
+ollama>=0.4.7,<1
