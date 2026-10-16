@@ -162,3 +162,22 @@ def test_tool_calling_rejects_invalid_round_configuration():
         assert "max_tool_rounds" in str(exc)
     else:
         raise AssertionError("Expected max_tool_rounds to be bounded")
+
+
+def test_tool_call_count_is_capped_before_any_calls_in_an_oversized_batch():
+    public_tools = FakePublicTools()
+    calls = [
+        tool_call("get_weather", {"city": f"City {index}"})
+        for index in range(OllamaToolCalling.MAX_TOOL_CALLS_PER_TURN + 1)
+    ]
+    client = FakeClient([
+        FakeMessage(tool_calls=calls),
+        FakeMessage(content="unused"),
+    ])
+    runner = OllamaToolCalling(model="llama3.2:3b", client=client, public_tools=public_tools)
+
+    result = runner.complete("Check several cities")
+
+    assert "per-turn tool-call limit" in result
+    assert public_tools.calls == []
+    assert len(client.calls) == 1
