@@ -56,7 +56,7 @@ export function ChatShell() {
       });
       if (!response.ok || !response.body) {
         const payload = await response.json().catch(() => null) as { error?: string } | null;
-        throw new Error(payload?.error || "Could not start the local stream");
+        throw new Error(payload?.error || "Could not start the inference stream");
       }
 
       const reader = response.body.getReader();
@@ -71,12 +71,13 @@ export function ChatShell() {
         for (const frame of frames) {
           const line = frame.split("\n").find((part) => part.startsWith("data: "));
           if (!line) continue;
-          const event = JSON.parse(line.slice(6)) as { type: string; token?: string };
+          const event = JSON.parse(line.slice(6)) as { type: string; token?: string; error?: string };
           if (event.type === "token" && event.token) {
             setMessages((current) => current.map((item) =>
               item.id === assistantId ? { ...item, content: item.content + event.token } : item,
             ));
           }
+          if (event.type === "error") throw new Error(event.error || "Inference service failed");
           if (event.type === "done") finished = true;
         }
         if (done) break;
@@ -120,7 +121,7 @@ export function ChatShell() {
       <section className="chat">
         <header className="topbar">
           <div className="top-left"><button className="icon mobile-menu" aria-label="Open navigation" onClick={() => setSidebarOpen(true)}>☰</button><b>TARA <span className="muted">/</span> <span className="muted">{activeConversation || "Workspace"}</span></b></div>
-          <span className="status"><i /> Local mock stream</span>
+          <span className="status"><i /> Provider-backed stream</span>
         </header>
 
         <div className="chat-scroll">
@@ -143,7 +144,7 @@ export function ChatShell() {
               {messages.map((message) => (
                 <article className={"message message-" + message.role} key={message.id}>
                   <span className="message-avatar">{message.role === "user" ? "Y" : "t"}</span>
-                  <div className="message-body"><b>{message.role === "user" ? "You" : "TARA · local mock"}</b><p>{message.content || (busy && message.role === "assistant" ? <span className="typing">Thinking<span>.</span><span>.</span><span>.</span></span> : "")}</p></div>
+                  <div className="message-body"><b>{message.role === "user" ? "You" : "TARA · model"}</b><p>{message.content || (busy && message.role === "assistant" ? <span className="typing">Thinking<span>.</span><span>.</span><span>.</span></span> : "")}</p></div>
                 </article>
               ))}
               {streamError && <p className="stream-error" role="status">{streamError}</p>}
@@ -154,9 +155,9 @@ export function ChatShell() {
         <div className="composer-wrap">
           <form className="composer" onSubmit={(event) => { event.preventDefault(); void sendMessage(draft); }}>
             <textarea aria-label="Message TARA" placeholder="Message TARA..." rows={2} value={draft} disabled={busy} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void sendMessage(draft); } }} />
-            <div className="composer-bottom"><button type="button" className="attach" aria-label="Add attachment" title="Attachments arrive in a later milestone">＋</button><span className="hint">{busy ? "Streaming a local mock response…" : "Shift + Enter for a new line"}</span><button className="send" type="submit" aria-label="Send message" disabled={!draft.trim() || busy}>{busy ? "…" : "↑"}</button></div>
+            <div className="composer-bottom"><button type="button" className="attach" aria-label="Add attachment" title="Attachments arrive in a later milestone">＋</button><span className="hint">{busy ? "Streaming model response…" : "Shift + Enter for a new line"}</span><button className="send" type="submit" aria-label="Send message" disabled={!draft.trim() || busy}>{busy ? "…" : "↑"}</button></div>
           </form>
-          <p className="disclaimer">Local mock only — not connected to an AI model. Responses are not saved.</p>
+          <p className="disclaimer">Uses the configured Groq model. Conversations are not saved by this chat interface.</p>
         </div>
       </section>
     </main>
