@@ -17,6 +17,8 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener
 JsonTransport = Callable[[str, dict[str, Any], float], dict[str, Any]]
 
 MAX_RESPONSE_BYTES = 8 * 1024 * 1024
+MAX_ERROR_DETAIL_BYTES = 1024
+MAX_ERROR_DETAIL_CHARS = 240
 MAX_COMPLETION_TOKENS = 4096
 MAX_CONTEXT_TOKENS = 32768
 MAX_CPU_THREADS = 256
@@ -49,6 +51,16 @@ def _positive_int_env(name: str, default: int) -> int:
     return value
 
 
+def _safe_error_detail(value: object) -> str:
+    """Bound and sanitize untrusted provider errors before terminal display."""
+    text = str(value or "")
+    text = "".join(char if char.isprintable() else " " for char in text)
+    text = " ".join(text.split())
+    if len(text) > MAX_ERROR_DETAIL_CHARS:
+        text = text[: MAX_ERROR_DETAIL_CHARS - 1] + "…"
+    return text
+
+
 def _http_json(url: str, payload: dict[str, Any], timeout: float) -> dict[str, Any]:
     request = Request(
         url,
@@ -64,7 +76,9 @@ def _http_json(url: str, payload: dict[str, Any], timeout: float) -> dict[str, A
             raise RuntimeError("Ollama response exceeded the 8 MiB safety limit")
         data = json.loads(body.decode("utf-8"))
     except HTTPError as exc:
-        detail = exc.read(MAX_RESPONSE_BYTES).decode("utf-8", errors="replace")
+        detail = _safe_error_detail(
+            exc.read(MAX_ERROR_DETAIL_BYTES).decode("utf-8", errors="replace")
+        )
         raise RuntimeError(f"Ollama HTTP {exc.code}: {detail}") from exc
     except (URLError, TimeoutError, OSError) as exc:
         raise RuntimeError(f"Could not reach the local Ollama server at {url}: {exc}") from exc
@@ -223,7 +237,7 @@ class OllamaProvider:
         if not isinstance(result, dict):
             raise RuntimeError("Ollama returned an invalid JSON response")
         if result.get("error"):
-            raise RuntimeError(f"Ollama error: {result['error']}")
+            raise RuntimeError(f"Ollama error: {_safe_error_detail(result['error'])}")
         message = result.get("message")
         if not isinstance(message, dict) or not isinstance(message.get("content"), str):
             raise RuntimeError("Ollama response did not contain message.content")
