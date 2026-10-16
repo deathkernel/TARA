@@ -74,7 +74,7 @@ def test_memory_commands_persist_retrieve_and_forget(tmp_path):
     brain.memory = LongTermMemory(memory_path)
     inputs = iter([
         "/remember preferred_language=Hinglish",
-        "/memory language",
+        "/memory preferred_language",
         "/learn editor=DaVinci Resolve",
         "/memory",
         "/forget editor",
