@@ -49,7 +49,10 @@ def test_client_reserves_per_host_request_slots(monkeypatch):
 
     monkeypatch.setattr(module.time, "monotonic", lambda: clock["now"])
     monkeypatch.setattr(module.time, "sleep", fake_sleep)
-    client = fake_client({"ok": True}, min_interval=0.25)
+    client = PublicAPIClient(
+        opener=lambda request, timeout: FakeResponse(json.dumps({"ok": True}).encode()),
+        min_interval=0.25,
+    )
 
     for _ in range(3):
         client.get_json("https://api.github.com/example", provider="GitHub")
