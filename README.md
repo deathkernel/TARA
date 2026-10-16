@@ -56,7 +56,7 @@ The provider generates language; it does not replace TARA's orchestration or aut
 
 The exact commands depend on the branch you run. The baseline chat interface supports `/help` and `/exit`; other commands are branch-dependent.
 
-The open public-API chat work proposes the following explicit, read-only commands:
+This branch's local chat CLI exposes the following explicit, read-only commands:
 
 ```text
 /api github <query>
@@ -66,7 +66,7 @@ The open public-API chat work proposes the following explicit, read-only command
 /api stackoverflow <query>
 ```
 
-The library-level API client is separate from command routing. These commands remain unavailable on `main` until the command-routing change is reviewed and merged; the client rejects redirects and marks remote results as untrusted.
+The library-level API client is separate from command routing. This branch wires the commands into the interactive CLI; they remain unavailable on `main` until this branch is reviewed and merged. API results are summarized deterministically, marked untrusted, bounded for display, and are not sent to the language model or saved as conversation memory.
 
 ## Engineering principles
 
@@ -185,8 +185,8 @@ Keep this section updated as PRs change; do not mark proposed features as shippe
 
 - [ ] Review the proposed dataset/training cleanup only after verifying it preserves `checkpoints/`, `outputs/`, `data/conversation_v1.jsonl`, `data/conversation_v1.jsonl.manifest.json`, and `test_voice.py`; do not retire any integration without explicit approval.
 - [ ] Review the integration-preserving read-only public API toolkit branch and its security tests; redirect protection is covered by regression tests, but the work remains unshipped until exact-commit CI passes.
-- [ ] Review the explicit chat commands for GitHub, Wikipedia, weather, Hacker News, and Stack Exchange.
-- [ ] Confirm the main-branch README and command list match the actual runtime after the PR stack is resolved.
+- [x] Add explicit read-only chat commands for GitHub, Wikipedia, weather, Hacker News, and Stack Exchange on the isolated CLI branch; validate routing with mocked API clients. Full CI is still required before treating the branch as ready.
+- [ ] Confirm the main-branch README and command list match the actual runtime after the PR stack is resolved; `python -m src` becomes executable only with the new CLI entry point in this branch.
 - [ ] Run the canonical CI/test suite and record its result before calling the work complete.
 
 ### Public API input-validation follow-up — 2026-10-16
