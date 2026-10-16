@@ -169,4 +169,47 @@ class OllamaProvider:
         return message["content"]
 
 
+    def complete_with_tools(
+        self,
+        prompt: str,
+        *,
+        system: str | None = None,
+        max_completion_tokens: int | None = None,
+        temperature: float = 0.6,
+        public_tools=None,
+        client=None,
+        max_tool_rounds: int = 3,
+    ) -> str:
+        """Generate a response with bounded, allowlisted read-only API tools.
+
+        This opt-in path uses the official Ollama Python SDK. The normal
+        complete() path remains dependency-light and keeps its injectable HTTP
+        transport for existing deployments and tests.
+        """
+        from .ollama_tool_calling import OllamaToolCalling
+
+        if max_completion_tokens is None:
+            max_completion_tokens = self.default_max_tokens
+        runner = OllamaToolCalling(
+            model=self.model,
+            host=self.base_url,
+            timeout=self.timeout,
+            public_tools=public_tools,
+            client=client,
+            max_tool_rounds=max_tool_rounds,
+            options={
+                "num_ctx": self.num_ctx,
+                "num_thread": self.num_thread,
+                "num_batch": self.num_batch,
+            },
+            keep_alive=self.keep_alive,
+        )
+        return runner.complete(
+            prompt,
+            system=system,
+            max_completion_tokens=max_completion_tokens,
+            temperature=temperature,
+        )
+
+
 __all__ = ["OllamaProvider"]
