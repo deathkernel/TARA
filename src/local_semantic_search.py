@@ -245,6 +245,47 @@ class LocalSemanticIndex:
         self._chunk_count = self._chunk_count - len(old) + len(prepared)
         return len(prepared)
 
+    def add_documents(self, documents: Iterable[tuple[str, str] | tuple[str, str, str]]) -> dict[str, int]:
+        """Index multiple (id, text[, source]) documents as one atomic batch.
+
+        If any document is invalid or embedding fails, this index remains unchanged.
+        Existing IDs are replaced only when the whole batch succeeds.
+        """
+        prepared_inputs: list[tuple[str, str, str]] = []
+        seen_ids: set[str] = set()
+        for item in documents:
+            if not isinstance(item, (tuple, list)) or len(item) not in (2, 3):
+                raise ValueError("each batch item must be (document_id, text[, source])")
+            document_id, text = item[0], item[1]
+            source = item[2] if len(item) == 3 else ""
+            if not isinstance(document_id, str) or not document_id.strip():
+                raise ValueError("document_id must not be empty")
+            normalized_id = document_id.strip()
+            if normalized_id in seen_ids:
+                raise ValueError(f"duplicate document_id in batch: {normalized_id}")
+            seen_ids.add(normalized_id)
+            prepared_inputs.append((normalized_id, text, source))
+
+        if not prepared_inputs:
+            return {}
+        # Stage changes separately: an error must not leave a partially updated index.
+        staged = LocalSemanticIndex(
+            self.embedder,
+            chunk_chars=self.chunk_chars,
+            overlap_chars=self.overlap_chars,
+            max_documents=self.max_documents,
+            max_chunks=self.max_chunks,
+            max_document_chars=self.max_document_chars,
+        )
+        staged._documents = self._documents.copy()
+        staged._chunk_count = self._chunk_count
+        counts: dict[str, int] = {}
+        for document_id, text, source in prepared_inputs:
+            counts[document_id] = staged.add_document(document_id, text, source=source)
+        self._documents = staged._documents
+        self._chunk_count = staged._chunk_count
+        return counts
+
     def search(self, query: str, *, top_k: int = 5, min_score: float = -1.0) -> list[SemanticSearchResult]:
         """Return best-matching chunks by cosine similarity, with stable tie ordering."""
         if not isinstance(query, str) or not query.strip():

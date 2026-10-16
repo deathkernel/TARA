@@ -153,3 +153,98 @@ def test_index_rejects_dimension_mismatch_during_search():
     index.add_document("one", "Document content.")
     with pytest.raises(RuntimeError, match="dimensions"):
         index.search("query")
+
+
+def test_batch_indexing_commits_all_documents_and_returns_chunk_counts():
+    index = LocalSemanticIndex(FakeEmbedder())
+    counts = index.add_documents([
+        ("pets", "Cats are pets.", "pets.txt"),
+        ("space", "Planets are in space."),
+    ])
+    assert counts == {"pets": 1, "space": 1}
+    assert index.document_count == 2
+    assert index.chunk_count == 2
+    assert index.search("kitten")[0].document_id == "pets"
+
+
+def test_batch_indexing_is_atomic_when_a_later_document_fails():
+    embedder = FakeEmbedder()
+    index = LocalSemanticIndex(embedder)
+    index.add_document("existing", "Cats are pets.", source="old.txt")
+    before_chunks = index.chunk_count
+    original_embed = embedder.embed
+    calls = {"count": 0}
+
+    def fail_on_second_document(texts):
+        calls["count"] += 1
+        if calls["count"] == 2:
+            raise RuntimeError("second embedding failed")
+        return original_embed(texts)
+
+    embedder.embed = fail_on_second_document
+    with pytest.raises(RuntimeError, match="second embedding"):
+        index.add_documents([
+            ("new", "Planets are in space."),
+            ("existing", "Replacement document."),
+        ])
+
+    assert index.document_count == 1
+    assert index.chunk_count == before_chunks
+    embedder.embed = original_embed
+    assert index.search("cats")[0].source == "old.txt"
+
+
+def test_batch_indexing_rejects_duplicate_ids_and_bad_shapes_without_mutation():
+    index = LocalSemanticIndex(FakeEmbedder())
+    with pytest.raises(ValueError, match="duplicate document_id"):
+        index.add_documents([("same", "Cats."), ("same", "Planets.")])
+    with pytest.raises(ValueError, match="batch item"):
+        index.add_documents([("valid", "Cats."), ("invalid",)])
+    assert index.document_count == 0
+
+
+def test_batch_indexing_replaces_existing_id_only_after_success():
+    embedder = FakeEmbedder()
+    index = LocalSemanticIndex(embedder)
+    index.add_document("guide", "Cats are pets.", source="old.md")
+    embedder.fail = True
+    with pytest.raises(RuntimeError):
+        index.add_documents([("guide", "Planets are in space.", "new.md"), ("other", "Other text.")])
+    embedder.fail = False
+    assert index.document_count == 1
+    assert index.search("cats")[0].source == "old.md"
+
+
+def test_retrieval_benchmark_reports_recall_mrr_ndcg_and_stable_fingerprint():
+    from src.semantic_search_benchmark import RetrievalCase, evaluate_retrieval
+
+    index = LocalSemanticIndex(FakeEmbedder())
+    index.add_documents([
+        ("pets", "Cats are small pets. A kitten needs care."),
+        ("space", "Planets and space exploration are fascinating."),
+    ])
+    cases = [
+        RetrievalCase("kitten and cat", ("pets",)),
+        RetrievalCase("planet and space", ("space",)),
+    ]
+    first = evaluate_retrieval(index, cases, k=2)
+    second = evaluate_retrieval(index, cases, k=2)
+
+    assert first.case_count == 2
+    assert first.recall_at_k == 1.0
+    assert first.mean_reciprocal_rank == 1.0
+    assert first.mean_ndcg_at_k == 1.0
+    assert len(first.fingerprint) == 64
+    assert first.fingerprint == second.fingerprint
+
+
+def test_retrieval_benchmark_rejects_invalid_cases_and_k():
+    from src.semantic_search_benchmark import RetrievalCase, evaluate_retrieval
+
+    index = LocalSemanticIndex(FakeEmbedder())
+    with pytest.raises(ValueError, match="at least one"):
+        evaluate_retrieval(index, [])
+    with pytest.raises(ValueError, match="k"):
+        evaluate_retrieval(index, [RetrievalCase("query", ("doc",))], k=0)
+    with pytest.raises(ValueError, match="relevant"):
+        evaluate_retrieval(index, [RetrievalCase("query", ())])

@@ -115,6 +115,10 @@ class TARABrain:
         """Index local text for explicit semantic retrieval; no data is persisted."""
         return self.semantic_index.add_document(document_id, text, source=source)
 
+    def index_documents(self, documents) -> dict[str, int]:
+        """Atomically index multiple (id, text[, source]) documents in memory."""
+        return self.semantic_index.add_documents(documents)
+
     def search_documents(self, query: str, *, top_k=5, min_score=-1.0) -> list[SemanticSearchResult]:
         """Search documents explicitly indexed in this process."""
         return self.semantic_index.search(query, top_k=top_k, min_score=min_score)
