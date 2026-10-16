@@ -86,3 +86,53 @@ def test_brain_passes_emotional_guidance_to_language_provider():
     assert brain.last_emotion == "sadness"
     assert "Response style:" in provider.system
     assert "never claim TARA literally feels emotions" in provider.system
+
+
+def test_brain_uses_opt_in_tool_completion_when_provider_supports_it(monkeypatch):
+    class ToolProvider(FakeProvider):
+        def __init__(self):
+            super().__init__()
+            self.tool_calls = []
+
+        def complete_with_tools(self, prompt, *, system=None, max_completion_tokens=32,
+                                temperature=0.6, public_tools=None):
+            self.tool_calls.append({
+                "prompt": prompt,
+                "system": system,
+                "max_completion_tokens": max_completion_tokens,
+                "temperature": temperature,
+                "public_tools": public_tools,
+            })
+            return "I checked the approved public source."
+
+    provider = ToolProvider()
+    monkeypatch.setenv("TARA_TOOL_CALLING_ENABLED", "true")
+    brain = TARABrain(llm_provider=provider)
+
+    response = brain.respond("What's the weather in Pune?", max_new_tokens=24)
+
+    assert response.text == "I checked the approved public source."
+    assert len(provider.tool_calls) == 1
+    assert provider.tool_calls[0]["public_tools"] is brain.public_tools
+    assert provider.prompts == []
+
+
+def test_brain_keeps_plain_completion_when_tool_calling_is_disabled(monkeypatch):
+    class ToolProvider(FakeProvider):
+        def __init__(self):
+            super().__init__()
+            self.tool_calls = 0
+
+        def complete_with_tools(self, *args, **kwargs):
+            self.tool_calls += 1
+            return "should not be called"
+
+    provider = ToolProvider()
+    monkeypatch.setenv("TARA_TOOL_CALLING_ENABLED", "false")
+    brain = TARABrain(llm_provider=provider)
+
+    response = brain.respond("Hello TARA")
+
+    assert response.text.startswith("reply to ")
+    assert provider.tool_calls == 0
+    assert len(provider.prompts) == 1
