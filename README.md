@@ -175,6 +175,8 @@ This index preserves the project's phase history so progress remains trackable. 
 - [x] Budget scheduler execution steps for each selected task's bounded retries.
 - [x] Separate Stack Exchange provider-error and missing-items regression fixtures.
 - [x] Correct the PNG test fixture to use a valid PNG signature.
+- [x] Validate Open-Meteo city input, geocoding result shapes, finite coordinate bounds, and forecast `current` payloads.
+- [x] Add regression tests for malformed Open-Meteo responses and document the fail-closed validation boundary.
 - [ ] Verify focused regressions and the full Python/Rust CI on the exact batch commit before treating the batch as validated.
 
 Keep this section updated as PRs change; do not mark proposed features as shipped until they are merged and validated.
