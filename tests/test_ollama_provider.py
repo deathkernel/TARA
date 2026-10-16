@@ -1,6 +1,6 @@
 import pytest
 
-from src.ollama_provider import MAX_COMPLETION_TOKENS, OllamaProvider, _http_json
+from src.ollama_provider import MAX_BATCH_SIZE, MAX_COMPLETION_TOKENS, MAX_CONTEXT_TOKENS, MAX_CPU_THREADS, OllamaProvider, _http_json
 
 
 def test_ollama_provider_sends_chat_request_and_returns_text():
@@ -116,6 +116,9 @@ def test_ollama_provider_rejects_invalid_timeout(timeout):
     {"num_thread": -1},
     {"num_batch": False},
     {"num_batch": 0},
+    {"num_ctx": MAX_CONTEXT_TOKENS + 1},
+    {"num_thread": MAX_CPU_THREADS + 1},
+    {"num_batch": MAX_BATCH_SIZE + 1},
     {"keep_alive": 123},
     {"keep_alive": ""},
 ])
