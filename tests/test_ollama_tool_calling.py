@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from types import SimpleNamespace
 
+import pytest
+
 from src.public_api_tools import APIObservation
 from src.ollama_tool_calling import OllamaToolCalling
 
@@ -181,3 +183,57 @@ def test_tool_call_count_is_capped_before_any_calls_in_an_oversized_batch():
     assert "per-turn tool-call limit" in result
     assert public_tools.calls == []
     assert len(client.calls) == 1
+
+
+
+def test_dict_shaped_ollama_messages_can_execute_only_allowlisted_tools():
+    public_tools = FakePublicTools()
+    client = FakeClient([
+        {"content": "", "tool_calls": [tool_call("get_weather", {"city": "Pune"})]},
+        {"content": "Weather checked.", "tool_calls": []},
+    ])
+    runner = OllamaToolCalling(model="llama3.2:3b", client=client, public_tools=public_tools)
+
+    assert runner.complete("Weather in Pune?") == "Weather checked."
+    assert public_tools.calls == [("weather", "Pune")]
+
+
+@pytest.mark.parametrize("tool_calls", ["not-a-list", {"function": {"name": "get_weather"}}])
+def test_malformed_tool_call_container_fails_closed(tool_calls):
+    client = FakeClient([{"content": "ignored", "tool_calls": tool_calls}])
+    runner = OllamaToolCalling(model="llama3.2:3b", client=client, public_tools=FakePublicTools())
+
+    with pytest.raises(RuntimeError, match="tool_calls must be a list"):
+        runner.complete("Try a tool")
+
+
+def test_non_string_tool_name_is_never_coerced_into_a_registry_name():
+    public_tools = FakePublicTools()
+    runner = OllamaToolCalling(model="llama3.2:3b", client=FakeClient([]), public_tools=public_tools)
+
+    result = runner._dispatch(*runner._tool_call_parts({
+        "function": {"name": ["get_weather"], "arguments": {"city": "Pune"}}
+    }))
+
+    assert "not allowlisted" in result
+    assert public_tools.calls == []
+
+
+@pytest.mark.parametrize("timeout", [float("nan"), float("inf"), True, 0])
+def test_constructor_rejects_non_finite_or_non_numeric_timeout(timeout):
+    with pytest.raises(ValueError, match="timeout"):
+        OllamaToolCalling(model="llama3.2:3b", client=FakeClient([]), timeout=timeout)
+
+
+@pytest.mark.parametrize("rounds", [True, 1.5, -1, 4])
+def test_constructor_rejects_non_integer_or_out_of_range_rounds(rounds):
+    with pytest.raises(ValueError, match="max_tool_rounds"):
+        OllamaToolCalling(model="llama3.2:3b", client=FakeClient([]), max_tool_rounds=rounds)
+
+
+@pytest.mark.parametrize("temperature", [float("nan"), float("inf"), True, -0.1, 2.1])
+def test_completion_rejects_non_finite_or_invalid_temperature(temperature):
+    runner = OllamaToolCalling(model="llama3.2:3b", client=FakeClient([]), public_tools=FakePublicTools())
+
+    with pytest.raises(ValueError, match="temperature"):
+        runner.complete("hello", temperature=temperature)
