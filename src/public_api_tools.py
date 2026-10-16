@@ -63,14 +63,21 @@ class PublicAPIClient:
         self._last_request = {}
 
     def get_json(self, url, *, provider):
-        if not isinstance(url, str) or not url or any(ord(char) < 32 for char in url):
+        if not isinstance(url, str) or not url or any(not char.isprintable() for char in url):
             raise PublicAPIError("URL is malformed")
         try:
             parsed = urlparse(url)
             port = parsed.port
         except (TypeError, ValueError) as exc:
             raise PublicAPIError("URL is malformed") from exc
-        if parsed.scheme != "https" or parsed.hostname not in self.ALLOWED_HOSTS or parsed.username or parsed.password or port not in (None, 443):
+        if (
+            parsed.scheme != "https"
+            or parsed.hostname not in self.ALLOWED_HOSTS
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.fragment
+            or port not in (None, 443)
+        ):
             raise PublicAPIError("URL is not an allowlisted HTTPS public API endpoint")
         now = time.monotonic()
         previous = self._last_request.get(parsed.hostname)
