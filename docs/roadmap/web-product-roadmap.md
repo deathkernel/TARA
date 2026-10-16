@@ -6,9 +6,10 @@ This product roadmap supplements the existing engineering phase ledger in the ro
 - [x] 2. Build the responsive chat layout and sidebar (UI-only preview; no persistence or model calls yet).
 - [x] 3. Create the initial PostgreSQL migration and ownership-policy integration test.
 - [x] 4. Implement ownership-scoped conversation CRUD and user-message endpoints (production remains disabled until trusted authentication is wired).
-- [x] 5. Build the SSE chat interface with a mocked token stream (clearly labeled as local-only; no model calls or persistence).
-- [x] 6. Create a health-only FastAPI inference service shell (readiness stays 503 until provider integration).
-- [ ] 7. Connect the web backend to the inference adapter and run an end-to-end test.
+- [x] 5. Build the SSE chat interface; the first version used a mock token stream before provider wiring.
+- [x] 6. Create a FastAPI inference service with liveness, configuration readiness, and an authenticated provider-streaming endpoint.
+- [x] 7. Connect the Next.js SSE route to the authenticated FastAPI inference adapter and stream configured Groq responses.
+- [ ] 8. Run web/Python integration checks on the exact commit and validate the configured provider end-to-end in a credentialed environment.
 
 ## Architecture boundary
 
