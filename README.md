@@ -189,6 +189,14 @@ Keep this section updated as PRs change; do not mark proposed features as shippe
 - [ ] Confirm the main-branch README and command list match the actual runtime after the PR stack is resolved.
 - [ ] Run the canonical CI/test suite and record its result before calling the work complete.
 
+### Public API input-validation follow-up — 2026-10-16
+
+- [x] Reject non-finite/boolean request timeouts and pacing intervals, and non-integer response byte limits.
+- [x] Normalize malformed URL parsing and request-construction failures into the public API's fail-closed error type.
+- [x] Validate public search query types and require exact integer result limits before making a request.
+- [x] Add deterministic regression coverage for invalid configuration, malformed URLs, query types, and limit types.
+- [ ] Verify the focused API tests and full Python/Rust CI on the exact batch commit.
+
 ### Full-suite regression follow-up — 2026-10-16
 
 - [x] Preserve ready planner steps across cognitive-loop iterations and keep tool selection consistent with the string-based `ToolSelection.selected` contract.
