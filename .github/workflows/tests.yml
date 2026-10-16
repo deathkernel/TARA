@@ -1,5 +1,10 @@
 name: TARA CI
 
+# Keep only the newest queued/running validation per branch.
+concurrency:
+  group: tara-ci-${{ github.event.pull_request.head.ref || github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
   pull_request:
