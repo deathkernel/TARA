@@ -111,7 +111,7 @@ def test_stackoverflow_search_validates_items_and_query_limits():
     with pytest.raises(ValueError):
         tools.search_stackoverflow("x" * 201)
     with pytest.raises(PublicAPIError, match="missing items"):
-        PublicAPITools(fake_client({"error_id": 400})).search_stackoverflow("python")
+        PublicAPITools(fake_client({})).search_stackoverflow("python")
 
 
 def test_redirect_handler_rejects_redirects():
