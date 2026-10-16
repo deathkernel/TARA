@@ -168,15 +168,14 @@ This index preserves the project's phase history so progress remains trackable. 
 
 ## Active work / review queue
 
-### Bulk CI regression batch — 2026-10-16
-
 ### Public API hardening batch — 2026-10-16
 
-- [x] Reject ambiguous empty URL credentials, URL fragments, and non-printable URL characters before issuing requests.
+- [x] Reject ambiguous empty URL credentials, URL fragments (including an empty `#` delimiter), and non-printable URL characters before issuing requests.
 - [x] Make per-host request pacing reserve start slots atomically across concurrent callers.
 - [x] Add regression coverage for unsafe URL forms and deterministic host pacing.
 - [ ] Run focused public API tests and the full Python/Rust CI on the exact latest branch head before treating the batch as validated.
 
+### Bulk CI regression batch — 2026-10-16
 
 - [x] Fix unified cognitive-loop tool selection to treat `ToolSelection.selected` as the selected tool-name string.
 - [x] Convert lightweight candidate objects into explicit JSON-safe fields before storing learning records.
