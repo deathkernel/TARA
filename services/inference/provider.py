@@ -60,7 +60,9 @@ class GroqStreamingProvider:
             raise ProviderUnavailable("Inference budget configuration is outside allowed bounds")
         return key, model, completion_cap, request_cap, token_cap
 
-    async def _reserve_request(self, request_cap: int, token_cap: int) -> tuple[int, int]:
+    async def _reserve_request(
+        self, request_cap: int, token_cap: int, prompt_estimate: int, completion_cap: int
+    ) -> tuple[int, int]:
         async with self._lock:
             today = date.today()
             if self._usage.day != today:
@@ -68,19 +70,26 @@ class GroqStreamingProvider:
             if self._usage.requests >= request_cap:
                 raise ProviderUnavailable("Daily inference request budget exhausted")
             remaining_tokens = token_cap - self._usage.tokens
-            if remaining_tokens <= 0:
+            if remaining_tokens <= prompt_estimate:
                 raise ProviderUnavailable("Daily inference token budget exhausted")
+            max_tokens = min(completion_cap, remaining_tokens - prompt_estimate)
+            reservation = prompt_estimate + max_tokens
             self._usage.requests += 1
-            return remaining_tokens, self._usage.requests
+            # Reserve an estimated prompt budget plus the maximum completion before
+            # opening the upstream request, reducing concurrent budget overshoot.
+            self._usage.tokens += reservation
+            return max_tokens, reservation
 
-    async def _record_tokens(self, tokens: int) -> None:
+    async def _record_tokens(self, reservation: int, actual_tokens: int) -> None:
         async with self._lock:
-            self._usage.tokens += max(0, tokens)
+            self._usage.tokens = max(0, self._usage.tokens + actual_tokens - reservation)
 
     async def stream(self, message: str) -> AsyncIterator[dict[str, str]]:
         key, model, completion_cap, request_cap, token_cap = self._settings()
-        remaining_tokens, _ = await self._reserve_request(request_cap, token_cap)
-        max_tokens = min(completion_cap, remaining_tokens)
+        prompt_estimate = max(1, (len(message) + 2) // 3)
+        max_tokens, reservation = await self._reserve_request(
+            request_cap, token_cap, prompt_estimate, completion_cap
+        )
         payload = {
             "model": model,
             "messages": [{"role": "user", "content": message}],
@@ -90,6 +99,8 @@ class GroqStreamingProvider:
             "stream_options": {"include_usage": True},
         }
         used_tokens = 0
+        saw_usage = False
+        emitted_characters = 0
         timeout = httpx.Timeout(45.0, connect=8.0)
         try:
             async with httpx.AsyncClient(timeout=timeout) as client:
@@ -119,6 +130,7 @@ class GroqStreamingProvider:
                             total = usage.get("total_tokens")
                             if isinstance(total, int) and total >= 0:
                                 used_tokens = total
+                                saw_usage = True
                         choices = chunk.get("choices")
                         if not isinstance(choices, list) or not choices:
                             continue
@@ -126,11 +138,14 @@ class GroqStreamingProvider:
                         delta = first.get("delta") if isinstance(first, dict) else None
                         text = delta.get("content") if isinstance(delta, dict) else None
                         if isinstance(text, str) and text:
+                            emitted_characters += len(text)
                             yield {"type": "token", "token": text}
         except (httpx.TimeoutException, httpx.TransportError) as exc:
             raise ProviderUnavailable("Inference provider could not be reached") from exc
         finally:
-            await self._record_tokens(used_tokens)
+            if not saw_usage and emitted_characters:
+                used_tokens = prompt_estimate + max(1, (emitted_characters + 3) // 4)
+            await self._record_tokens(reservation, used_tokens)
 
 
 provider = GroqStreamingProvider()
