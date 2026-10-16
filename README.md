@@ -175,6 +175,16 @@ Keep this section updated as PRs change; do not mark proposed features as shippe
 - [ ] Confirm the main-branch README and command list match the actual runtime after the PR stack is resolved.
 - [ ] Run the canonical CI/test suite and record its result before calling the work complete.
 
+## Web inference integration — 2026-10-16
+
+- [x] Replace the mock SSE endpoint with a server-side proxy to the FastAPI inference service.
+- [x] Add an authenticated internal streaming endpoint backed by the configured Groq provider.
+- [x] Keep provider credentials server-only; validate message bounds and internal bearer authentication.
+- [x] Add configurable completion-token and process-local daily request/token budgets.
+- [x] Add mocked provider-stream tests and inference auth/readiness tests.
+- [ ] Run Python inference tests, web lint/typecheck/build, and a credentialed end-to-end stream test on the exact branch head.
+- [ ] Move budget accounting to a shared store before treating limits as hard caps across multiple workers/replicas.
+
 ## Optional voice output
 
 TARA may be configured for ElevenLabs voice output where the corresponding integration is present. Keep credentials in local environment variables and never commit API keys or secrets. Check the active branch's implementation and current SDK documentation before relying on specific parameters.
