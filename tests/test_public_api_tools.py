@@ -158,6 +158,22 @@ def test_weather_rejects_non_finite_coordinates():
         tools.get_weather("Pune")
 
 
+@pytest.mark.parametrize("field,value", [
+    ("latitude", True),
+    ("longitude", False),
+    ("latitude", "18.52"),
+    ("longitude", "73.85"),
+    ("latitude", 10**1000),
+    ("longitude", -(10**1000)),
+])
+def test_weather_rejects_non_numeric_or_unrepresentable_coordinates(field, value):
+    place = {"name": "Pune", "latitude": 18.52, "longitude": 73.85}
+    place[field] = value
+    tools = PublicAPITools(fake_client({"results": [place]}))
+    with pytest.raises(PublicAPIError, match="valid coordinates"):
+        tools.get_weather("Pune")
+
+
 def test_weather_rejects_malformed_forecast_response():
     responses = [
         {"results": [{"name": "Pune", "country": "India", "latitude": 18.52, "longitude": 73.85}]},
