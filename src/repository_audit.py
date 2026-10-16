@@ -7,6 +7,7 @@ calls. It never executes repository code.
 from __future__ import annotations
 
 import ast
+import subprocess
 from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
@@ -90,10 +91,7 @@ class RepositoryAuditor:
 
     def audit(self) -> AuditReport:
         issues: list[AuditIssue] = []
-        python_files = sorted(
-            path for path in self.root.rglob("*.py")
-            if not self._ignored(path)
-        )
+        python_files = self._discover_python_files()
         workflow_files = sorted(
             path for path in (self.root / ".github" / "workflows").glob("*")
             if path.is_file()
@@ -150,6 +148,47 @@ class RepositoryAuditor:
             workflow_files=len(workflow_files),
             issues=tuple(sorted(issues, key=lambda item: (item.code, item.path, item.detail))),
             fingerprint=fingerprint,
+        )
+
+    def _discover_python_files(self) -> list[Path]:
+        """Discover Python sources while honoring Git's standard ignore rules.
+
+        In a Git checkout, include tracked sources and non-ignored untracked
+        sources. This keeps locally generated/ignored files out of the audit
+        without hiding tracked files merely because an ignore rule was added.
+        For temporary directories and source archives without Git metadata,
+        fall back to filesystem discovery and the built-in directory exclusions.
+        """
+        try:
+            result = subprocess.run(
+                [
+                    "git", "-C", str(self.root), "ls-files",
+                    "--cached", "--others", "--exclude-standard", "-z", "--", "*.py",
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            result = None
+
+        if result is not None and result.returncode == 0:
+            candidates = (
+                self.root / relative
+                for relative in result.stdout.split("\0")
+                if relative
+            )
+            return sorted(
+                path for path in candidates
+                if path.is_file() and path.suffix == ".py" and not self._ignored(path)
+            )
+
+        # Git may be unavailable or the root may be a non-repository directory.
+        # Keep the audit usable in extracted source archives and isolated tests.
+        return sorted(
+            path for path in self.root.rglob("*.py")
+            if not self._ignored(path)
         )
 
     def _audit_python(self, path: Path, issues: list[AuditIssue]) -> None:

@@ -172,6 +172,14 @@ This index preserves the project's phase history so progress remains trackable. 
 - [x] Update the self-improvement regression test to use a deterministic fake executor, preserving feedback-loop coverage without executing generated source.
 - [ ] Verify Python test collection and full Python/Rust CI on the exact follow-up commit.
 
+### Repository audit discovery — 2026-10-16
+
+- [x] Use Git's standard ignore rules when discovering Python files in a checkout.
+- [x] Include tracked Python files even when an ignore rule matches them, and include non-ignored untracked files.
+- [x] Retain filesystem fallback for non-Git source archives and temporary test directories.
+- [x] Add regression coverage for ignored directories, ignored untracked files, and tracked files matching ignore rules.
+- [ ] Verify this batch on the exact head once GitHub Actions jobs can execute normally.
+
 Keep this section updated as PRs change; do not mark proposed features as shipped until they are merged and validated.
 
 Keep this section updated as PRs change; do not mark proposed features as shipped until they are merged and validated.
