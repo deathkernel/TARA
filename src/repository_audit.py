@@ -176,7 +176,7 @@ class RepositoryAuditor:
         if result is not None and result.returncode == 0:
             candidates = (
                 self.root / relative
-                for relative in result.stdout.split("\\0")
+                for relative in result.stdout.split("\0")
                 if relative
             )
             return sorted(
