@@ -94,3 +94,56 @@ def test_ollama_provider_loads_environment(monkeypatch):
     assert provider.model == "llama3.2:1b"
     assert provider.base_url == "http://127.0.0.1:11434"
     assert provider.timeout == 30.0
+
+
+import pytest
+
+
+@pytest.mark.parametrize("timeout", [True, float("nan"), float("inf"), 0, -1, 3601, 10**1000, "30"])
+def test_ollama_provider_rejects_invalid_timeout(timeout):
+    with pytest.raises(ValueError, match="timeout must be finite"):
+        OllamaProvider(timeout=timeout)
+
+
+@pytest.mark.parametrize("kwargs", [
+    {"model": None},
+    {"model": 123},
+    {"base_url": None},
+    {"base_url": 123},
+    {"power_mode": None},
+    {"num_ctx": True},
+    {"num_ctx": 1.5},
+    {"num_thread": True},
+    {"num_thread": -1},
+    {"num_batch": False},
+    {"num_batch": 0},
+    {"keep_alive": 123},
+    {"keep_alive": ""},
+])
+def test_ollama_provider_rejects_invalid_configuration(kwargs):
+    with pytest.raises(ValueError):
+        OllamaProvider(**kwargs)
+
+
+@pytest.mark.parametrize("kwargs", [
+    {"max_completion_tokens": True},
+    {"max_completion_tokens": 1.5},
+    {"max_completion_tokens": "20"},
+    {"max_completion_tokens": 0},
+    {"temperature": True},
+    {"temperature": float("nan")},
+    {"temperature": float("inf")},
+    {"temperature": -0.1},
+    {"temperature": 2.1},
+    {"system": 123},
+])
+def test_ollama_provider_rejects_invalid_completion_options(kwargs):
+    provider = OllamaProvider(transport=lambda *_: {"message": {"content": "ok"}})
+    with pytest.raises(ValueError):
+        provider.complete("Hello", **kwargs)
+
+
+def test_ollama_provider_rejects_non_object_transport_response():
+    provider = OllamaProvider(transport=lambda *_: ["unexpected"])
+    with pytest.raises(RuntimeError, match="invalid JSON response"):
+        provider.complete("Hello")
