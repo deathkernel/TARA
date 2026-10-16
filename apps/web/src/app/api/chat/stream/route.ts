@@ -1,38 +1,59 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { jsonError, readJsonObject, validateMessage } from "@/lib/api";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Deliberately mocked SSE endpoint. It does not call an LLM or persist messages.
 export async function POST(request: NextRequest) {
   try {
     const body = await readJsonObject(request);
     const message = validateMessage(body.message);
-    const reply = `This is TARA's local streaming preview. I received: "${message}". Once the Python inference service is connected, this mock response will be replaced with a real model response.`;
-    const tokens = reply.match(/\S+\s*/g) ?? [reply];
-    const encoder = new TextEncoder();
+    const token = process.env.TARA_INFERENCE_API_TOKEN?.trim();
+    if (!token) {
+      return Response.json({ error: "Inference service is not configured" }, { status: 503 });
+    }
 
-    const stream = new ReadableStream<Uint8Array>({
-      async start(controller) {
-        try {
-          for (const token of tokens) {
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "token", token })}\n\n`));
-            await new Promise((resolve) => setTimeout(resolve, 18));
-          }
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "done" })}\n\n`));
-        } finally {
-          controller.close();
-        }
-      },
-    });
+    const configuredBase = process.env.TARA_INFERENCE_URL?.trim() || "http://127.0.0.1:8000";
+    let endpoint: URL;
+    try {
+      endpoint = new URL("/v1/chat/stream", configuredBase);
+    } catch {
+      return Response.json({ error: "Inference service URL is invalid" }, { status: 503 });
+    }
+    if (endpoint.protocol !== "http:" && endpoint.protocol !== "https:") {
+      return Response.json({ error: "Inference service URL must use HTTP or HTTPS" }, { status: 503 });
+    }
 
-    return new Response(stream, {
+    let upstream: Response;
+    try {
+      upstream = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          Accept: "text/event-stream",
+        },
+        body: JSON.stringify({ message }),
+        signal: request.signal,
+        cache: "no-store",
+      });
+    } catch {
+      return Response.json({ error: "Inference service is unavailable" }, { status: 503 });
+    }
+
+    if (!upstream.ok || !upstream.body) {
+      const status = upstream.status === 503 ? 503 : 502;
+      return Response.json(
+        { error: status === 503 ? "Inference service is unavailable" : "Inference request failed" },
+        { status },
+      );
+    }
+
+    return new Response(upstream.body, {
       status: 200,
       headers: {
         "Content-Type": "text/event-stream; charset=utf-8",
         "Cache-Control": "no-cache, no-transform",
-        Connection: "keep-alive",
         "X-Accel-Buffering": "no",
       },
     });
