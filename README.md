@@ -165,6 +165,15 @@ This index preserves the project's phase history so progress remains trackable. 
 
 ## Active work / review queue
 
+### Cleanup regression follow-up — 2026-10-16
+
+- [x] Restore `src/polyglot/benchmark.py`, a deterministic algorithm-candidate benchmark API used by the remaining polyglot knowledge package and existing tests.
+- [x] Keep host-process execution disabled; restoring the benchmark data/API module does not enable execution of generated code.
+- [x] Update the self-improvement regression test to use a deterministic fake executor, preserving feedback-loop coverage without executing generated source.
+- [ ] Verify Python test collection and full Python/Rust CI on the exact follow-up commit.
+
+Keep this section updated as PRs change; do not mark proposed features as shipped until they are merged and validated.
+
 Keep this section updated as PRs change; do not mark proposed features as shipped until they are merged and validated.
 
 - [ ] Review and merge the removal of retired dataset/training/persistent-memory pipelines, if that direction remains intended.
