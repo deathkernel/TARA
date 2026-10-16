@@ -181,13 +181,19 @@ This index preserves the project's phase history so progress remains trackable. 
 
 Keep this section updated as PRs change; do not mark proposed features as shipped until they are merged and validated.
 
-Keep this section updated as PRs change; do not mark proposed features as shipped until they are merged and validated.
-
 - [ ] Review the proposed dataset/training cleanup only after verifying it preserves `checkpoints/`, `outputs/`, `data/conversation_v1.jsonl`, `data/conversation_v1.jsonl.manifest.json`, and `test_voice.py`; do not retire any integration without explicit approval.
 - [ ] Review the integration-preserving read-only public API toolkit branch and its security tests; redirect protection is covered by regression tests, but the work remains unshipped until exact-commit CI passes.
 - [x] Add explicit read-only chat commands for GitHub, Wikipedia, weather, Hacker News, and Stack Exchange on the isolated CLI branch; validate routing with mocked API clients. Full CI is still required before treating the branch as ready.
 - [ ] Confirm the main-branch README and command list match the actual runtime after the PR stack is resolved; `python -m src` becomes executable only with the new CLI entry point in this branch.
 - [ ] Run the canonical CI/test suite and record its result before calling the work complete.
+
+### Local Ollama provider and CI hardening — 2026-10-16
+
+- [x] Validate Ollama endpoint origins, timeout bounds, resource settings, system prompts, temperature, and completion-token types.
+- [x] Prevent configured Ollama endpoints from following HTTP redirects; cap response bodies at 8 MiB and completion output at 4,096 tokens.
+- [x] Add regression coverage for invalid endpoint URLs, oversized/malformed responses, invalid configuration, and completion options.
+- [x] Bound CI job duration, cancel superseded branch runs, and avoid running the expensive three-seed profile experiment for unrelated source changes.
+- [ ] Verify Python/Rust CI and the three-seed experiment on the exact latest branch head; these results are not yet confirmed.
 
 ### Public API input-validation follow-up — 2026-10-16
 
