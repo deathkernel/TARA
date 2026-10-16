@@ -90,6 +90,8 @@ The `TARA_EMBEDDING_MODEL` setting selects the model (default: `embeddinggemma`)
 
 For multiple documents, use `brain.index_documents([("guide", "Text...", "guide.md"), ("faq", "More text...")])`. Batch indexing validates duplicate IDs and stages changes before committing, so an invalid item or embedding failure does not partially replace the current index. `src/semantic_search_benchmark.py` also provides deterministic Recall@k, MRR, NDCG@k and a result fingerprint for measuring retrieval quality on fixed query/document cases.
 
+Semantic retrieval can optionally be included in chat prompts by setting `TARA_SEMANTIC_RETRIEVAL_ENABLED=true`. It is off by default, only searches documents explicitly indexed in the current process, and labels snippets as untrusted reference data. It does not persist documents or automatically ingest files. Set it back to `false` to return to the existing context path.
+
 
 ```python
 from src.brain import TARABrain
