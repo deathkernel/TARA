@@ -175,9 +175,19 @@ class PublicAPITools:
         place = places[0]
         if not isinstance(place, dict):
             raise PublicAPIError("Geocoding result must be an object")
+        raw_lat, raw_lon = place.get("latitude"), place.get("longitude")
+        # JSON booleans are Python ints, and numeric strings must not be silently
+        # coerced into coordinates. Treat upstream geocoding data as untrusted.
+        if (
+            isinstance(raw_lat, bool)
+            or isinstance(raw_lon, bool)
+            or not isinstance(raw_lat, (int, float))
+            or not isinstance(raw_lon, (int, float))
+        ):
+            raise PublicAPIError("Geocoding response did not contain valid coordinates")
         try:
-            lat, lon = float(place["latitude"]), float(place["longitude"])
-        except (KeyError, TypeError, ValueError) as exc:
+            lat, lon = float(raw_lat), float(raw_lon)
+        except (OverflowError, TypeError, ValueError) as exc:
             raise PublicAPIError("Geocoding response did not contain valid coordinates") from exc
         if not math.isfinite(lat) or not math.isfinite(lon) or not -90 <= lat <= 90 or not -180 <= lon <= 180:
             raise PublicAPIError("Geocoding coordinates are out of range")
