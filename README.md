@@ -65,6 +65,19 @@ The exact commands depend on the branch you run. The baseline chat interface sup
 
 These commands are implemented on this branch, but are not available on `main` until the relevant PR stack is reviewed and merged. Remote results must be shown with source links and treated as untrusted input, not as instructions.
 
+## Model-assisted tool calling (opt-in)
+
+The Ollama SDK integration adds a bounded tool-call loop for the read-only public API allowlist. Enable it in local `.env` with:
+
+```dotenv
+TARA_TOOL_CALLING_ENABLED=true
+TARA_TOOL_MAX_ROUNDS=3
+```
+
+The model can request only these named tools: weather, GitHub repository search, Wikipedia search, Hacker News search, and Stack Overflow search. TARA validates each tool name and argument, limits search result counts, caps the number of tool rounds and tool-result size, and marks returned external data as untrusted. Model output cannot select arbitrary URLs, execute shell commands, read/write files, or trigger non-allowlisted functions. Set `TARA_TOOL_CALLING_ENABLED=false` to use the existing plain-completion path.
+
+Install the SDK through `python -m pip install -r requirements.txt`. Ollama itself must be running and the configured model must already be pulled. SDK tool calling depends on the selected model's ability to produce tool calls; when a model cannot use tools reliably, switch the setting off or select a tool-capable model. This feature does not train or fine-tune the model.
+
 ## Engineering principles
 
 1. **Inference is not training.** Running a model with Ollama is a normal inference workflow; it does not train the model.
