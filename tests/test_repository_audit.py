@@ -1,3 +1,5 @@
+import subprocess
+
 from src.repository_audit import RepositoryAuditor
 
 
@@ -58,3 +60,33 @@ def test_auditor_flags_reintroduced_training_sources_and_torch_dependency(tmp_pa
     codes = {issue.code for issue in report.issues}
     assert "RETIRED_TRAINING_SOURCE" in codes
     assert "RETIRED_TRAINING_DEPENDENCY" in codes
+
+
+
+def test_python_discovery_respects_gitignore_but_keeps_tracked_files(tmp_path):
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+
+    (tmp_path / ".gitignore").write_text(
+        "generated/\nsrc/ignored.py\nsrc/tracked_ignored.py\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "src").mkdir()
+    (tmp_path / "generated").mkdir()
+    (tmp_path / "src" / "visible.py").write_text("# visible\n", encoding="utf-8")
+    (tmp_path / "src" / "ignored.py").write_text("def broken(:\n", encoding="utf-8")
+    (tmp_path / "src" / "tracked_ignored.py").write_text("# tracked\n", encoding="utf-8")
+    (tmp_path / "generated" / "ignored.py").write_text("def broken(:\n", encoding="utf-8")
+
+    subprocess.run(
+        ["git", "-C", str(tmp_path), "add", "-f", "src/tracked_ignored.py"],
+        check=True,
+    )
+
+    discovered = {
+        path.relative_to(tmp_path).as_posix()
+        for path in RepositoryAuditor(tmp_path)._discover_python_files()
+    }
+    assert "src/visible.py" in discovered
+    assert "src/tracked_ignored.py" in discovered
+    assert "src/ignored.py" not in discovered
+    assert "generated/ignored.py" not in discovered
