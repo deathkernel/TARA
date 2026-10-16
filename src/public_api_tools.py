@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import math
 import time
 from dataclasses import dataclass
 from urllib.error import HTTPError, URLError
@@ -134,21 +135,29 @@ class PublicAPITools:
         return result
 
     def get_weather(self, city):
+        if not isinstance(city, str):
+            raise ValueError("city must be a string containing 1-120 characters")
         city = city.strip()
         if not city or len(city) > 120:
             raise ValueError("city must contain 1-120 characters")
         geo_url = "https://geocoding-api.open-meteo.com/v1/search?" + urlencode({"name": city, "count": 1, "language": "en", "format": "json"})
         geo = self.client.get_json(geo_url, provider="Open-Meteo geocoding")
-        places = geo.data.get("results", []) if isinstance(geo.data, dict) else []
+        if not isinstance(geo.data, dict) or not isinstance(geo.data.get("results"), list):
+            raise PublicAPIError("Geocoding response is missing a results list")
+        places = geo.data["results"]
         if not places:
             raise PublicAPIError(f"No geocoding result found for {city!r}")
         place = places[0]
+        if not isinstance(place, dict):
+            raise PublicAPIError("Geocoding result must be an object")
         try:
             lat, lon = float(place["latitude"]), float(place["longitude"])
         except (KeyError, TypeError, ValueError) as exc:
             raise PublicAPIError("Geocoding response did not contain valid coordinates") from exc
-        if not -90 <= lat <= 90 or not -180 <= lon <= 180:
+        if not math.isfinite(lat) or not math.isfinite(lon) or not -90 <= lat <= 90 or not -180 <= lon <= 180:
             raise PublicAPIError("Geocoding coordinates are out of range")
         url = "https://api.open-meteo.com/v1/forecast?" + urlencode({"latitude": lat, "longitude": lon, "current": "temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m"})
         weather = self.client.get_json(url, provider="Open-Meteo forecast")
+        if not isinstance(weather.data, dict) or not isinstance(weather.data.get("current"), dict):
+            raise PublicAPIError("Open-Meteo forecast response is missing current weather data")
         return APIObservation("Open-Meteo", {"location": {k: place.get(k) for k in ("name", "country", "admin1", "latitude", "longitude")}, "weather": weather.data}, weather.source_url, weather.retrieved_at, trusted=False)
