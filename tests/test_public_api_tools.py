@@ -43,6 +43,7 @@ def test_client_returns_untrusted_source_linked_observation():
     "https://user:pass@api.github.com/repos",
     "https://@api.github.com/repos",
     "https://api.github.com/repos#fragment",
+    "https://api.github.com/repos#",
     "https://api.github.com:444/repos",
 ])
 def test_client_reserves_per_host_request_slots(monkeypatch):
