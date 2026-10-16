@@ -178,7 +178,7 @@ class OllamaProvider:
         temperature: float = 0.6,
         public_tools=None,
         client=None,
-        max_tool_rounds: int = 3,
+        max_tool_rounds: int | None = None,
     ) -> str:
         """Generate a response with bounded, allowlisted read-only API tools.
 
@@ -188,6 +188,14 @@ class OllamaProvider:
         """
         from .ollama_tool_calling import OllamaToolCalling
 
+        if max_tool_rounds is None:
+            raw_rounds = os.getenv("TARA_TOOL_MAX_ROUNDS", "3").strip()
+            try:
+                max_tool_rounds = int(raw_rounds)
+            except ValueError as exc:
+                raise ValueError("TARA_TOOL_MAX_ROUNDS must be an integer from 0 to 3") from exc
+        if type(max_tool_rounds) is not int or not 0 <= max_tool_rounds <= 3:
+            raise ValueError("TARA_TOOL_MAX_ROUNDS must be an integer from 0 to 3")
         if max_completion_tokens is None:
             max_completion_tokens = self.default_max_tokens
         runner = OllamaToolCalling(
