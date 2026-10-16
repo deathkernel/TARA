@@ -86,7 +86,7 @@ export function ChatShell() {
       const message = error instanceof Error ? error.message : "Stream failed";
       setStreamError(message);
       setMessages((current) => current.map((item) =>
-        item.id === assistantId && !item.content ? { ...item, content: "The local preview could not respond. Please try again." } : item,
+        item.id === assistantId && !item.content ? { ...item, content: "The inference service could not respond. Check its configuration and try again." } : item,
       ));
     } finally {
       setBusy(false);
