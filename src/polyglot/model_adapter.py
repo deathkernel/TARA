@@ -8,6 +8,21 @@ from typing import Any
 from .generation import ModelCandidateGenerator
 
 
+def load_checkpoint(path: str | Path):
+    """Lazy wrapper kept at module scope for injection and testability."""
+    from src.model_runtime import load_checkpoint as runtime_load_checkpoint
+    return runtime_load_checkpoint(path)
+
+
+def generate_text(model, tokenizer, prompt, max_new_tokens=256, temperature=0.8):
+    """Lazy wrapper around the shared, safe checkpoint generation runtime."""
+    from src.model_runtime import generate_text as runtime_generate_text
+    return runtime_generate_text(
+        model, tokenizer, prompt,
+        max_new_tokens=max_new_tokens, temperature=temperature,
+    )
+
+
 class TARAAlgorithmModel:
     """Lazy, CPU-safe wrapper around a trained algorithm-LM checkpoint."""
 
@@ -20,7 +35,6 @@ class TARAAlgorithmModel:
     def load(self) -> "TARAAlgorithmModel":
         if not self.checkpoint.exists():
             raise FileNotFoundError(f"TARA model checkpoint not found: {self.checkpoint}")
-        from src.model_runtime import load_checkpoint
         self._model, self._tokenizer = load_checkpoint(self.checkpoint)
         return self
 
@@ -32,7 +46,6 @@ class TARAAlgorithmModel:
         if not self.loaded:
             self.load()
         assert self._model is not None and self._tokenizer is not None
-        from src.model_runtime import generate_text
         return generate_text(
             self._model,
             self._tokenizer,

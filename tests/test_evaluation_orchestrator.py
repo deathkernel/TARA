@@ -1,24 +1,32 @@
 from pathlib import Path
 
 from src.evaluation_orchestrator import CheckpointEvaluator, EvaluationOrchestrator, EvaluationDecision
-from src.intelligence_benchmark import BenchmarkCase, BenchmarkReport
+from src.intelligence_benchmark import BenchmarkCase, BenchmarkReport, IntelligenceBenchmark
+
+
+def _evaluation(outputs, fingerprint):
+    cases = (
+        BenchmarkCase("code", "coding", "code", "ok", lambda actual, expected: 1.0 if actual == expected else 0.0),
+        BenchmarkCase("memory", "memory", "memory", "ok", lambda actual, expected: 1.0 if actual == expected else 0.0),
+    )
+    benchmark = IntelligenceBenchmark(CheckpointEvaluator.benchmark_name, cases).run(lambda prompt: outputs[prompt])
+    from src.model_capability_runner import ModelEvaluation
+    return ModelEvaluation(fingerprint, benchmark, fingerprint, fingerprint)
 
 
 def test_decision_rejects_non_improvement():
-    evaluator = object.__new__(CheckpointEvaluator)
-    evaluator.gate = type("Gate", (), {"check": lambda self, a, b: False})()
-    base = type("Eval", (), {"benchmark": type("B", (), {"overall_score": 0.5})(), "fingerprint": "a"})()
-    candidate = type("Eval", (), {"benchmark": type("B", (), {"overall_score": 0.5})(), "fingerprint": "b"})()
+    evaluator = CheckpointEvaluator()
+    base = _evaluation({"code": "ok", "memory": "bad"}, "a")
+    candidate = _evaluation({"code": "ok", "memory": "bad"}, "b")
     decision = evaluator.compare(base, candidate)
     assert decision.accepted is False
     assert "strictly improve" in decision.reason
 
 
 def test_decision_accepts_strict_improvement_without_regression():
-    evaluator = object.__new__(CheckpointEvaluator)
-    evaluator.gate = type("Gate", (), {"check": lambda self, a, b: False})()
-    base = type("Eval", (), {"benchmark": type("B", (), {"overall_score": 0.5})(), "fingerprint": "a"})()
-    candidate = type("Eval", (), {"benchmark": type("B", (), {"overall_score": 0.75})(), "fingerprint": "b"})()
+    evaluator = CheckpointEvaluator()
+    base = _evaluation({"code": "ok", "memory": "bad"}, "a")
+    candidate = _evaluation({"code": "ok", "memory": "ok"}, "b")
     decision = evaluator.compare(base, candidate)
     assert decision.accepted is True
 
@@ -26,7 +34,7 @@ def test_decision_accepts_strict_improvement_without_regression():
 def test_orchestrator_without_improvement_is_measurement_only(tmp_path: Path):
     orchestrator = EvaluationOrchestrator()
     orchestrator.evaluator = type("Evaluator", (), {
-        "evaluate": lambda self, path, name: type("Eval", (), {
+        "evaluate": lambda self, path, name=None: type("Eval", (), {
             "benchmark": type("B", (), {"overall_score": 0.25})(), "fingerprint": "fp"
         })()
     })()
