@@ -177,3 +177,12 @@ def test_brain_default_semantic_index_is_lazy_and_process_local():
     assert isinstance(brain.semantic_index, LocalSemanticIndex)
     assert brain.semantic_index.document_count == 0
     assert brain.semantic_index.chunk_count == 0
+
+
+def test_brain_exposes_atomic_bulk_document_indexing():
+    class FakeIndex:
+        def add_documents(self, documents):
+            return {item[0]: 1 for item in documents}
+
+    brain = TARABrain(llm_provider=FakeProvider(), semantic_index=FakeIndex())
+    assert brain.index_documents([("guide", "Local docs.")]) == {"guide": 1}
