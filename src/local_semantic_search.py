@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 from dataclasses import dataclass
 from typing import Any, Callable, Iterable
 from urllib.error import HTTPError, URLError
@@ -50,13 +51,15 @@ class OllamaEmbedder:
     def __init__(
         self,
         *,
-        model: str = "embeddinggemma",
-        base_url: str = "http://127.0.0.1:11434",
+        model: str | None = None,
+        base_url: str | None = None,
         timeout: float = 60.0,
         batch_size: int = 16,
         max_input_chars: int = 8000,
         transport: EmbeddingTransport | None = None,
     ) -> None:
+        model = model if model is not None else os.getenv("TARA_EMBEDDING_MODEL", "embeddinggemma")
+        base_url = base_url if base_url is not None else os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434")
         if not isinstance(model, str) or not model.strip():
             raise ValueError("embedding model must not be empty")
         if not isinstance(base_url, str) or not base_url.strip():
