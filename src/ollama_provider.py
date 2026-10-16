@@ -10,10 +10,21 @@ import math
 import os
 from typing import Any, Callable
 from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
+from urllib.parse import urlsplit
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 
 JsonTransport = Callable[[str, dict[str, Any], float], dict[str, Any]]
+
+MAX_RESPONSE_BYTES = 8 * 1024 * 1024
+MAX_COMPLETION_TOKENS = 4096
+
+
+class _NoRedirectHandler(HTTPRedirectHandler):
+    """Do not let a configured Ollama endpoint redirect requests elsewhere."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
 
 # Eco is the safe default for everyday desktop use. Thread count limits CPU
 # parallelism; context/batch limits reduce peak memory and prompt-processing work.
@@ -42,14 +53,20 @@ def _http_json(url: str, payload: dict[str, Any], timeout: float) -> dict[str, A
         headers={"Content-Type": "application/json"},
         method="POST",
     )
+    opener = build_opener(_NoRedirectHandler())
     try:
-        with urlopen(request, timeout=timeout) as response:
-            data = json.loads(response.read().decode("utf-8"))
+        with opener.open(request, timeout=timeout) as response:
+            body = response.read(MAX_RESPONSE_BYTES + 1)
+        if len(body) > MAX_RESPONSE_BYTES:
+            raise RuntimeError("Ollama response exceeded the 8 MiB safety limit")
+        data = json.loads(body.decode("utf-8"))
     except HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="replace")
+        detail = exc.read(MAX_RESPONSE_BYTES).decode("utf-8", errors="replace")
         raise RuntimeError(f"Ollama HTTP {exc.code}: {detail}") from exc
     except (URLError, TimeoutError, OSError) as exc:
         raise RuntimeError(f"Could not reach the local Ollama server at {url}: {exc}") from exc
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise RuntimeError("Ollama returned malformed JSON") from exc
     if not isinstance(data, dict):
         raise RuntimeError("Ollama returned an invalid JSON response")
     return data
@@ -74,7 +91,23 @@ class OllamaProvider:
         if not isinstance(model, str) or not model.strip():
             raise ValueError("model must be a non-empty string")
         if not isinstance(base_url, str) or not base_url.strip():
-            raise ValueError("base_url must be a non-empty string")
+            raise ValueError("base_url must be a non-empty URL")
+        try:
+            parsed_url = urlsplit(base_url.strip())
+            parsed_port = parsed_url.port
+        except ValueError as exc:
+            raise ValueError("base_url must be a valid HTTP(S) URL") from exc
+        if (
+            parsed_url.scheme not in {"http", "https"}
+            or not parsed_url.hostname
+            or parsed_url.username is not None
+            or parsed_url.password is not None
+            or parsed_url.query
+            or parsed_url.fragment
+            or parsed_url.path not in {"", "/"}
+            or (parsed_port is not None and not 1 <= parsed_port <= 65535)
+        ):
+            raise ValueError("base_url must be an HTTP(S) origin without credentials, path, query, or fragment")
         if isinstance(timeout, bool) or not isinstance(timeout, (int, float)):
             raise ValueError("timeout must be finite and between 0 and 3600 seconds")
         try:
@@ -155,8 +188,8 @@ class OllamaProvider:
             raise ValueError("system must be a string or None")
         if max_completion_tokens is None:
             max_completion_tokens = self.default_max_tokens
-        if type(max_completion_tokens) is not int or max_completion_tokens <= 0:
-            raise ValueError("max_completion_tokens must be a positive integer")
+        if type(max_completion_tokens) is not int or not 1 <= max_completion_tokens <= MAX_COMPLETION_TOKENS:
+            raise ValueError(f"max_completion_tokens must be an integer between 1 and {MAX_COMPLETION_TOKENS}")
         if isinstance(temperature, bool) or not isinstance(temperature, (int, float)):
             raise ValueError("temperature must be finite and between 0 and 2")
         try:
