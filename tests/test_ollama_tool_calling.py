@@ -139,7 +139,6 @@ def test_tool_call_loop_has_a_hard_round_limit():
     responses = [
         FakeMessage(tool_calls=[tool_call("search_wikipedia", {"query": "TARA"})]),
         FakeMessage(tool_calls=[tool_call("search_wikipedia", {"query": "TARA"})]),
-        FakeMessage(tool_calls=[tool_call("search_wikipedia", {"query": "TARA"})]),
         FakeMessage(content="Done after the bounded tool loop."),
     ]
     public_tools = FakePublicTools()
