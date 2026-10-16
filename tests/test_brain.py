@@ -136,3 +136,44 @@ def test_brain_keeps_plain_completion_when_tool_calling_is_disabled(monkeypatch)
     assert response.text.startswith("reply to ")
     assert provider.tool_calls == 0
     assert len(provider.prompts) == 1
+
+
+def test_brain_exposes_explicit_local_document_index_without_persisting():
+    from src.local_semantic_search import LocalSemanticIndex
+
+    class FakeIndex:
+        def __init__(self):
+            self.added = []
+            self.cleared = False
+
+        def add_document(self, document_id, text, *, source=""):
+            self.added.append((document_id, text, source))
+            return 1
+
+        def search(self, query, *, top_k=5, min_score=-1.0):
+            return []
+
+        def remove_document(self, document_id):
+            return document_id == "guide"
+
+        def clear(self):
+            self.cleared = True
+
+    index = FakeIndex()
+    brain = TARABrain(llm_provider=FakeProvider(), semantic_index=index)
+
+    assert brain.index_document("guide", "Ollama is local.", source="guide.md") == 1
+    assert index.added == [("guide", "Ollama is local.", "guide.md")]
+    assert brain.search_documents("where is model?", top_k=2) == []
+    assert brain.remove_indexed_document("guide") is True
+    brain.clear_document_index()
+    assert index.cleared is True
+
+
+def test_brain_default_semantic_index_is_lazy_and_process_local():
+    from src.local_semantic_search import LocalSemanticIndex
+
+    brain = TARABrain(llm_provider=FakeProvider())
+    assert isinstance(brain.semantic_index, LocalSemanticIndex)
+    assert brain.semantic_index.document_count == 0
+    assert brain.semantic_index.chunk_count == 0
