@@ -1,4 +1,4 @@
-"""Interactive TARA chat with no persistent conversation memory."""
+"""Interactive TARA chat with explicit, locally persisted memory commands."""
 from __future__ import annotations
 
 import json
