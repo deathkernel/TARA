@@ -178,13 +178,17 @@ def test_weather_rejects_malformed_forecast_response():
     {"timeout": float("inf")},
     {"timeout": True},
     {"timeout": 0},
+    {"timeout": 301},
+    {"timeout": 10**1000},
     {"max_response_bytes": True},
     {"max_response_bytes": 1.5},
     {"max_response_bytes": 0},
+    {"max_response_bytes": 10_000_001},
     {"min_interval": float("nan")},
     {"min_interval": float("inf")},
     {"min_interval": True},
     {"min_interval": -0.1},
+    {"min_interval": 3601},
 ])
 def test_client_rejects_invalid_configuration(kwargs):
     with pytest.raises(ValueError):

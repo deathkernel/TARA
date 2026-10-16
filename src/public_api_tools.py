@@ -41,19 +41,21 @@ class PublicAPIClient:
         if (
             isinstance(timeout, bool)
             or not isinstance(timeout, (int, float))
-            or not math.isfinite(timeout)
             or timeout <= 0
+            or timeout > 300
+            or not math.isfinite(timeout)
         ):
-            raise ValueError("timeout must be a finite positive number")
-        if type(max_response_bytes) is not int or max_response_bytes < 1:
-            raise ValueError("max_response_bytes must be a positive integer")
+            raise ValueError("timeout must be finite and between 0 and 300 seconds")
+        if type(max_response_bytes) is not int or not 1 <= max_response_bytes <= 10_000_000:
+            raise ValueError("max_response_bytes must be an integer between 1 and 10000000")
         if (
             isinstance(min_interval, bool)
             or not isinstance(min_interval, (int, float))
-            or not math.isfinite(min_interval)
             or min_interval < 0
+            or min_interval > 3600
+            or not math.isfinite(min_interval)
         ):
-            raise ValueError("min_interval must be a finite non-negative number")
+            raise ValueError("min_interval must be finite and between 0 and 3600 seconds")
         self.timeout = timeout
         self.max_response_bytes = max_response_bytes
         self.min_interval = min_interval

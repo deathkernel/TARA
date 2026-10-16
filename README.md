@@ -192,6 +192,7 @@ Keep this section updated as PRs change; do not mark proposed features as shippe
 ### Public API input-validation follow-up — 2026-10-16
 
 - [x] Reject non-finite/boolean request timeouts and pacing intervals, and non-integer response byte limits.
+- [x] Apply hard upper bounds to request timeout, response bytes, and per-host pacing to prevent pathological configuration values.
 - [x] Normalize malformed URL parsing and request-construction failures into the public API's fail-closed error type.
 - [x] Validate public search query types and require exact integer result limits before making a request.
 - [x] Add deterministic regression coverage for invalid configuration, malformed URLs, query types, and limit types.
