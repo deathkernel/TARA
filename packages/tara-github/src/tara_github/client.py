@@ -111,8 +111,10 @@ class GitHubClient:
     def get_file(self, repository: str, path: str, *, ref: str | None = None) -> str:
         """Return the UTF-8 content of a repository file."""
         repo = self._repository(repository)
-        if not isinstance(path, str) or not path.strip() or path.startswith("/"):
+        if not isinstance(path, str) or not path.strip() or path.startswith("/") or "\\\\" in path:
             raise ValueError("path must be a non-empty repository-relative path")
+        if any(part in {".", ".."} for part in path.strip().split("/")):
+            raise ValueError("path must not contain traversal segments")
         encoded_path = quote(path.strip(), safe="/")
         query = ""
         if ref is not None:
