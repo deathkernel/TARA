@@ -164,7 +164,7 @@ jobs:
           git apply --check tara.patch
           git apply tara.patch
           python -m compileall -q src tests
-          if [ -z "$(git status --porcelain)" ]; then
+          if [ -z "$(git status --porcelain -- src tests)" ]; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
