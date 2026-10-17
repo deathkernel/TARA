@@ -23,6 +23,29 @@ class FakeResponse:
         return self.body[:size]
 
 
+class StubGitHubClient:
+    def get_repository(self, repository):
+        return {"full_name": repository}
+
+    def get_file(self, repository, path, *, ref=None):
+        return f"{repository}:{path}"
+
+    def list_issues(self, repository, *, state="open", per_page=30):
+        return []
+
+    def list_pull_requests(self, repository, *, state="open", per_page=30):
+        return []
+
+    def list_branches(self, repository, *, per_page=30):
+        return []
+
+    def list_commits(self, repository, *, per_page=30, branch=None):
+        return []
+
+    def get_pull_request_diff(self, repository, number):
+        return ""
+
+
 def test_repository_path_is_validated_before_network():
     client = GitHubClient()
     with pytest.raises(ValueError):
@@ -75,14 +98,17 @@ def test_http_errors_are_sanitized():
 
 
 def test_adapter_registers_with_existing_tara_tool_boundaries():
-    client = GitHubClient()
+    client = StubGitHubClient()
     app_tools = ApplicationTools()
     controller = ToolController()
     names = register_github_tools(client, application_tools=app_tools, controller=controller)
     assert set(names) == set(app_tools.names())
-    assert set(names).issubset(set(controller._tools))
-    assert app_tools.execute("github.get_repository", repository="owner/repo").success is False
-    blocked = controller.execute("github.get_repository", repository="owner/repo")
-    # The mock is intentionally absent: execution reports the network/API error rather than a policy error.
-    assert blocked.decision.allowed
-    assert not blocked.success
+    result = app_tools.execute("github.get_repository", repository="owner/repo")
+    assert result.success and result.output == {"full_name": "owner/repo"}
+    controlled = controller.execute("github.get_file", repository="owner/repo", path="README.md")
+    assert controlled.success and controlled.output == "owner/repo:README.md"
+
+
+def test_adapter_requires_at_least_one_target():
+    with pytest.raises(ValueError):
+        register_github_tools(StubGitHubClient())
