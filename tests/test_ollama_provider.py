@@ -215,3 +215,25 @@ def test_http_json_rejects_malformed_json(monkeypatch):
     monkeypatch.setattr(module, "build_opener", lambda *_: FakeOpener())
     with pytest.raises(RuntimeError, match="malformed JSON"):
         _http_json("http://127.0.0.1:11434/api/chat", {}, 1.0)
+
+@pytest.mark.parametrize(("name", "value", "message"), [
+    ("TARA_OLLAMA_NUM_CTX", "not-an-int", "TARA_OLLAMA_NUM_CTX"),
+    ("TARA_OLLAMA_NUM_CTX", "0", "TARA_OLLAMA_NUM_CTX"),
+    ("TARA_OLLAMA_NUM_CTX", str(MAX_CONTEXT_TOKENS + 1), "TARA_OLLAMA_NUM_CTX"),
+    ("TARA_OLLAMA_NUM_THREADS", "not-an-int", "TARA_OLLAMA_NUM_THREADS"),
+    ("TARA_OLLAMA_NUM_THREADS", "-1", "TARA_OLLAMA_NUM_THREADS"),
+    ("TARA_OLLAMA_NUM_THREADS", str(MAX_CPU_THREADS + 1), "TARA_OLLAMA_NUM_THREADS"),
+    ("TARA_OLLAMA_NUM_BATCH", "not-an-int", "TARA_OLLAMA_NUM_BATCH"),
+    ("TARA_OLLAMA_NUM_BATCH", "0", "TARA_OLLAMA_NUM_BATCH"),
+    ("TARA_OLLAMA_NUM_BATCH", str(MAX_BATCH_SIZE + 1), "TARA_OLLAMA_NUM_BATCH"),
+])
+def test_ollama_provider_rejects_invalid_integer_environment_settings(monkeypatch, name, value, message):
+    monkeypatch.setenv(name, value)
+    with pytest.raises(ValueError, match=message):
+        OllamaProvider.from_env()
+
+
+def test_ollama_provider_allows_zero_threads_for_automatic_selection(monkeypatch):
+    monkeypatch.setenv("TARA_OLLAMA_NUM_THREADS", "0")
+    assert OllamaProvider.from_env().num_thread == 0
+
