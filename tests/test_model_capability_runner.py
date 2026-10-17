@@ -28,3 +28,22 @@ def test_runner_is_deterministic_and_returns_generated_suffix():
     assert first.benchmark.fingerprint == second.benchmark.fingerprint
     assert first.fingerprint == second.fingerprint
     assert first.benchmark.overall_score == 1.0
+
+
+def test_evaluate_preserves_case_outputs_for_repeated_prompts(monkeypatch):
+    runner = ModelCapabilityRunner(FakeModel(), FakeTokenizer(), max_new_tokens=1)
+    generated = iter(("first answer", "second answer"))
+    monkeypatch.setattr(runner, "generate", lambda prompt: next(generated))
+    cases = (
+        BenchmarkCase("first-case", "coding", "shared prompt", "first answer", normalized_text_score),
+        BenchmarkCase("second-case", "coding", "shared prompt", "second answer", normalized_text_score),
+    )
+
+    result = runner.evaluate(cases)
+
+    assert result.observations == {
+        "first-case": "first answer",
+        "second-case": "second answer",
+    }
+    assert result.benchmark.passed_cases == 2
+    assert result.benchmark.overall_score == 1.0

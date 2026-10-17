@@ -197,7 +197,27 @@ Keep this section updated as PRs change; do not mark proposed features as shippe
 - [x] Let the model capability runner use TARA's native `forward_numeric` interface without requiring PyTorch-only methods on test doubles.
 - [x] Replace host-process execution in the self-improvement test with an injected deterministic fake executor.
 - [x] Use combined absolute/relative gradient-check tolerances to avoid false failures on near-zero gradients.
-- [ ] Re-run the 431-test suite, static repository audit, and Rust tests on the exact batch commit.
+- [x] Adapt case-ID-keyed model observations to the benchmark's prompt-based solver contract, preserving per-case outputs for repeated prompts.
+- [x] Add a regression test proving distinct outputs for two cases with the same prompt are scored against the correct case.
+- [ ] Run focused model-capability tests, the full Python suite, static repository audit, and Rust tests on this exact follow-up commit.
+
+Capability-evaluation data flow:
+
+```text
+Benchmark cases (case_id + prompt)
+   |
+   v
+ModelCapabilityRunner.generate(prompt)
+   |
+   v
+observations[case_id] -> ordered per-prompt outputs
+   |
+   v
+IntelligenceBenchmark.run(prompt -> next case output)
+   |
+   v
+case scores + deterministic evaluation fingerprint
+```
 
 ## Optional voice output
 

@@ -88,7 +88,22 @@ class ModelCapabilityRunner:
             except Exception as exc:
                 observations[case.case_id] = f"<execution-error:{type(exc).__name__}: {exc}>"
 
-        report = benchmark.run(observations.__getitem__)
+        # Benchmark solvers receive prompts, while observations are keyed by case ID.
+        # Use a per-prompt queue so repeated prompts keep their case-specific outputs.
+        outputs_by_prompt: dict[str, list[str]] = {}
+        for case in cases:
+            outputs_by_prompt.setdefault(case.prompt, []).append(observations[case.case_id])
+        prompt_offsets: dict[str, int] = {}
+
+        def output_for_prompt(prompt: str) -> str:
+            outputs = outputs_by_prompt[prompt]
+            offset = prompt_offsets.get(prompt, 0)
+            if offset >= len(outputs):
+                raise KeyError(prompt)
+            prompt_offsets[prompt] = offset + 1
+            return outputs[offset]
+
+        report = benchmark.run(output_for_prompt)
         model_id = model_fingerprint(self.model, self.tokenizer)
         fingerprint = hashlib.sha256(
             json.dumps(
