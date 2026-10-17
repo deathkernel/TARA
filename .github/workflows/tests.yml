@@ -17,6 +17,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
+          python -m pip install -e packages/tara-github
       - name: Static repository audit
         run: python -m src.repository_audit .
       - name: Python test suite
