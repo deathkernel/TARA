@@ -38,14 +38,15 @@ _POWER_PROFILES = {
 }
 
 
-def _positive_int_env(name: str, default: int) -> int:
+def _bounded_int_env(name: str, default: int, *, minimum: int, maximum: int) -> int:
+    """Read an integer environment setting and enforce its documented bounds."""
     raw = os.getenv(name, str(default)).strip()
     try:
         value = int(raw)
-    except ValueError as exc:
-        raise ValueError(f"{name} must be a positive integer") from exc
-    if value <= 0:
-        raise ValueError(f"{name} must be a positive integer")
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{name} must be an integer between {minimum} and {maximum}") from exc
+    if not minimum <= value <= maximum:
+        raise ValueError(f"{name} must be an integer between {minimum} and {maximum}")
     return value
 
 
@@ -165,9 +166,18 @@ class OllamaProvider:
             base_url=os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434").strip(),
             timeout=timeout,
             power_mode=mode,
-            num_ctx=_positive_int_env("TARA_OLLAMA_NUM_CTX", profile["num_ctx"]),
-            num_thread=int(os.getenv("TARA_OLLAMA_NUM_THREADS", str(eco_threads if mode == "eco" else profile["num_thread"]))),
-            num_batch=_positive_int_env("TARA_OLLAMA_NUM_BATCH", profile["num_batch"]),
+            num_ctx=_bounded_int_env(
+                "TARA_OLLAMA_NUM_CTX", profile["num_ctx"], minimum=1, maximum=MAX_CONTEXT_TOKENS
+            ),
+            num_thread=_bounded_int_env(
+                "TARA_OLLAMA_NUM_THREADS",
+                eco_threads if mode == "eco" else profile["num_thread"],
+                minimum=0,
+                maximum=MAX_CPU_THREADS,
+            ),
+            num_batch=_bounded_int_env(
+                "TARA_OLLAMA_NUM_BATCH", profile["num_batch"], minimum=1, maximum=MAX_BATCH_SIZE
+            ),
             keep_alive=os.getenv("TARA_OLLAMA_KEEP_ALIVE", profile["keep_alive"]).strip(),
         )
 
