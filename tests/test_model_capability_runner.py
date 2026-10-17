@@ -27,4 +27,21 @@ def test_runner_is_deterministic_and_returns_generated_suffix():
     second = runner.evaluate(cases)
     assert first.benchmark.fingerprint == second.benchmark.fingerprint
     assert first.fingerprint == second.fingerprint
+    assert first.observations == {"echo": "!!"}
     assert first.benchmark.overall_score == 1.0
+    assert first.benchmark.results[0].score == 1.0
+    assert first.benchmark.results[0].error is None
+
+
+def test_runner_scores_repeated_prompts_against_each_case_observation():
+    runner = ModelCapabilityRunner(FakeModel(), FakeTokenizer(), max_new_tokens=1)
+    cases = (
+        BenchmarkCase("first", "coding", "x", "!", normalized_text_score),
+        BenchmarkCase("second", "reasoning", "x", "!", normalized_text_score),
+    )
+
+    result = runner.evaluate(cases)
+
+    assert result.observations == {"first": "!", "second": "!"}
+    assert [item.score for item in result.benchmark.results] == [1.0, 1.0]
+    assert all(item.error is None for item in result.benchmark.results)

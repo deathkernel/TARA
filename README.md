@@ -51,6 +51,27 @@ Response to user
 
 The provider generates language; it does not replace TARA's orchestration or automatically authorize tool actions. Availability of a module in the repository does not prove that it is enabled in every runtime configuration.
 
+### Deterministic model-evaluation flow
+
+```text
+Benchmark cases (case ID + prompt)
+   |
+   v
+ModelCapabilityRunner.generate(prompt)
+   |
+   v
+Observations retained by case ID
+   |
+   v
+Prompt-to-observation adapter (case order preserved for repeated prompts)
+   |
+   v
+IntelligenceBenchmark.run(prompt -> generated output)
+   |
+   v
+Scored report + reproducibility fingerprint
+```
+
 ## Current and proposed chat commands
 
 The exact commands depend on the branch you run. The baseline chat interface supports `/help` and `/exit`; other commands are branch-dependent.
@@ -169,7 +190,8 @@ This index preserves the project's phase history so progress remains trackable. 
 
 Keep this section updated as PRs change; do not mark proposed features as shipped until they are merged and validated.
 
-- [ ] Review and merge the removal of retired dataset/training/persistent-memory pipelines, if that direction remains intended.
+- [ ] Preserve existing training/data/checkpoint and voice integrations; do not merge retirement/removal proposals unless explicitly approved.
+- [ ] Verify the model-capability runner's prompt-to-observation mapping with regression tests and exact-head CI (implementation is in an isolated review PR; not merged).
 - [ ] Review the read-only public API toolkit and its security tests.
 - [ ] Review the explicit chat commands for GitHub, Wikipedia, weather, Hacker News, and Stack Exchange.
 - [ ] Confirm the main-branch README and command list match the actual runtime after the PR stack is resolved.
