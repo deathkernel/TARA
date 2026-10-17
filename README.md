@@ -189,6 +189,36 @@ Keep this section updated as PRs change; do not mark proposed features as shippe
 - [ ] Confirm the main-branch README and command list match the actual runtime after the PR stack is resolved.
 - [ ] Run the canonical CI/test suite and record its result before calling the work complete.
 
+### Full-suite regression follow-up — 2026-10-16
+
+- [x] Preserve ready planner steps across cognitive-loop iterations and keep tool selection consistent with the string-based `ToolSelection.selected` contract.
+- [x] Correct the clean-baseline/category-regression test fixture, the dataset-viewer minimum-length fixture, evaluation evaluator setup, and embedding parameter-count expectation.
+- [x] Make checkpoint adapter entry points patchable while retaining lazy imports and safe tensor-only checkpoint loading.
+- [x] Let the model capability runner use TARA's native `forward_numeric` interface without requiring PyTorch-only methods on test doubles.
+- [x] Replace host-process execution in the self-improvement test with an injected deterministic fake executor.
+- [x] Use combined absolute/relative gradient-check tolerances to avoid false failures on near-zero gradients.
+- [x] Adapt case-ID-keyed model observations to the benchmark's prompt-based solver contract, preserving per-case outputs for repeated prompts.
+- [x] Add a regression test proving distinct outputs for two cases with the same prompt are scored against the correct case.
+- [ ] Run focused model-capability tests, the full Python suite, static repository audit, and Rust tests on this exact follow-up commit.
+
+Capability-evaluation data flow:
+
+```text
+Benchmark cases (case_id + prompt)
+   |
+   v
+ModelCapabilityRunner.generate(prompt)
+   |
+   v
+observations[case_id] -> ordered per-prompt outputs
+   |
+   v
+IntelligenceBenchmark.run(prompt -> next case output)
+   |
+   v
+case scores + deterministic evaluation fingerprint
+```
+
 ## Optional voice output
 
 TARA may be configured for ElevenLabs voice output where the corresponding integration is present. Keep credentials in local environment variables and never commit API keys or secrets. Check the active branch's implementation and current SDK documentation before relying on specific parameters.

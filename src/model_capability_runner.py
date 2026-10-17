@@ -50,19 +50,33 @@ class ModelCapabilityRunner:
         self.max_new_tokens = max_new_tokens
 
     def generate(self, prompt: str) -> str:
-        import torch
-
         prompt_ids = self.tokenizer.encode(prompt)
         if not prompt_ids:
             raise ValueError("prompt must encode to at least one token")
         token_ids = list(prompt_ids)
-        self.model.eval()
-        with torch.no_grad():
+        forward_numeric = getattr(self.model, "forward_numeric", None)
+        if callable(forward_numeric):
+            max_context = max(1, int(getattr(self.model, "max_context", len(token_ids))))
             for _ in range(self.max_new_tokens):
-                context_ids = token_ids[-self.model.max_context :]
-                x = torch.tensor([context_ids], dtype=torch.long)
-                logits = self.model(x)[0, -1]
-                token_ids.append(int(torch.argmax(logits).item()))
+                context_ids = token_ids[-max_context:]
+                rows = forward_numeric(context_ids)
+                if not rows or not rows[-1]:
+                    raise ValueError("model returned empty numeric logits")
+                logits = rows[-1]
+                token_ids.append(max(range(len(logits)), key=logits.__getitem__))
+        else:
+            import torch
+
+            eval_method = getattr(self.model, "eval", None)
+            if callable(eval_method):
+                eval_method()
+            max_context = max(1, int(getattr(self.model, "max_context", len(token_ids))))
+            with torch.no_grad():
+                for _ in range(self.max_new_tokens):
+                    context_ids = token_ids[-max_context:]
+                    x = torch.tensor([context_ids], dtype=torch.long)
+                    logits = self.model(x)[0, -1]
+                    token_ids.append(int(torch.argmax(logits).item()))
         return self.tokenizer.decode(token_ids[len(prompt_ids):])
 
     def evaluate(self, cases: tuple[BenchmarkCase, ...], *, name: str = "tara-real-model") -> ModelEvaluation:
@@ -74,7 +88,22 @@ class ModelCapabilityRunner:
             except Exception as exc:
                 observations[case.case_id] = f"<execution-error:{type(exc).__name__}: {exc}>"
 
-        report = benchmark.run(observations.__getitem__)
+        # Benchmark solvers receive prompts, while observations are keyed by case ID.
+        # Use a per-prompt queue so repeated prompts keep their case-specific outputs.
+        outputs_by_prompt: dict[str, list[str]] = {}
+        for case in cases:
+            outputs_by_prompt.setdefault(case.prompt, []).append(observations[case.case_id])
+        prompt_offsets: dict[str, int] = {}
+
+        def output_for_prompt(prompt: str) -> str:
+            outputs = outputs_by_prompt[prompt]
+            offset = prompt_offsets.get(prompt, 0)
+            if offset >= len(outputs):
+                raise KeyError(prompt)
+            prompt_offsets[prompt] = offset + 1
+            return outputs[offset]
+
+        report = benchmark.run(output_for_prompt)
         model_id = model_fingerprint(self.model, self.tokenizer)
         fingerprint = hashlib.sha256(
             json.dumps(

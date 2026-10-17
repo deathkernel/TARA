@@ -29,10 +29,12 @@ def test_learning_experiment_reports_category_delta(tmp_path: Path):
         BenchmarkCase("a", "coding", "a", "ok", normalized_text_score),
         BenchmarkCase("b", "reasoning", "b", "ok", normalized_text_score),
     )
-    def evaluation(value: str) -> ModelEvaluation:
-        outputs = {"base": {"a": "ok", "b": "bad"}, "candidate": {"a": "ok", "b": "ok"}}[value]
+    def evaluation(value: str | Path) -> ModelEvaluation:
+        outputs = {"base": {"a": "ok", "b": "bad"}, "candidate": {"a": "ok", "b": "ok"}}[
+            "base" if str(value) == "base" else "candidate"
+        ]
         report = IntelligenceBenchmark("tara-capability-v1", cases).run(lambda prompt: outputs[prompt])
-        return ModelEvaluation(value, report, value, value)
+        return ModelEvaluation(str(value), report, str(value), str(value))
     experiment.evaluator.evaluate = evaluation
     candidate_path = tmp_path / "candidate.pt"
     candidate_path.write_bytes(b"checkpoint")
