@@ -1,12 +1,14 @@
 import base64
 import json
 from urllib.error import HTTPError
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
 
-from tara_github import GitHubAPIError, GitHubClient, register_github_tools
+from tara_github import GitHubAPIError, GitHubClient, connect_github_to_brain, register_github_tools
 from src.tools import ApplicationTools, ToolController
+from src.tool_intelligence import ToolIntelligence
 
 
 class FakeResponse:
@@ -112,3 +114,16 @@ def test_adapter_registers_with_existing_tara_tool_boundaries():
 def test_adapter_requires_at_least_one_target():
     with pytest.raises(ValueError):
         register_github_tools(StubGitHubClient())
+
+
+def test_brain_connection_registers_capabilities_and_actions():
+    brain = SimpleNamespace(tools=ToolIntelligence())
+    app_tools = ApplicationTools()
+    controller = ToolController()
+    names = connect_github_to_brain(
+        brain, StubGitHubClient(), application_tools=app_tools, controller=controller
+    )
+    assert set(names) == set(app_tools.names())
+    assert {item.name for item in brain.tools.registry.all()} == set(names)
+    choice = brain.tools.choose("inspect repository", ("github", "read"))
+    assert choice.selected in names
