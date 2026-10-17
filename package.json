@@ -1,0 +1,1 @@
+{"name":"tara-monorepo","private":true,"workspaces":["apps/*"],"engines":{"node":">=20.9.0"},"scripts":{"web:dev":"npm run dev --workspace @tara/web","web:build":"npm run build --workspace @tara/web","web:lint":"npm run lint --workspace @tara/web","web:typecheck":"npm run typecheck --workspace @tara/web"}}

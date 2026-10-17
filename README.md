@@ -196,3 +196,16 @@ Prefer mocked responses for deterministic unit tests. Live integrations may requ
 - Clearly label retired pipelines as historical instead of presenting them as current commands.
 - Track proposals separately from merged/current functionality.
 - Update the ledger when a phase or PR changes status.
+
+## Web product roadmap
+
+The web product is being built alongside TARA's existing Python architecture. The initial web batch adds a responsive Next.js/TypeScript UI, PostgreSQL row-level ownership policies, and ownership-scoped conversation/message endpoints. The chat screen now supports a local mocked SSE stream for interaction testing; it is not connected to inference or persistence yet. A separate FastAPI health-only service shell exposes liveness and readiness routes, with readiness intentionally returning 503 until the inference adapter is implemented.
+
+Run the web workspace from the repository root with Node.js 20.9+:
+
+```bash
+npm install
+npm run web:dev
+```
+
+See [the web product roadmap](docs/roadmap/web-product-roadmap.md), [web app setup](apps/web/README.md), [web server helper notes](apps/web/src/lib/README.md), and [database/RLS notes](db/README.md). The API includes `GET/POST /api/conversations`, `GET/PATCH/DELETE /api/conversations/:id`, `GET/POST /api/conversations/:id/messages`, and a mock-only `POST /api/chat/stream` SSE endpoint. Authentication is not implemented: production database API requests fail closed with HTTP 401; only local non-production development can opt into one fixed `TARA_DEV_USER_ID`. Database queries set transaction-local `tara.user_id` and require a dedicated non-owner runtime role.

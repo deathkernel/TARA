@@ -1,0 +1,65 @@
+name: Web foundation checks
+
+on:
+  push:
+    paths:
+      - "apps/web/**"
+      - "db/**"
+      - "package.json"
+      - ".github/workflows/web-foundation.yml"
+  pull_request:
+    paths:
+      - "apps/web/**"
+      - "db/**"
+      - "package.json"
+      - ".github/workflows/web-foundation.yml"
+  workflow_dispatch:
+
+jobs:
+  web-and-database:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: tara_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d tara_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TARA_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/tara_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install web dependencies
+        run: npm install --no-audit --no-fund
+      - name: Lint web app
+        run: npm run web:lint
+      - name: Type-check web app
+        run: npm run web:typecheck
+      - name: Build web app
+        run: npm run web:build
+      - name: Apply initial PostgreSQL migration
+        run: psql "$TARA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f db/migrations/0001_initial_chat_schema.sql
+      - name: Test database ownership policies
+        run: psql "$TARA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f db/tests/ownership_policies.sql
+
+  inference-health:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install inference service test dependencies
+        run: python -m pip install -r services/inference/requirements.txt
+      - name: Test inference health endpoints
+        run: pytest services/inference/tests -q
