@@ -191,7 +191,7 @@ This index preserves the project's phase history so progress remains trackable. 
 Keep this section updated as PRs change; do not mark proposed features as shipped until they are merged and validated.
 
 - [ ] Preserve existing training/data/checkpoint and voice integrations; do not merge retirement/removal proposals unless explicitly approved.
-- [ ] Verify the model-capability runner's prompt-to-observation mapping with regression tests and exact-head CI (implementation is in an isolated review PR; not merged).
+- [ ] Verify the model-capability runner's prompt-to-observation mapping with regression tests and exact-head CI (implementation is on an isolated branch; PR creation and CI verification are pending).
 - [ ] Review the read-only public API toolkit and its security tests.
 - [ ] Review the explicit chat commands for GitHub, Wikipedia, weather, Hacker News, and Stack Exchange.
 - [ ] Confirm the main-branch README and command list match the actual runtime after the PR stack is resolved.
