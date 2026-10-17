@@ -38,8 +38,24 @@ class PublicAPIClient:
     })
 
     def __init__(self, *, timeout=8.0, max_response_bytes=1_000_000, min_interval=0.25, opener=None):
-        if timeout <= 0 or max_response_bytes < 1 or min_interval < 0:
-            raise ValueError("invalid timeout, response limit, or interval")
+        if (
+            isinstance(timeout, bool)
+            or not isinstance(timeout, (int, float))
+            or timeout <= 0
+            or timeout > 300
+            or not math.isfinite(timeout)
+        ):
+            raise ValueError("timeout must be finite and between 0 and 300 seconds")
+        if type(max_response_bytes) is not int or not 1 <= max_response_bytes <= 10_000_000:
+            raise ValueError("max_response_bytes must be an integer between 1 and 10000000")
+        if (
+            isinstance(min_interval, bool)
+            or not isinstance(min_interval, (int, float))
+            or min_interval < 0
+            or min_interval > 3600
+            or not math.isfinite(min_interval)
+        ):
+            raise ValueError("min_interval must be finite and between 0 and 3600 seconds")
         self.timeout = timeout
         self.max_response_bytes = max_response_bytes
         self.min_interval = min_interval
@@ -47,11 +63,13 @@ class PublicAPIClient:
         self._last_request = {}
 
     def get_json(self, url, *, provider):
-        parsed = urlparse(url)
+        if not isinstance(url, str) or not url or any(ord(char) < 32 for char in url):
+            raise PublicAPIError("URL is malformed")
         try:
+            parsed = urlparse(url)
             port = parsed.port
-        except ValueError as exc:
-            raise PublicAPIError("URL port is invalid") from exc
+        except (TypeError, ValueError) as exc:
+            raise PublicAPIError("URL is malformed") from exc
         if parsed.scheme != "https" or parsed.hostname not in self.ALLOWED_HOSTS or parsed.username or parsed.password or port not in (None, 443):
             raise PublicAPIError("URL is not an allowlisted HTTPS public API endpoint")
         now = time.monotonic()
@@ -61,7 +79,10 @@ class PublicAPIClient:
             if delay > 0:
                 time.sleep(delay)
         self._last_request[parsed.hostname] = time.monotonic()
-        request = Request(url, headers={"Accept": "application/json", "User-Agent": "TARA-PublicAPI-Tools/1.0"})
+        try:
+            request = Request(url, headers={"Accept": "application/json", "User-Agent": "TARA-PublicAPI-Tools/1.0"})
+        except (TypeError, ValueError) as exc:
+            raise PublicAPIError("URL is malformed") from exc
         try:
             with self._opener(request, timeout=self.timeout) as response:
                 body = response.read(self.max_response_bytes + 1)
@@ -91,9 +112,13 @@ class PublicAPITools:
 
     @staticmethod
     def _validate_query_limit(query, limit):
+        if not isinstance(query, str):
+            raise ValueError("query must be a string containing 1-200 characters")
+        if type(limit) is not int or not 1 <= limit <= 10:
+            raise ValueError("limit must be an integer between 1 and 10")
         query = query.strip()
-        if not query or len(query) > 200 or not 1 <= limit <= 10:
-            raise ValueError("query must contain 1-200 characters and limit must be between 1 and 10")
+        if not query or len(query) > 200:
+            raise ValueError("query must contain 1-200 characters")
         return query
 
     def search_github_repositories(self, query, *, limit=5):
@@ -150,9 +175,19 @@ class PublicAPITools:
         place = places[0]
         if not isinstance(place, dict):
             raise PublicAPIError("Geocoding result must be an object")
+        raw_lat, raw_lon = place.get("latitude"), place.get("longitude")
+        # JSON booleans are Python ints, and numeric strings must not be silently
+        # coerced into coordinates. Treat upstream geocoding data as untrusted.
+        if (
+            isinstance(raw_lat, bool)
+            or isinstance(raw_lon, bool)
+            or not isinstance(raw_lat, (int, float))
+            or not isinstance(raw_lon, (int, float))
+        ):
+            raise PublicAPIError("Geocoding response did not contain valid coordinates")
         try:
-            lat, lon = float(place["latitude"]), float(place["longitude"])
-        except (KeyError, TypeError, ValueError) as exc:
+            lat, lon = float(raw_lat), float(raw_lon)
+        except (OverflowError, TypeError, ValueError) as exc:
             raise PublicAPIError("Geocoding response did not contain valid coordinates") from exc
         if not math.isfinite(lat) or not math.isfinite(lon) or not -90 <= lat <= 90 or not -180 <= lon <= 180:
             raise PublicAPIError("Geocoding coordinates are out of range")

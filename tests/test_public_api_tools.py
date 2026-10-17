@@ -158,6 +158,22 @@ def test_weather_rejects_non_finite_coordinates():
         tools.get_weather("Pune")
 
 
+@pytest.mark.parametrize("field,value", [
+    ("latitude", True),
+    ("longitude", False),
+    ("latitude", "18.52"),
+    ("longitude", "73.85"),
+    ("latitude", 10**1000),
+    ("longitude", -(10**1000)),
+])
+def test_weather_rejects_non_numeric_or_unrepresentable_coordinates(field, value):
+    place = {"name": "Pune", "latitude": 18.52, "longitude": 73.85}
+    place[field] = value
+    tools = PublicAPITools(fake_client({"results": [place]}))
+    with pytest.raises(PublicAPIError, match="valid coordinates"):
+        tools.get_weather("Pune")
+
+
 def test_weather_rejects_malformed_forecast_response():
     responses = [
         {"results": [{"name": "Pune", "country": "India", "latitude": 18.52, "longitude": 73.85}]},
@@ -171,3 +187,50 @@ def test_weather_rejects_malformed_forecast_response():
     with pytest.raises(PublicAPIError, match="missing current weather data"):
         tools.get_weather("Pune")
 
+
+
+@pytest.mark.parametrize("kwargs", [
+    {"timeout": float("nan")},
+    {"timeout": float("inf")},
+    {"timeout": True},
+    {"timeout": 0},
+    {"timeout": 301},
+    {"timeout": 10**1000},
+    {"max_response_bytes": True},
+    {"max_response_bytes": 1.5},
+    {"max_response_bytes": 0},
+    {"max_response_bytes": 10_000_001},
+    {"min_interval": float("nan")},
+    {"min_interval": float("inf")},
+    {"min_interval": True},
+    {"min_interval": -0.1},
+    {"min_interval": 3601},
+])
+def test_client_rejects_invalid_configuration(kwargs):
+    with pytest.raises(ValueError):
+        PublicAPIClient(**kwargs)
+
+
+@pytest.mark.parametrize("url", [
+    None,
+    "https://[malformed",
+    "https://api.github.com/path\r\nX-Injected: yes",
+])
+def test_client_rejects_malformed_urls_before_request(url):
+    client = fake_client({})
+    with pytest.raises(PublicAPIError, match="URL is malformed"):
+        client.get_json(url, provider="test")
+
+
+@pytest.mark.parametrize("query", [None, 1, object()])
+def test_public_search_rejects_non_string_query(query):
+    tools = PublicAPITools(fake_client({}))
+    with pytest.raises(ValueError, match="query must be a string"):
+        tools.search_github_repositories(query)
+
+
+@pytest.mark.parametrize("limit", [True, 1.5, "2", 0, 11])
+def test_public_search_requires_integer_limit(limit):
+    tools = PublicAPITools(fake_client({}))
+    with pytest.raises(ValueError, match="limit must be an integer"):
+        tools.search_github_repositories("python", limit=limit)
