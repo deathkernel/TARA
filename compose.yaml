@@ -1,0 +1,28 @@
+services:
+  python-tests:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp
+    environment:
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
+    command: ["python", "-m", "pytest", "-q", "-p", "no:cacheprovider"]
+    profiles: ["test"]
+
+  rust-tests:
+    build:
+      context: ./rust-tokenizer
+      dockerfile: Dockerfile
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /workspace/target
+    environment:
+      CARGO_TARGET_DIR: /workspace/target
+    command: ["cargo", "test", "--all-targets"]
+    profiles: ["test"]
