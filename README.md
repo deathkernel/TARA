@@ -51,6 +51,17 @@ Response to user
 
 The provider generates language; it does not replace TARA's orchestration or automatically authorize tool actions. Availability of a module in the repository does not prove that it is enabled in every runtime configuration.
 
+## TARA Doctor (developer diagnostics)
+
+Run bounded repository checks, the fixed test suite, or get suggestions for diagnostic commands:
+
+    python -m src.doctor check
+    python -m src.doctor tests --timeout 300
+    python -m src.doctor commands list
+    python -m src.doctor commands suggest "pytest failing after recent change"
+
+Generated command skeletons require review and tests; they are not automatically registered or executed. See [TARA Doctor guide](docs/TARA_DOCTOR.md).
+
 ## Current and proposed chat commands
 
 The exact commands depend on the branch you run. The baseline chat interface supports `/help` and `/exit`; other commands are branch-dependent.
