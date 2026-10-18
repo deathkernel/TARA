@@ -108,7 +108,7 @@ def scaffold_command(name, description, root="."):
     if target.exists():
         raise FileExistsError(str(target))
     safe = description.replace("\\n", " ").strip()
-    content = '"""Generated TARA Doctor command scaffold; review before use.\\n"""\\nDESCRIPTION = ' + repr(safe) + '\\n\\ndef run(root):\\n    raise NotImplementedError("Implement ' + name + ' and add tests before registration")\\n'
+    content = '"""Generated TARA Doctor command scaffold; review before use.\n"""\nDESCRIPTION = ' + repr(safe) + '\n\ndef run(root):\n    raise NotImplementedError("Implement ' + name + ' and add tests before registration")\n'
     target.write_text(content, encoding="utf-8")
     return target
 
