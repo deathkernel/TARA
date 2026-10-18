@@ -186,7 +186,7 @@ Keep this section updated as PRs change; do not mark proposed features as shippe
 
 ### Phase A — reliability baseline (dependency order)
 
-- [ ] P0: capability registry and `python -m src.doctor status` — implementation and focused tests are in a stacked PR; exact-commit CI is pending.
+- [ ] P0: capability registry and `python -m src.doctor status` — implementation and focused tests are committed to a dedicated branch; PR/CI verification remains pending.
 - [ ] P0: wire module-scoped exception handling into real call sites and add failure-injection tests for critical paths.
 - [ ] P0: add a default-chat end-to-end smoke test using a fake provider.
 - [ ] P0: verify canonical CI on a clean checkout before advancing to more autonomy.
