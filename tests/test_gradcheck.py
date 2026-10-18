@@ -59,4 +59,4 @@ def test_repeated_backward_clears_intermediate_grads_but_accumulates_leaf_grads(
     # gradients inflating the result. Leaf parameter gradients still accumulate.
     objective.backward()
     assert x.grad == pytest.approx(64.0)
-    assert square.grad == pytest.approx(16.0)
+    assert square.grad == pytest.approx(8.0)
