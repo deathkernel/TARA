@@ -129,6 +129,15 @@ class Value:
                 if child not in visited:
                     stack.append((child, False))
 
+        # Clear gradients on non-leaf graph nodes before each traversal. These
+        # are temporary chain-rule accumulators; keeping them between backward
+        # calls would multiply stale intermediate gradients. Leaf gradients are
+        # intentionally retained so separate objectives can accumulate into
+        # shared parameters until the caller invokes zero_grad().
+        for node in topo:
+            if node._prev:
+                node.grad = 0.0
+
         self.grad = 1.0
         for node in reversed(topo):
             node._backward()

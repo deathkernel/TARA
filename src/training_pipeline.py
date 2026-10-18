@@ -39,6 +39,7 @@ class TrainingConfig:
     min_lr_ratio: float = 0.1
     early_stopping_patience: int = 5
     early_stopping_min_delta: float = 0.0
+    schedule_total_steps: int | None = None
 
     def __post_init__(self) -> None:
         if self.steps <= 0 or self.batch_size <= 0 or self.context <= 0:
@@ -51,6 +52,8 @@ class TrainingConfig:
             raise ValueError("dropout must be in [0, 1)")
         if self.lr <= 0:
             raise ValueError("lr must be positive")
+        if self.schedule_total_steps is not None and self.schedule_total_steps <= 0:
+            raise ValueError("schedule_total_steps must be positive when provided")
         if not 0.0 <= self.validation_split < 1.0:
             raise ValueError("validation_split must be in [0, 1)")
         if self.log_every <= 0:
@@ -162,13 +165,19 @@ def evaluate(model, tokens: torch.Tensor | None, batch_size: int, context: int, 
     if len(starts) > 256:
         stride = max(1, len(starts) // 256)
         starts = starts[::stride][:256]
-    losses = []
+    weighted_loss = 0.0
+    example_count = 0
     for offset in range(0, len(starts), batch_size):
         batch_starts = starts[offset:offset + batch_size]
         x = torch.stack([tokens[i:i + context] for i in batch_starts]).to(device)
         y = torch.stack([tokens[i + 1:i + context + 1] for i in batch_starts]).to(device)
-        losses.append(float(model.loss(x, y).item()))
-    return sum(losses) / len(losses) if losses else None
+        batch_loss = float(model.loss(x, y).item())
+        # loss() returns a mean over the batch and token positions. All
+        # sequences here have equal length, so weighting by batch size gives
+        # each evaluated sequence equal weight, including a short final batch.
+        weighted_loss += batch_loss * len(batch_starts)
+        example_count += len(batch_starts)
+    return weighted_loss / example_count if example_count else None
 
 class TrainingPipeline:
     """Train, validate, checkpoint, resume, and track a TARA language model."""
@@ -280,7 +289,20 @@ class TrainingPipeline:
             early_stopping = EarlyStopping(self.config.early_stopping_patience, self.config.early_stopping_min_delta)
             early_stopping.best = state.get("best")
             early_stopping.bad_steps = int(state.get("bad_steps", 0))
-        total_steps = start_step + self.config.steps
+        requested_end_step = start_step + self.config.steps
+        if self.config.schedule_total_steps is not None:
+            total_steps = self.config.schedule_total_steps
+            if total_steps < requested_end_step:
+                raise ValueError("schedule_total_steps must cover start_step + steps")
+        elif resume is not None:
+            saved_scheduler = payload.get("scheduler", {})
+            saved_total_steps = saved_scheduler.get("total_steps")
+            # A resume that fits inside the original horizon continues the
+            # exact saved LR schedule. If it runs past that horizon, treat it
+            # as an intentional extension and create a longer schedule.
+            total_steps = saved_total_steps if isinstance(saved_total_steps, int) and requested_end_step <= saved_total_steps else requested_end_step
+        else:
+            total_steps = requested_end_step
         scheduler = WarmupCosineScheduler(total_steps=max(1, total_steps), warmup_steps=min(self.config.warmup_steps, max(1, total_steps)), min_lr_ratio=self.config.min_lr_ratio)
         if resume is None:
             random.seed(self.config.seed)
@@ -318,7 +340,10 @@ class TrainingPipeline:
                 decision = early_stopping.update(last_validation_loss) if last_validation_loss is not None else None
                 print(f"step={update_step:5d} train_loss={last_train_loss:.4f} " + (f"val_loss={last_validation_loss:.4f} " if last_validation_loss is not None else "") + f"lr={current_lr:.6g} device={self.device}")
                 if decision is not None and decision.improved:
-                    self._save(output_path, model, tokenizer, optimizer, update_step, last_train_loss, last_validation_loss, fingerprint, scheduler, early_stopping, tracker)
+                    # Keep the best validation checkpoint separately from the
+                    # latest/resumable checkpoint written at the end of train().
+                    best_path = output_path.with_name(output_path.name + ".best")
+                    self._save(best_path, model, tokenizer, optimizer, update_step, last_train_loss, last_validation_loss, fingerprint, scheduler, early_stopping, tracker)
                 if decision is not None and decision.should_stop:
                     stopped_early = True
                     break
