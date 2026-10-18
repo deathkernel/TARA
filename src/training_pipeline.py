@@ -162,13 +162,19 @@ def evaluate(model, tokens: torch.Tensor | None, batch_size: int, context: int, 
     if len(starts) > 256:
         stride = max(1, len(starts) // 256)
         starts = starts[::stride][:256]
-    losses = []
+    weighted_loss = 0.0
+    example_count = 0
     for offset in range(0, len(starts), batch_size):
         batch_starts = starts[offset:offset + batch_size]
         x = torch.stack([tokens[i:i + context] for i in batch_starts]).to(device)
         y = torch.stack([tokens[i + 1:i + context + 1] for i in batch_starts]).to(device)
-        losses.append(float(model.loss(x, y).item()))
-    return sum(losses) / len(losses) if losses else None
+        batch_loss = float(model.loss(x, y).item())
+        # loss() returns a mean over the batch and token positions. All
+        # sequences here have equal length, so weighting by batch size gives
+        # each evaluated sequence equal weight, including a short final batch.
+        weighted_loss += batch_loss * len(batch_starts)
+        example_count += len(batch_starts)
+    return weighted_loss / example_count if example_count else None
 
 class TrainingPipeline:
     """Train, validate, checkpoint, resume, and track a TARA language model."""
@@ -318,7 +324,10 @@ class TrainingPipeline:
                 decision = early_stopping.update(last_validation_loss) if last_validation_loss is not None else None
                 print(f"step={update_step:5d} train_loss={last_train_loss:.4f} " + (f"val_loss={last_validation_loss:.4f} " if last_validation_loss is not None else "") + f"lr={current_lr:.6g} device={self.device}")
                 if decision is not None and decision.improved:
-                    self._save(output_path, model, tokenizer, optimizer, update_step, last_train_loss, last_validation_loss, fingerprint, scheduler, early_stopping, tracker)
+                    # Keep the best validation checkpoint separately from the
+                    # latest/resumable checkpoint written at the end of train().
+                    best_path = output_path.with_name(output_path.name + ".best")
+                    self._save(best_path, model, tokenizer, optimizer, update_step, last_train_loss, last_validation_loss, fingerprint, scheduler, early_stopping, tracker)
                 if decision is not None and decision.should_stop:
                     stopped_early = True
                     break
