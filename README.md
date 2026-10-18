@@ -40,6 +40,7 @@ TARA chat / core runtime
    |-- reasoning and planning
    |-- memory / world-state components (where enabled)
    |-- explicit, authorized tools
+   |     |-- module-scoped error reporting for validator/tool/rollback failures
    |-- verification and response handling
    |
    v
@@ -169,6 +170,8 @@ This index preserves the project's phase history so progress remains trackable. 
 
 Keep this section updated as PRs change; do not mark proposed features as shipped until they are merged and validated.
 
+- [x] Implement module-scoped error reporting at tool validator/execution/rollback boundaries and regression coverage on the follow-up branch.
+- [ ] Verify focused/full Python tests and exact-commit CI for the exception-handling follow-up, then review it after its foundation PR is resolved.
 - [ ] Review and merge the removal of retired dataset/training/persistent-memory pipelines, if that direction remains intended.
 - [ ] Review the read-only public API toolkit and its security tests.
 - [ ] Review the explicit chat commands for GitHub, Wikipedia, weather, Hacker News, and Stack Exchange.

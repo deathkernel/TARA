@@ -5,6 +5,8 @@ from dataclasses import dataclass
 import inspect
 from typing import Any, Callable
 
+from src.error_handling.tool_handler import log_tool_error
+
 
 @dataclass(frozen=True)
 class ToolDecision:
@@ -85,6 +87,7 @@ class ToolController:
             try:
                 valid, reason = spec.validator(dict(kwargs))
             except Exception as exc:
+                log_tool_error(f"validate_tool:{name}", exc)
                 return ToolExecution(decision, error=f"validator failure: {type(exc).__name__}: {exc}")
             if not valid:
                 return ToolExecution(decision, error=reason or "tool arguments rejected by policy")
@@ -92,17 +95,20 @@ class ToolController:
             output = spec.function(**kwargs)
             return ToolExecution(decision, output=output, success=True)
         except Exception as exc:
+            log_tool_error(f"execute_tool:{name}", exc)
             return ToolExecution(decision, error=f"{type(exc).__name__}: {exc}")
 
     def execute_with_rollback(self, name: str, *, rollback=None, confirmed=False, **kwargs: Any) -> ToolExecution:
-        if rollback is not None:
-            self._rollback.append(rollback)
         result = self.execute(name, confirmed=confirmed, **kwargs)
-        if not result.success and rollback is not None:
+        if result.success:
+            if rollback is not None:
+                self._rollback.append(rollback)
+            return result
+        if rollback is not None:
             try:
                 rollback()
-            except Exception:
-                pass
+            except Exception as exc:
+                log_tool_error(f"rollback_tool:{name}", exc)
         return result
 
     def rollback_last(self) -> bool:
@@ -112,5 +118,6 @@ class ToolController:
         try:
             action()
             return True
-        except Exception:
+        except Exception as exc:
+            log_tool_error("rollback_last", exc)
             return False

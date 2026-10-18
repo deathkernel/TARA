@@ -79,3 +79,94 @@ def test_controller_supports_argument_policy_and_confirmation():
     allowed = controller.execute("delete", path="/safe/a", confirmed=True)
     assert allowed.success
     assert allowed.output == "deleted:/safe/a"
+
+
+def test_controller_logs_validator_failure(caplog):
+    import logging
+
+    controller = ToolController()
+
+    def broken_validator(args):
+        raise RuntimeError("validator unavailable")
+
+    controller.register("check", lambda: "unused", validator=broken_validator)
+    with caplog.at_level(logging.ERROR, logger="tara.tools"):
+        result = controller.execute("check")
+
+    assert not result.success
+    assert any(
+        getattr(record, "tara_operation", None) == "validate_tool:check"
+        and getattr(record, "tara_error_type", None) == "RuntimeError"
+        for record in caplog.records
+    )
+
+
+def test_controller_logs_tool_execution_failure(caplog):
+    import logging
+
+    controller = ToolController()
+
+    def broken_tool():
+        raise ValueError("tool unavailable")
+
+    controller.register("broken", broken_tool)
+    with caplog.at_level(logging.ERROR, logger="tara.tools"):
+        result = controller.execute("broken")
+
+    assert not result.success
+    assert any(
+        getattr(record, "tara_operation", None) == "execute_tool:broken"
+        and getattr(record, "tara_error_type", None) == "ValueError"
+        for record in caplog.records
+    )
+
+
+def test_failed_tool_compensation_is_not_left_on_rollback_stack(caplog):
+    import logging
+
+    controller = ToolController()
+    rollback_calls = []
+
+    def broken_tool():
+        raise RuntimeError("operation failed")
+
+    def broken_rollback():
+        rollback_calls.append("rollback")
+        raise OSError("compensation failed")
+
+    controller.register("mutate", broken_tool)
+    with caplog.at_level(logging.ERROR, logger="tara.tools"):
+        result = controller.execute_with_rollback("mutate", rollback=broken_rollback)
+        later_rollback = controller.rollback_last()
+
+    assert not result.success
+    assert rollback_calls == ["rollback"]
+    assert later_rollback is False
+    operations = {
+        getattr(record, "tara_operation", None)
+        for record in caplog.records
+    }
+    assert "execute_tool:mutate" in operations
+    assert "rollback_tool:mutate" in operations
+
+
+def test_controller_logs_rollback_last_failure(caplog):
+    import logging
+
+    controller = ToolController()
+    controller.register("ok", lambda: "done")
+
+    def broken_rollback():
+        raise OSError("rollback unavailable")
+
+    with caplog.at_level(logging.ERROR, logger="tara.tools"):
+        result = controller.execute_with_rollback("ok", rollback=broken_rollback)
+        rollback_result = controller.rollback_last()
+
+    assert result.success
+    assert rollback_result is False
+    assert any(
+        getattr(record, "tara_operation", None) == "rollback_last"
+        and getattr(record, "tara_error_type", None) == "OSError"
+        for record in caplog.records
+    )
