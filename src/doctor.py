@@ -1,9 +1,10 @@
 """Bounded TARA Doctor diagnostics and command scaffolding."""
 from __future__ import annotations
-import argparse, ast, re, sys
+import argparse, ast, json, re, sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
+from .capabilities import capability_report
 from .repository_audit import RepositoryAuditor
 from .self_test import run_test_suite, summarize_pytest_output
 
@@ -26,6 +27,7 @@ class DoctorReport:
 
 COMMAND_CATALOG = {
     "check": "Static repository diagnostics; project code is not executed.",
+    "status": "Show source, dependency, configuration, and runtime-wiring status."
     "tests": "Run the fixed pytest suite with a timeout and captured output.",
     "commands list": "List Doctor command groups.",
     "commands suggest": "Suggest diagnostics from a problem description.",
@@ -127,6 +129,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(prog="tara doctor")
     sub = parser.add_subparsers(dest="action", required=True)
     check = sub.add_parser("check"); check.add_argument("root", nargs="?", default=str(Path(__file__).resolve().parents[1]))
+    status = sub.add_parser("status"); status.add_argument("root", nargs="?", default=str(Path(__file__).resolve().parents[1]))
     tests = sub.add_parser("tests"); tests.add_argument("root", nargs="?", default=str(Path(__file__).resolve().parents[1])); tests.add_argument("--timeout", type=int, default=300)
     commands = sub.add_parser("commands"); cs = commands.add_subparsers(dest="command_action", required=True)
     cs.add_parser("list")
@@ -135,6 +138,9 @@ def main(argv=None):
     args = parser.parse_args(argv)
     if args.action == "check":
         return _print_report(scan_repository(args.root))
+    if args.action == "status":
+        print(json.dumps(capability_report(args.root), indent=2, sort_keys=True))
+        return 0
     if args.action == "tests":
         result = run_test_suite(args.root, timeout=args.timeout)
         print("Command:", " ".join(result.command))

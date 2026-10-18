@@ -36,6 +36,7 @@ User input
    |
    v
 TARA chat / core runtime
+   |-- capability registry / Doctor status (read-only diagnostics)
    |-- context and perception
    |-- reasoning and planning
    |-- memory / world-state components (where enabled)
@@ -51,11 +52,14 @@ Response to user
 
 The provider generates language; it does not replace TARA's orchestration or automatically authorize tool actions. Availability of a module in the repository does not prove that it is enabled in every runtime configuration.
 
+`python -m src.doctor status` reports source presence, optional dependency installation, required configuration, adapter readiness, and default-runtime wiring separately. It emits configuration names and status flags only, never raw environment values. An adapter being ready does not mean it is wired into the default chat runtime.
+
 ## TARA Doctor (developer diagnostics)
 
-Run bounded repository checks, the fixed test suite, or get suggestions for diagnostic commands:
+Run bounded repository checks, inspect capability status, execute the fixed test suite, or get suggestions for diagnostic commands:
 
     python -m src.doctor check
+    python -m src.doctor status
     python -m src.doctor tests --timeout 300
     python -m src.doctor commands list
     python -m src.doctor commands suggest "pytest failing after recent change"
@@ -180,6 +184,13 @@ This index preserves the project's phase history so progress remains trackable. 
 
 Keep this section updated as PRs change; do not mark proposed features as shipped until they are merged and validated.
 
+### Phase A — reliability baseline (dependency order)
+
+- [ ] P0: capability registry and `python -m src.doctor status` — implementation and focused tests are in a stacked PR; exact-commit CI is pending.
+- [ ] P0: wire module-scoped exception handling into real call sites and add failure-injection tests for critical paths.
+- [ ] P0: add a default-chat end-to-end smoke test using a fake provider.
+- [ ] P0: verify canonical CI on a clean checkout before advancing to more autonomy.
+
 - [ ] Review and merge the removal of retired dataset/training/persistent-memory pipelines, if that direction remains intended.
 - [ ] Review the read-only public API toolkit and its security tests.
 - [ ] Review the explicit chat commands for GitHub, Wikipedia, weather, Hacker News, and Stack Exchange.
@@ -188,7 +199,7 @@ Keep this section updated as PRs change; do not mark proposed features as shippe
 
 ## Optional voice output
 
-TARA may be configured for ElevenLabs voice output where the corresponding integration is present. Keep credentials in local environment variables and never commit API keys or secrets. Check the active branch's implementation and current SDK documentation before relying on specific parameters.
+TARA may be configured for ElevenLabs voice output where the corresponding integration is present. Keep credentials in local environment variables and never commit API keys or private values. Check the active branch's implementation and current SDK documentation before relying on specific parameters.
 
 ## Development checks
 

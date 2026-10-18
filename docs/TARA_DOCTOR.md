@@ -7,10 +7,15 @@ TARA Doctor provides bounded diagnostics and a controlled way to propose new dia
 Run from the repository root:
 
     python -m src.doctor check
+    python -m src.doctor status
     python -m src.doctor tests --timeout 300
     python -m src.doctor commands list
     python -m src.doctor commands suggest "pytest failing after recent change"
     python -m src.doctor commands scaffold profile_memory --description "Profile memory use"
+
+## Capability status
+
+`status` prints a JSON snapshot for the current checkout. It distinguishes source files, optional SDK installation, required configuration, adapter readiness, and whether a supported default-runtime entry point references the integration. Missing Ollama and public-API source files are reported as unavailable on this branch, not deleted or retired. The report never prints environment-variable values and makes no network requests. A source-level adapter can be ready without being enabled in the default runtime.
 
 ## What it checks
 
