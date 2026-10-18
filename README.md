@@ -17,6 +17,11 @@ TARA is a modular Python reasoning project. Its architecture separates language-
 | Training/data/checkpoints | Legacy/historical | Not required to run chat with Ollama. Do not use old training commands as current setup instructions. |
 | Tests/CI | Required validation | Run the test suite and check CI before considering code changes ready. |
 
+## Feature documentation
+
+- [Feature catalog](docs/FEATURES.md) — current workflow vs source-level, optional, historical, and proposed capabilities.
+- [Feature suggestions and roadmap](docs/FEATURE_SUGGESTIONS.md) — prioritized additions with implementation phases and completion gates.
+
 ## Run locally
 
 Install dependencies, make sure Ollama is running, and install the model you want to use:
