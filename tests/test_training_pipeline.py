@@ -168,3 +168,25 @@ def test_training_preserves_best_validation_checkpoint(tmp_path):
     latest = torch.load(checkpoint, map_location="cpu", weights_only=True)
     best = torch.load(best_checkpoint, map_location="cpu", weights_only=True)
     assert best["metrics"]["validation_loss"] <= latest["metrics"]["validation_loss"]
+
+
+
+def test_resume_preserves_original_scheduler_and_matches_uninterrupted_training(tmp_path):
+    data = tmp_path / "data.jsonl"
+    split_checkpoint = tmp_path / "split.pt"
+    full_checkpoint = tmp_path / "full.pt"
+    write_algorithm_dataset(data, count=8)
+
+    first = tiny_config(steps=2)
+    first = TrainingConfig(**{**first.__dict__, "schedule_total_steps": 4})
+    TrainingPipeline(first).train(data, split_checkpoint)
+    resumed = TrainingPipeline(tiny_config(steps=2)).train(data, split_checkpoint, resume=split_checkpoint)
+    uninterrupted = TrainingPipeline(first.__class__(**{**first.__dict__, "steps": 4})).train(data, full_checkpoint)
+
+    split_state = torch.load(split_checkpoint, map_location="cpu", weights_only=True)
+    full_state = torch.load(full_checkpoint, map_location="cpu", weights_only=True)
+    assert resumed.final_step == 4
+    assert split_state["scheduler"]["total_steps"] == 4
+    assert full_state["scheduler"]["total_steps"] == 4
+    for name, value in split_state["model_state"].items():
+        assert torch.equal(value, full_state["model_state"][name]), name
