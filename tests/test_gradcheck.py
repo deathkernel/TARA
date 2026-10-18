@@ -44,3 +44,19 @@ def test_numerical_gradient_rejects_non_positive_epsilon():
     parameter = Value(1.0)
     with pytest.raises(ValueError):
         numerical_gradient(lambda: parameter.data ** 2, parameter, epsilon=0)
+
+
+
+def test_repeated_backward_clears_intermediate_grads_but_accumulates_leaf_grads():
+    x = Value(2.0)
+    square = x * x
+    objective = square * square
+
+    objective.backward()
+    assert x.grad == pytest.approx(32.0)
+
+    # The same graph can be traversed again without stale intermediate
+    # gradients inflating the result. Leaf parameter gradients still accumulate.
+    objective.backward()
+    assert x.grad == pytest.approx(64.0)
+    assert square.grad == pytest.approx(16.0)
