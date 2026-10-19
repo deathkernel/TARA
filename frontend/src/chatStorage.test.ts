@@ -15,6 +15,7 @@ describe("isMessage", () => {
     [],
     {},
     { id: "", role: "user", content: "Hello" },
+    { id: "   ", role: "assistant", content: "Hello" },
     { id: "m1", role: "system", content: "Hello" },
     { id: "m1", role: "user", content: 42 },
   ])("rejects malformed messages: %j", (value) => {
@@ -31,6 +32,7 @@ describe("isConversation", () => {
     null,
     {},
     { ...conversation, title: "   " },
+    { ...conversation, id: "   " },
     { ...conversation, updatedAt: Number.NaN },
     { ...conversation, updatedAt: Number.POSITIVE_INFINITY },
     { ...conversation, messages: [message, { id: "m2", role: "tool", content: "unexpected" }] },
