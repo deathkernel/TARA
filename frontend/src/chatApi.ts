@@ -7,6 +7,13 @@ export function isHealthCheckCurrent(checkId: number, currentCheckId: number, si
   return checkId === currentCheckId && !signal?.aborted;
 }
 
+/** Convert unknown thrown values into a safe, non-empty message for the UI. */
+export function errorMessageFromUnknown(error: unknown, fallback = "An unexpected error occurred."): string {
+  if (error instanceof Error && error.message.trim()) return error.message.trim();
+  if (typeof error === "string" && error.trim()) return error.trim();
+  return fallback;
+}
+
 export function apiErrorFromPayload(status: number, payload: unknown): string {
   if (typeof payload === "object" && payload !== null && "detail" in payload) {
     const detail = (payload as { detail?: unknown }).detail;
