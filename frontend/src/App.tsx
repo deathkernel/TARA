@@ -228,6 +228,7 @@ function App() {
     setActiveChatId("");
     setMessages([]);
     setLastSubmitted("");
+    setRetryAvailable(false);
     setDraft("");
     setError("");
     setSettingsOpen(false);
