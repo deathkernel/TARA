@@ -50,6 +50,7 @@ function App() {
   const [lightMode, setLightMode] = useState(readTheme);
   const [backendStatus, setBackendStatus] = useState<"checking" | "ready" | "needs-config" | "offline">("checking");
   const [copiedId, setCopiedId] = useState("");
+  const [copyStatus, setCopyStatus] = useState("");
   const [lastSubmitted, setLastSubmitted] = useState("");
   const [retryAvailable, setRetryAvailable] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
@@ -59,6 +60,7 @@ function App() {
   const abortRef = useRef<AbortController | null>(null);
   const requestIdRef = useRef(0);
   const healthCheckIdRef = useRef(0);
+  const copyTimeoutRef = useRef<number | null>(null);
   const isBusy = requestState === "pending";
 
   async function checkBackendStatus(signal?: AbortSignal) {
@@ -84,6 +86,10 @@ function App() {
   }, []);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }); }, [messages, requestState]);
+
+  useEffect(() => () => {
+    if (copyTimeoutRef.current !== null) window.clearTimeout(copyTimeoutRef.current);
+  }, []);
 
   useEffect(() => {
     // Keep the composer compact after sending, clearing, or switching chats.
@@ -279,7 +285,20 @@ function App() {
   }
 
   async function copyMessage(message: Message) {
-    try { await navigator.clipboard.writeText(message.content); setCopiedId(message.id); window.setTimeout(() => setCopiedId(""), 1400); } catch { /* clipboard may be unavailable */ }
+    try {
+      await navigator.clipboard.writeText(message.content);
+      setCopiedId(message.id);
+      setCopyStatus("Message copied to clipboard.");
+    } catch {
+      setCopiedId("");
+      setCopyStatus("Clipboard access is unavailable. You can select and copy the message text manually.");
+    }
+    if (copyTimeoutRef.current !== null) window.clearTimeout(copyTimeoutRef.current);
+    copyTimeoutRef.current = window.setTimeout(() => {
+      setCopiedId("");
+      setCopyStatus("");
+      copyTimeoutRef.current = null;
+    }, 3000);
   }
 
   return (
@@ -327,6 +346,7 @@ function App() {
               <div ref={endRef} />
             </div>
           )}
+          <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">{copyStatus}</p>
           {error && <div className="error-banner" role="alert"><div className="error-icon"><Activity size={17} /></div><div className="error-text"><strong>We couldn't complete that request</strong><span>{error}</span>{retryAvailable && lastSubmitted.trim() && <button className="retry-btn" onClick={() => { setError(""); void sendMessage(lastSubmitted, false); }}> <RefreshCw size={13} /> Try again</button>}</div><button className="icon-btn" aria-label="Dismiss error" onClick={() => setError("")}><X size={16} /></button></div>}
         </section>
         <footer className="composer-area">
