@@ -61,3 +61,11 @@ button:focus-visible,textarea:focus-visible{outline:2px solid #a99aff;outline-of
 
 /* Screen-reader-only live announcements */
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+
+/* Visible clipboard feedback complements the screen-reader announcement. */
+.copy-feedback{width:min(790px,calc(100% - 56px));margin:0 auto 10px;padding:9px 12px;border:1px solid #315b4b;border-radius:8px;background:#14271f;color:#a7e5c6;font-size:11px;line-height:1.5;overflow-wrap:anywhere}
+.copy-feedback-error{border-color:#65323f;background:#28181f;color:#f4b3bc}
+.light .copy-feedback{border-color:#b7dfcb;background:#edf9f2;color:#245d43}
+.light .copy-feedback-error{border-color:#e6bfc5;background:#fff0f1;color:#8a3443}
+@media(max-width:680px){.copy-feedback{width:calc(100% - 24px);margin-bottom:8px;padding:8px 10px}}
