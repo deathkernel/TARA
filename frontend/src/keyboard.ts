@@ -4,11 +4,13 @@ export type ShortcutKeyEvent = {
   isComposing: boolean;
   metaKey: boolean;
   ctrlKey: boolean;
+  targetIsEditable?: boolean;
 };
 
 export function isNewChatShortcut(event: ShortcutKeyEvent): boolean {
   return !event.repeat
     && !event.isComposing
+    && !event.targetIsEditable
     && (event.metaKey || event.ctrlKey)
     && event.key.toLowerCase() === "k";
 }
