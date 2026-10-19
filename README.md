@@ -52,6 +52,26 @@ Response to user
 
 The provider generates language; it does not replace TARA's orchestration or automatically authorize tool actions. Availability of a module in the repository does not prove that it is enabled in every runtime configuration.
 
+### Offline capability evaluation flow
+
+```text
+BenchmarkCase(case_id, prompt)
+        |
+        v
+ModelCapabilityRunner.generate(prompt)
+        |
+        v
+observations[case_id] + ordered outputs_by_prompt[prompt]
+        |
+        v
+IntelligenceBenchmark scoring (including repeated prompts)
+        |
+        v
+Benchmark report + model/benchmark fingerprints
+```
+
+The benchmark adapter preserves case IDs for the report while satisfying the benchmark's prompt-based solver contract. Repeated prompts are consumed in case order rather than collapsed into one dictionary entry.
+
 ## Current and proposed chat commands
 
 The exact commands depend on the branch you run. The baseline chat interface supports `/help` and `/exit`; other commands are branch-dependent.
@@ -204,9 +224,10 @@ Keep this section updated as PRs change; do not mark proposed features as shippe
 - [x] Correct the clean-baseline/category-regression test fixture, the dataset-viewer minimum-length fixture, evaluation evaluator setup, and embedding parameter-count expectation.
 - [x] Make checkpoint adapter entry points patchable while retaining lazy imports and safe tensor-only checkpoint loading.
 - [x] Let the model capability runner use TARA's native `forward_numeric` interface without requiring PyTorch-only methods on test doubles.
+- [x] Map case-ID observations back to the benchmark's prompt-based solver contract, preserving duplicate-prompt order with regression coverage.
 - [x] Replace host-process execution in the self-improvement test with an injected deterministic fake executor.
 - [x] Use combined absolute/relative gradient-check tolerances to avoid false failures on near-zero gradients.
-- [ ] Re-run the 431-test suite, static repository audit, and Rust tests on the exact batch commit.
+- [ ] Re-run the current Python suite, static repository audit, Rust tests, and smoke experiments on the exact batch commit.
 
 ## Optional voice output
 
