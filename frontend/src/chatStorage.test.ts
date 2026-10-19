@@ -32,6 +32,8 @@ describe("isConversation", () => {
     {},
     { ...conversation, title: "   " },
     { ...conversation, updatedAt: Number.NaN },
+    { ...conversation, updatedAt: Number.POSITIVE_INFINITY },
+    { ...conversation, messages: [message, { id: "m2", role: "tool", content: "unexpected" }] },
     { ...conversation, messages: [] },
     { ...conversation, messages: [{ id: "", role: "user", content: "bad" }] },
   ])("rejects malformed conversations: %j", (value) => {
@@ -44,6 +46,9 @@ describe("parseHistory", () => {
     expect(parseHistory(null)).toEqual([]);
     expect(parseHistory("{")).toEqual([]);
     expect(parseHistory(JSON.stringify({ id: "not-an-array" }))).toEqual([]);
+    expect(parseHistory(JSON.stringify(null))).toEqual([]);
+    expect(parseHistory(JSON.stringify("not history"))).toEqual([]);
+    expect(parseHistory(JSON.stringify(42))).toEqual([]);
   });
 
   it("filters invalid entries and caps history at 30 conversations", () => {
