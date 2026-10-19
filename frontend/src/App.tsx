@@ -102,6 +102,16 @@ function App() {
   }, [lightMode]);
 
   useEffect(() => {
+    // Keep open TARA tabs in sync when a user changes local history or theme elsewhere.
+    function syncBrowserPreferences(event: StorageEvent) {
+      if (event.key === HISTORY_KEY) setRecentChats(readHistory());
+      if (event.key === THEME_KEY) setLightMode(readTheme());
+    }
+    window.addEventListener("storage", syncBrowserPreferences);
+    return () => window.removeEventListener("storage", syncBrowserPreferences);
+  }, []);
+
+  useEffect(() => {
     if (!messages.length) return;
     const id = activeChatId || crypto.randomUUID();
     if (!activeChatId) setActiveChatId(id);
