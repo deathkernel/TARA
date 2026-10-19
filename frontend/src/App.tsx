@@ -20,7 +20,7 @@ function App() {
   const [error, setError] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [lightMode, setLightMode] = useState(false);
-  const [backendStatus, setBackendStatus] = useState<"checking" | "online" | "offline">("checking");
+  const [backendStatus, setBackendStatus] = useState<"checking" | "ready" | "needs-config" | "offline">("checking");
   const [copiedId, setCopiedId] = useState("");
   const [lastSubmitted, setLastSubmitted] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
@@ -32,7 +32,7 @@ function App() {
     const controller = new AbortController();
     fetch(`${API_BASE}/api/health`, { signal: controller.signal })
       .then((response) => { if (!response.ok) throw new Error("Health check failed"); return response.json(); })
-      .then(() => setBackendStatus("online"))
+      .then((data: { status?: string; provider_configured?: boolean }) => setBackendStatus(data.provider_configured ? "ready" : "needs-config"))
       .catch(() => { if (!controller.signal.aborted) setBackendStatus("offline"); });
     return () => controller.abort();
   }, []);
