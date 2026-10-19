@@ -3,7 +3,7 @@ import { Activity, ArrowDown, ArrowUp, Check, ChevronDown, CircleHelp, Code2, Co
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Conversation, HISTORY_KEY, Message, THEME_KEY, parseHistory } from "./chatStorage";
-import { assistantMessageFromPayload, apiErrorFromPayload } from "./chatApi";
+import { assistantMessageFromPayload, apiErrorFromPayload, isRequestCurrent } from "./chatApi";
 
 function readTheme(): boolean {
   try { return localStorage.getItem(THEME_KEY) === "light"; } catch { return false; }
@@ -195,7 +195,7 @@ function App() {
         signal: controller.signal,
       });
       const data: unknown = await response.json().catch(() => ({}));
-      if (requestId !== requestIdRef.current || controller.signal.aborted) return;
+      if (!isRequestCurrent(requestId, requestIdRef.current, controller.signal)) return;
       if (!response.ok) throw new Error(apiErrorFromPayload(response.status, data));
       const assistantMessage = assistantMessageFromPayload(data);
       setMessages((current) => [...current, { id: crypto.randomUUID(), role: "assistant", content: assistantMessage }]);
@@ -203,7 +203,7 @@ function App() {
       setRetryAvailable(false);
       setBackendStatus("ready");
     } catch (err) {
-      if (controller.signal.aborted || requestId !== requestIdRef.current) return;
+      if (!isRequestCurrent(requestId, requestIdRef.current, controller.signal)) return;
       setError(err instanceof Error ? err.message : "An unexpected error occurred.");
       setRetryAvailable(true);
       setRequestState("error");
