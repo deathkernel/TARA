@@ -37,10 +37,36 @@ def test_client_returns_untrusted_source_linked_observation():
     assert result.trusted is False
 
 
+def test_client_reserves_per_host_request_slots(monkeypatch):
+    import src.public_api_tools as module
+
+    clock = {"now": 10.0}
+    sleeps = []
+
+    def fake_sleep(delay):
+        sleeps.append(delay)
+        clock["now"] += delay
+
+    monkeypatch.setattr(module.time, "monotonic", lambda: clock["now"])
+    monkeypatch.setattr(module.time, "sleep", fake_sleep)
+    client = PublicAPIClient(
+        opener=lambda request, timeout: FakeResponse(json.dumps({"ok": True}).encode()),
+        min_interval=0.25,
+    )
+
+    for _ in range(3):
+        client.get_json("https://api.github.com/example", provider="GitHub")
+
+    assert sleeps == pytest.approx([0.25, 0.25])
+
+
 @pytest.mark.parametrize("url", [
     "http://api.github.com/repos",
     "https://example.com/data",
     "https://user:pass@api.github.com/repos",
+    "https://@api.github.com/repos",
+    "https://api.github.com/repos#fragment",
+    "https://api.github.com/repos#",
     "https://api.github.com:444/repos",
 ])
 def test_client_rejects_non_allowlisted_or_unsafe_urls(url):

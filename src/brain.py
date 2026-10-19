@@ -35,7 +35,7 @@ class BrainResponse:
     temporal_context: str = ""
 
 class TARABrain:
-    def __init__(self, model, tokenizer=None, *, engine=None, memory=None, seed=0, reflection=None,
+    def __init__(self, model=None, tokenizer=None, *, engine=None, memory=None, seed=0, reflection=None,
                  progress=None, orchestrator=None, world=None, events=None, temporal=None,
                  temporal_history=256, reasoner=None, planner=None, tools=None, improver=None,
                  continual=None, multimodal=None, researcher=None, experimenter=None, architecture_optimizer=None, cognitive_loop=None, experience_learning=None,
@@ -181,7 +181,11 @@ class TARABrain:
                     max_completion_tokens=max_new_tokens,
                     temperature=temperature,
                 )
-            except (RuntimeError, TimeoutError):
+            except (RuntimeError, TimeoutError) as exc:
+                if self.model is None or self.tokenizer is None:
+                    raise RuntimeError(
+                        "The configured language provider failed and no checkpoint-backed local fallback is configured"
+                    ) from exc
                 text = self.generate(context, max_new_tokens=max_new_tokens, temperature=temperature, top_k=top_k, top_p=top_p)
         else:
             # The local fallback should preserve the user's prompt; the richer
