@@ -5,11 +5,17 @@ on:
     paths:
       - "frontend/**"
       - ".github/workflows/frontend-ci.yml"
+      - "src/web_api.py"
+      - "tests/test_web_api.py"
+      - "requirements-web.txt"
   push:
     branches: [main]
     paths:
       - "frontend/**"
       - ".github/workflows/frontend-ci.yml"
+      - "src/web_api.py"
+      - "tests/test_web_api.py"
+      - "requirements-web.txt"
 
 jobs:
   build:
