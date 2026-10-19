@@ -2,30 +2,13 @@ import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from "react";
 import { Activity, ArrowDown, ArrowUp, Check, ChevronDown, CircleHelp, Code2, Command, FileText, Globe2, Menu, MessageSquare, Moon, Paperclip, Plus, RefreshCw, Settings2, ShieldCheck, Sparkles, Square, Sun, X, Zap } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { Conversation, HISTORY_KEY, Message, THEME_KEY, parseHistory } from "./chatStorage";
 
-type Message = { id: string; role: "user" | "assistant"; content: string };
-type Conversation = { id: string; title: string; updatedAt: number; messages: Message[] };
-const HISTORY_KEY = "tara.chat.history.v1";
-const THEME_KEY = "tara.chat.theme.v1";
-function isMessage(value: unknown): value is Message {
-  if (typeof value !== "object" || value === null) return false;
-  const message = value as Record<string, unknown>;
-  return typeof message.id === "string" && message.id.length > 0 && (message.role === "user" || message.role === "assistant") && typeof message.content === "string";
-}
-function isConversation(value: unknown): value is Conversation {
-  if (typeof value !== "object" || value === null) return false;
-  const chat = value as Record<string, unknown>;
-  return typeof chat.id === "string" && chat.id.length > 0 && typeof chat.title === "string" && chat.title.trim().length > 0 && typeof chat.updatedAt === "number" && Number.isFinite(chat.updatedAt) && Array.isArray(chat.messages) && chat.messages.length > 0 && chat.messages.every(isMessage);
-}
 function readTheme(): boolean {
   try { return localStorage.getItem(THEME_KEY) === "light"; } catch { return false; }
 }
 function readHistory(): Conversation[] {
-  try {
-    const value: unknown = JSON.parse(localStorage.getItem(HISTORY_KEY) ?? "[]");
-    if (!Array.isArray(value)) return [];
-    return value.filter(isConversation).slice(0, 30);
-  } catch { return []; }
+  try { return parseHistory(localStorage.getItem(HISTORY_KEY)); } catch { return []; }
 }
 type RequestState = "idle" | "pending" | "error";
 const API_BASE = (import.meta.env.VITE_TARA_API_URL as string | undefined)?.replace(/\/$/, "") ?? "";
