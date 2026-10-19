@@ -5,6 +5,7 @@ import remarkGfm from "remark-gfm";
 import { Conversation, HISTORY_KEY, Message, THEME_KEY, parseHistory } from "./chatStorage";
 import { assistantMessageFromPayload, apiErrorFromPayload, healthStatusFromPayload, isHealthCheckCurrent, isRequestCurrent } from "./chatApi";
 import { isNewChatShortcut, shouldSendOnEnter } from "./keyboard";
+import { focusTrapAction } from "./dialogFocus";
 
 function readTheme(): boolean {
   try { return localStorage.getItem(THEME_KEY) === "light"; } catch { return false; }
@@ -124,16 +125,13 @@ function App() {
     function keepFocusInside(event: globalThis.KeyboardEvent) {
       if (event.key !== "Tab" || !modal) return;
       const focusable = Array.from(modal.querySelectorAll<HTMLElement>('button:not([disabled]), [href], input:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'));
-      if (!focusable.length) { event.preventDefault(); modal.focus(); return; }
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (event.shiftKey && (document.activeElement === first || !modal.contains(document.activeElement))) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && (document.activeElement === last || !modal.contains(document.activeElement))) {
-        event.preventDefault();
-        first.focus();
-      }
+      const activeIndex = focusable.indexOf(document.activeElement as HTMLElement);
+      const action = focusTrapAction(activeIndex, focusable.length, event.shiftKey);
+      if (action === null) return;
+      event.preventDefault();
+      if (action === "container") modal.focus();
+      else if (action === "first") focusable[0]?.focus();
+      else focusable[focusable.length - 1]?.focus();
     }
     window.addEventListener("keydown", keepFocusInside);
     return () => {
