@@ -4,7 +4,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Conversation, HISTORY_KEY, Message, THEME_KEY, parseHistory } from "./chatStorage";
 import { assistantMessageFromPayload, apiErrorFromPayload, errorMessageFromUnknown, healthStatusFromPayload, isHealthCheckCurrent, isRequestCurrent } from "./chatApi";
-import { isNewChatShortcut, shouldSendOnEnter } from "./keyboard";
+import { isNewChatShortcut, shouldHandleEscape, shouldSendOnEnter, textareaHeight } from "./keyboard";
 import { focusTrapAction } from "./dialogFocus";
 
 function readTheme(): boolean {
@@ -83,7 +83,7 @@ function App() {
     const input = inputRef.current;
     if (!input) return;
     input.style.height = "auto";
-    input.style.height = `${Math.min(input.scrollHeight, 180)}px`;
+    input.style.height = `${textareaHeight(input.scrollHeight)}px`;
   }, [draft]);
 
   useEffect(() => {
@@ -146,7 +146,7 @@ function App() {
         event.preventDefault();
         newChat();
       }
-      if (event.key === "Escape") {
+      if (shouldHandleEscape(event.key, event.isComposing)) {
         setSidebarOpen(false);
         setSettingsOpen(false);
         setHelpOpen(false);
@@ -326,7 +326,7 @@ function App() {
           {error && <div className="error-banner" role="alert"><div className="error-icon"><Activity size={17} /></div><div className="error-text"><strong>We couldn't complete that request</strong><span>{error}</span>{retryAvailable && lastSubmitted.trim() && <button className="retry-btn" onClick={() => { setError(""); void sendMessage(lastSubmitted, false); }}> <RefreshCw size={13} /> Try again</button>}</div><button className="icon-btn" aria-label="Dismiss error" onClick={() => setError("")}><X size={16} /></button></div>}
         </section>
         <footer className="composer-area">
-          <form className="composer" onSubmit={submit}><textarea ref={inputRef} aria-label="Message TARA" value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={onComposerKeyDown} placeholder="Message TARA…  (Shift + Enter for new line)" rows={1} disabled={isBusy} onInput={e => { const el = e.currentTarget; el.style.height = "auto"; el.style.height = `${Math.min(el.scrollHeight, 180)}px`; }} />
+          <form className="composer" onSubmit={submit}><textarea ref={inputRef} aria-label="Message TARA" value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={onComposerKeyDown} placeholder="Message TARA…  (Shift + Enter for new line)" rows={1} disabled={isBusy} onInput={e => { const el = e.currentTarget; el.style.height = "auto"; el.style.height = `${textareaHeight(el.scrollHeight)}px`; }} />
             <div className="composer-bottom"><div className="composer-tools"><button type="button" className="icon-btn" aria-label="Attachments are not available yet" title="Attachments coming later" onClick={() => { setError("File attachments are not part of the initial MVP."); setRetryAvailable(false); }}><Paperclip size={17} /></button><span className="composer-hint"><ShieldCheck size={13} /> Responses come from your configured TARA backend</span></div><div className="composer-actions">{isBusy && <button type="button" className="stop-btn" onClick={stopRequest} aria-label="Stop generating response"><Square size={13} fill="currentColor" /> Stop</button>}<button type="submit" className="send-btn" disabled={!draft.trim() || isBusy} aria-label="Send message" title={isBusy ? "Wait for the current response" : "Send message"}>{isBusy ? <span className="send-loading" /> : <ArrowUp size={19} />}</button></div></div>
           </form>
           <p className="disclaimer"><ShieldCheck size={12} /> TARA can make mistakes. Verify important information.</p>
