@@ -78,7 +78,7 @@ function App() {
       }
       setMessages((current) => [...current, { id: crypto.randomUUID(), role: "assistant", content: data.message as string }]);
       setRequestState("idle");
-      setBackendStatus("online");
+      setBackendStatus("needs-config");
     } catch (err) {
       if (controller.signal.aborted) {
         setRequestState("idle");
