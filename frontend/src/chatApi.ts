@@ -18,6 +18,18 @@ export function apiErrorFromPayload(status: number, payload: unknown): string {
   if (typeof payload === "object" && payload !== null && "detail" in payload) {
     const detail = (payload as { detail?: unknown }).detail;
     if (typeof detail === "string" && detail.trim()) return detail.trim();
+    // FastAPI validation errors commonly return an array of { loc, msg, type } objects.
+    if (Array.isArray(detail)) {
+      const messages = detail
+        .map((item) => {
+          if (typeof item !== "object" || item === null || !("msg" in item)) return "";
+          const message = (item as { msg?: unknown }).msg;
+          return typeof message === "string" ? message.trim() : "";
+        })
+        .filter(Boolean)
+        .slice(0, 3);
+      if (messages.length) return messages.join(" ");
+    }
   }
   return `TARA backend returned HTTP ${status}.`;
 }
