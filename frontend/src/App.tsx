@@ -6,11 +6,25 @@ import remarkGfm from "remark-gfm";
 type Message = { id: string; role: "user" | "assistant"; content: string };
 type Conversation = { id: string; title: string; updatedAt: number; messages: Message[] };
 const HISTORY_KEY = "tara.chat.history.v1";
+const THEME_KEY = "tara.chat.theme.v1";
+function isMessage(value: unknown): value is Message {
+  if (typeof value !== "object" || value === null) return false;
+  const message = value as Record<string, unknown>;
+  return typeof message.id === "string" && (message.role === "user" || message.role === "assistant") && typeof message.content === "string";
+}
+function isConversation(value: unknown): value is Conversation {
+  if (typeof value !== "object" || value === null) return false;
+  const chat = value as Record<string, unknown>;
+  return typeof chat.id === "string" && chat.id.length > 0 && typeof chat.title === "string" && typeof chat.updatedAt === "number" && Number.isFinite(chat.updatedAt) && Array.isArray(chat.messages) && chat.messages.every(isMessage);
+}
+function readTheme(): boolean {
+  try { return localStorage.getItem(THEME_KEY) === "light"; } catch { return false; }
+}
 function readHistory(): Conversation[] {
   try {
     const value: unknown = JSON.parse(localStorage.getItem(HISTORY_KEY) ?? "[]");
     if (!Array.isArray(value)) return [];
-    return value.filter((item): item is Conversation => typeof item === "object" && item !== null && typeof item.id === "string" && typeof item.title === "string" && typeof item.updatedAt === "number" && Array.isArray(item.messages));
+    return value.filter(isConversation).slice(0, 30);
   } catch { return []; }
 }
 type RequestState = "idle" | "pending" | "error";
@@ -32,7 +46,8 @@ function App() {
   const [requestState, setRequestState] = useState<RequestState>("idle");
   const [error, setError] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [lightMode, setLightMode] = useState(false);
+  const [historyExpanded, setHistoryExpanded] = useState(false);
+  const [lightMode, setLightMode] = useState(readTheme);
   const [backendStatus, setBackendStatus] = useState<"checking" | "ready" | "needs-config" | "offline">("checking");
   const [copiedId, setCopiedId] = useState("");
   const [lastSubmitted, setLastSubmitted] = useState("");
@@ -59,6 +74,10 @@ function App() {
   useEffect(() => {
     try { localStorage.setItem(HISTORY_KEY, JSON.stringify(recentChats.slice(0, 30))); } catch { /* storage may be disabled or full */ }
   }, [recentChats]);
+
+  useEffect(() => {
+    try { localStorage.setItem(THEME_KEY, lightMode ? "light" : "dark"); } catch { /* storage may be disabled */ }
+  }, [lightMode]);
 
   useEffect(() => {
     if (!messages.length) return;
@@ -136,7 +155,7 @@ function App() {
       if (controller.signal.aborted || requestId !== requestIdRef.current) return;
       setError(err instanceof Error ? err.message : "An unexpected error occurred.");
       setRequestState("error");
-      setBackendStatus("offline");
+      if (err instanceof TypeError) setBackendStatus("offline");
     } finally {
       if (abortRef.current === controller) abortRef.current = null;
     }
@@ -190,8 +209,8 @@ function App() {
         <div className="side-label">WORKSPACE</div>
         <nav className="nav-list" aria-label="Main navigation">
           <button className="nav-item active" onClick={() => setSidebarOpen(false)}><MessageSquare size={17} /><span>Chat</span></button>
-          <button className="nav-item" onClick={() => setSidebarOpen(false)}><FileText size={17} /><span>Recent chats</span><span className="nav-soon">{recentChats.length}</span></button>
-          {recentChats.slice(0, 5).map((chat) => <button key={chat.id} className={`history-item${chat.id === activeChatId ? " selected" : ""}`} title={chat.title} onClick={() => openConversation(chat)}><MessageSquare size={13} /><span>{chat.title}</span></button>)}
+          <button className="nav-item" aria-expanded={historyExpanded} onClick={() => setHistoryExpanded((value) => !value)}><FileText size={17} /><span>Recent chats</span><span className="nav-soon">{recentChats.length}</span><ChevronDown size={13} className={historyExpanded ? "history-chevron expanded" : "history-chevron"} /></button>
+          {historyExpanded && (recentChats.length ? recentChats.slice(0, 30).map((chat) => <button key={chat.id} className={`history-item${chat.id === activeChatId ? " selected" : ""}`} title={chat.title} onClick={() => openConversation(chat)}><MessageSquare size={13} /><span>{chat.title}</span></button>) : <p className="history-empty">Your conversations will appear here.</p>)}
           <button className="nav-item" onClick={() => setError("Reasoning details are not yet exposed by the current chat API.")}><Activity size={17} /><span>Reasoning</span></button>
         </nav>
         <div className="side-label side-label-spaced">TOOLS</div>
@@ -209,7 +228,7 @@ function App() {
         </div>
       </aside>
       {sidebarOpen && <button className="scrim" aria-label="Close navigation overlay" onClick={() => setSidebarOpen(false)} />}
-      {(settingsOpen || helpOpen) && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) { setSettingsOpen(false); setHelpOpen(false); } }}><section className="settings-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title"><div className="modal-heading"><div><span className="modal-eyebrow">{settingsOpen ? "PREFERENCES" : "TARA WORKSPACE"}</span><h2 id="modal-title">{settingsOpen ? "Settings" : "Help & status"}</h2></div><button className="icon-btn" aria-label="Close dialog" onClick={() => { setSettingsOpen(false); setHelpOpen(false); }}><X size={18} /></button></div>{settingsOpen ? <><div className="setting-row"><div><strong>Appearance</strong><span>Choose the workspace color theme.</span></div><button className="setting-action" onClick={() => setLightMode((value) => !value)}>{lightMode ? "Light theme" : "Dark theme"} · Switch</button></div><div className="setting-row"><div><strong>Local chat history</strong><span>{recentChats.length} saved conversation{recentChats.length === 1 ? "" : "s"} on this browser.</span></div><button className="setting-action danger-action" onClick={clearHistory}>Clear history</button></div><p className="modal-note">History is stored in this browser only. Clearing browser storage can remove it; it is not synced to an account.</p></> : <><div className="help-status"><span className={`status-dot ${backendStatus}`} /><div><strong>{backendStatus === "ready" ? "Backend reachable" : backendStatus === "needs-config" ? "Provider key missing" : backendStatus === "checking" ? "Checking backend" : "Backend unavailable"}</strong><span>{backendStatus === "ready" ? "The health check reports a configured provider." : backendStatus === "needs-config" ? "The API is reachable, but GROQ_API_KEY is not configured." : backendStatus === "checking" ? "Waiting for the health check." : "Check that the API server is running."}</span></div><button className="setting-action" onClick={() => { setBackendStatus("checking"); fetch(`${API_BASE}/api/health`).then((response) => { if (!response.ok) throw new Error(); return response.json(); }).then((data: { status?: string; provider_configured?: boolean }) => setBackendStatus(data.status === "ok" ? data.provider_configured ? "ready" : "needs-config" : "offline")).catch(() => setBackendStatus("offline")); }}>Recheck</button></div><p className="modal-note">Keyboard: Enter sends, Shift+Enter adds a line, Ctrl/⌘+K starts a new chat, Escape closes the navigation.</p></>}</section></div>}
+      {(settingsOpen || helpOpen) && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) { setSettingsOpen(false); setHelpOpen(false); } }}><section className="settings-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby="modal-description"><div className="modal-heading"><div><span className="modal-eyebrow">{settingsOpen ? "PREFERENCES" : "TARA WORKSPACE"}</span><h2 id="modal-title">{settingsOpen ? "Settings" : "Help & status"}</h2></div><button className="icon-btn" aria-label="Close dialog" onClick={() => { setSettingsOpen(false); setHelpOpen(false); }}><X size={18} /></button></div>{settingsOpen ? <><div className="setting-row"><div><strong>Appearance</strong><span>Choose the workspace color theme.</span></div><button className="setting-action" onClick={() => setLightMode((value) => !value)}>{lightMode ? "Switch to dark" : "Switch to light"}</button></div><div className="setting-row"><div><strong>Local chat history</strong><span>{recentChats.length} saved conversation{recentChats.length === 1 ? "" : "s"} on this browser.</span></div><button className="setting-action danger-action" onClick={clearHistory}>Clear history</button></div><p className="modal-note" id="modal-description">History is stored in this browser only. Clearing browser storage can remove it; it is not synced to an account.</p></> : <><div className="help-status"><span className={`status-dot ${backendStatus}`} /><div><strong>{backendStatus === "ready" ? "Backend reachable" : backendStatus === "needs-config" ? "Provider key missing" : backendStatus === "checking" ? "Checking backend" : "Backend unavailable"}</strong><span>{backendStatus === "ready" ? "The health check reports a configured provider." : backendStatus === "needs-config" ? "The API is reachable, but GROQ_API_KEY is not configured." : backendStatus === "checking" ? "Waiting for the health check." : "Check that the API server is running."}</span></div><button className="setting-action" onClick={() => { setBackendStatus("checking"); fetch(`${API_BASE}/api/health`).then((response) => { if (!response.ok) throw new Error(); return response.json(); }).then((data: { status?: string; provider_configured?: boolean }) => setBackendStatus(data.status === "ok" ? data.provider_configured ? "ready" : "needs-config" : "offline")).catch(() => setBackendStatus("offline")); }}>Recheck</button></div><p className="modal-note" id="modal-description">Keyboard: Enter sends, Shift+Enter adds a line, Ctrl/⌘+K starts a new chat, Escape closes dialogs and navigation.</p></>}</section></div>}
       <main className="main">
         <header className="topbar">
           <div className="topbar-left"><button className="icon-btn mobile-menu" aria-label="Open navigation" onClick={() => setSidebarOpen(true)}><Menu size={19} /></button><div className="breadcrumb"><span>Workspace</span><span className="crumb-sep">/</span><strong>{messages.length ? "Conversation" : "New chat"}</strong></div></div>
