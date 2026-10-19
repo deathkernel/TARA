@@ -58,18 +58,22 @@ function App() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const requestIdRef = useRef(0);
+  const healthCheckIdRef = useRef(0);
   const isBusy = requestState === "pending";
 
   async function checkBackendStatus(signal?: AbortSignal) {
+    const checkId = ++healthCheckIdRef.current;
     setBackendStatus("checking");
     try {
       const response = await fetch(`${API_BASE}/api/health`, signal ? { signal } : undefined);
       if (!response.ok) throw new Error("Health check failed");
       const data: { status?: string; provider_configured?: boolean } = await response.json();
       if (data.status !== "ok") throw new Error("Unexpected health response");
+      // Ignore older checks if a newer manual recheck has already started.
+      if (signal?.aborted || checkId !== healthCheckIdRef.current) return;
       setBackendStatus(data.provider_configured ? "ready" : "needs-config");
     } catch {
-      if (!signal?.aborted) setBackendStatus("offline");
+      if (!signal?.aborted && checkId === healthCheckIdRef.current) setBackendStatus("offline");
     }
   }
 
@@ -154,6 +158,7 @@ function App() {
   function newChat() {
     requestIdRef.current += 1;
     abortRef.current?.abort();
+    abortRef.current = null;
     setMessages([]);
     setActiveChatId("");
     setLastSubmitted("");
