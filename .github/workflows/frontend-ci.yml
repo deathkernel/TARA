@@ -49,4 +49,4 @@ jobs:
       - name: Install API test dependencies
         run: python -m pip install -r requirements-web.txt pytest
       - name: Run chat API tests
-        run: python -m pytest tests/test_web_api.py
+        run: pytest tests/test_web_api.py
