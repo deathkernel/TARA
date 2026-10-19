@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isNewChatShortcut, shouldSendOnEnter } from "./keyboard";
+import { isNewChatShortcut, shouldHandleEscape, shouldSendOnEnter, textareaHeight } from "./keyboard";
 
 describe("isNewChatShortcut", () => {
   const event = (overrides: Partial<Parameters<typeof isNewChatShortcut>[0]> = {}) => ({
@@ -38,5 +38,40 @@ describe("shouldSendOnEnter", () => {
     ["another key", "Tab", false, false],
   ] as const)("does not send for %s", (_label, key, shift, composing) => {
     expect(shouldSendOnEnter(key, shift, composing)).toBe(false);
+  });
+});
+
+describe("shouldHandleEscape", () => {
+  it("handles Escape outside IME composition", () => {
+    expect(shouldHandleEscape("Escape", false)).toBe(true);
+  });
+
+  it.each([
+    ["IME composition", "Escape", true],
+    ["another key", "Enter", false],
+    ["lowercase escape", "escape", false],
+  ] as const)("ignores %s", (_label, key, composing) => {
+    expect(shouldHandleEscape(key, composing)).toBe(false);
+  });
+});
+
+describe("textareaHeight", () => {
+  it("preserves content height below the maximum", () => {
+    expect(textareaHeight(72)).toBe(72);
+  });
+
+  it("caps tall content at the maximum height", () => {
+    expect(textareaHeight(240, 180)).toBe(180);
+  });
+
+  it("returns zero for invalid or negative measurements", () => {
+    expect(textareaHeight(Number.NaN)).toBe(0);
+    expect(textareaHeight(Number.POSITIVE_INFINITY)).toBe(0);
+    expect(textareaHeight(-5)).toBe(0);
+  });
+
+  it("handles an invalid maximum without returning an invalid height", () => {
+    expect(textareaHeight(42, Number.NaN)).toBe(42);
+    expect(textareaHeight(42, -1)).toBe(42);
   });
 });
