@@ -4,6 +4,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Conversation, HISTORY_KEY, Message, THEME_KEY, parseHistory } from "./chatStorage";
 import { assistantMessageFromPayload, apiErrorFromPayload, isRequestCurrent } from "./chatApi";
+import { isNewChatShortcut, shouldSendOnEnter } from "./keyboard";
 
 function readTheme(): boolean {
   try { return localStorage.getItem(THEME_KEY) === "light"; } catch { return false; }
@@ -142,7 +143,7 @@ function App() {
 
   useEffect(() => {
     function onGlobalKeyDown(event: globalThis.KeyboardEvent) {
-      if (!event.repeat && !event.isComposing && (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+      if (isNewChatShortcut(event)) {
         event.preventDefault();
         newChat();
       }
@@ -253,7 +254,7 @@ function App() {
 
   function submit(event: FormEvent) { event.preventDefault(); void sendMessage(); }
   function onComposerKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
-    if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+    if (shouldSendOnEnter(event.key, event.shiftKey, event.nativeEvent.isComposing)) {
       event.preventDefault();
       void sendMessage();
     }
