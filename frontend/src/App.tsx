@@ -3,7 +3,7 @@ import { Activity, ArrowDown, ArrowUp, Check, ChevronDown, CircleHelp, Code2, Co
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Conversation, HISTORY_KEY, Message, THEME_KEY, parseHistory } from "./chatStorage";
-import { assistantMessageFromPayload, apiErrorFromPayload, healthStatusFromPayload, isHealthCheckCurrent, isRequestCurrent } from "./chatApi";
+import { assistantMessageFromPayload, apiErrorFromPayload, errorMessageFromUnknown, healthStatusFromPayload, isHealthCheckCurrent, isRequestCurrent } from "./chatApi";
 import { isNewChatShortcut, shouldSendOnEnter } from "./keyboard";
 import { focusTrapAction } from "./dialogFocus";
 
@@ -204,7 +204,7 @@ function App() {
       setBackendStatus("ready");
     } catch (err) {
       if (!isRequestCurrent(requestId, requestIdRef.current, controller.signal)) return;
-      setError(err instanceof Error ? err.message : "An unexpected error occurred.");
+      setError(errorMessageFromUnknown(err));
       setRetryAvailable(true);
       setRequestState("error");
       if (err instanceof TypeError) setBackendStatus("offline");
