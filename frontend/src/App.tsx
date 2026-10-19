@@ -87,7 +87,7 @@ function App() {
   }, [draft]);
 
   useEffect(() => {
-    try { localStorage.setItem(HISTORY_KEY, JSON.stringify(recentChats.slice(0, 30))); } catch { /* storage may be disabled or full */ }
+    try { localStorage.setItem(HISTORY_KEY, JSON.stringify(recentChats.filter((chat) => chat.id.trim().length > 0).slice(0, 30))); } catch { /* storage may be disabled or full */ }
   }, [recentChats]);
 
   useEffect(() => {
