@@ -18,3 +18,15 @@ export function assistantMessageFromPayload(payload: unknown): string {
   if (!message) throw new Error("The backend returned an empty message. Please retry.");
   return message;
 }
+
+/**
+ * Convert the health endpoint contract into a UI status.
+ * A malformed payload is rejected instead of being mistaken for a configured API.
+ */
+export function healthStatusFromPayload(payload: unknown): "ready" | "needs-config" | null {
+  if (typeof payload !== "object" || payload === null) return null;
+  if (!("status" in payload) || !("provider_configured" in payload)) return null;
+  const health = payload as { status?: unknown; provider_configured?: unknown };
+  if (health.status !== "ok" || typeof health.provider_configured !== "boolean") return null;
+  return health.provider_configured ? "ready" : "needs-config";
+}
