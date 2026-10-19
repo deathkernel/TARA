@@ -22,6 +22,7 @@ function App() {
   const [lightMode, setLightMode] = useState(false);
   const [backendStatus, setBackendStatus] = useState<"checking" | "online" | "offline">("checking");
   const [copiedId, setCopiedId] = useState("");
+  const [lastSubmitted, setLastSubmitted] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -41,6 +42,7 @@ function App() {
   function newChat() {
     abortRef.current?.abort();
     setMessages([]);
+    setLastSubmitted("");
     setDraft("");
     setRequestState("idle");
     setError("");
@@ -53,6 +55,7 @@ function App() {
     if (!text || isBusy) return;
     const userMessage: Message = { id: crypto.randomUUID(), role: "user", content: text };
     setMessages((current) => [...current, userMessage]);
+    setLastSubmitted(text);
     setDraft("");
     setError("");
     setRequestState("pending");
@@ -150,7 +153,7 @@ function App() {
               <div ref={endRef} />
             </div>
           )}
-          {error && <div className="error-banner" role="alert"><div className="error-icon"><Activity size={17} /></div><div className="error-text"><strong>We couldn't complete that request</strong><span>{error}</span></div><button className="icon-btn" aria-label="Dismiss error" onClick={() => setError("")}><X size={16} /></button></div>}
+          {error && <div className="error-banner" role="alert"><div className="error-icon"><Activity size={17} /></div><div className="error-text"><strong>We couldn't complete that request</strong><span>{error}</span><button className="retry-btn" onClick={() => { setError(""); void sendMessage(lastSubmitted); }}> <RefreshCw size={13} /> Try again</button></div><button className="icon-btn" aria-label="Dismiss error" onClick={() => setError("")}><X size={16} /></button></div>}
         </section>
         <footer className="composer-area">
           <form className="composer" onSubmit={submit}><textarea ref={inputRef} aria-label="Message TARA" value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={onComposerKeyDown} placeholder="Message TARA…  (Shift + Enter for new line)" rows={1} disabled={isBusy} onInput={e => { const el = e.currentTarget; el.style.height = "auto"; el.style.height = `${Math.min(el.scrollHeight, 180)}px`; }} />
