@@ -49,6 +49,6 @@ uvicorn src.web_api:app --host 127.0.0.1 --port 8000
 
 Then start the frontend in another terminal with `npm install && npm run dev` from `frontend/`. The Vite development proxy forwards `/api` requests to `http://127.0.0.1:8000` by default; override with `TARA_API_PROXY_TARGET` if needed.
 
-API tests live in `tests/test_web_api.py` and require the project's test dependencies plus `fastapi` and `httpx`. Run them with `python -m pytest tests/test_web_api.py`.
+Frontend unit tests cover persisted-history validation and API response/error parsing. Run them with `npm test` from `frontend/`. API tests live in `tests/test_web_api.py` and require the project's test dependencies plus `fastapi` and `httpx`. Run them with `python -m pytest tests/test_web_api.py`.
 
 The API health endpoint reports process health separately from whether a provider key is configured. Provider credentials remain server-side. Configure `TARA_CORS_ORIGINS` only for browser origins that should be allowed.
