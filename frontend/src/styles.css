@@ -45,3 +45,16 @@
 .light .history-empty{color:#69708a}
 .setting-action:focus-visible,.nav-item:focus-visible,.history-item:focus-visible,.icon-btn:focus-visible,.new-chat:focus-visible,.starter-card:focus-visible,.send-btn:focus-visible,.copy-btn:focus-visible{outline:2px solid #a99aff;outline-offset:2px}
 .settings-modal:focus{outline:none}
+
+
+/* Accessibility and cross-theme polish */
+:root{color-scheme:dark}
+.app.light{color-scheme:light}
+button:disabled{cursor:not-allowed;opacity:.55}
+button:focus-visible,textarea:focus-visible{outline:2px solid #a99aff;outline-offset:3px}
+.light button:focus-visible,.light textarea:focus-visible{outline-color:#5143b8}
+.light .message-meta>span,.light .copy-btn,.light .composer-hint,.light .disclaimer{color:#5f6680}
+.light .markdown-content a{color:#5143b8}
+.light .markdown-content blockquote{color:#555c77}
+.light .markdown-content hr{border-top-color:#dfe2ef}
+.light .markdown-content th,.light .markdown-content td{border-color:#d5d9e8}
