@@ -2,6 +2,11 @@ export function isRequestCurrent(requestId: number, currentRequestId: number, si
   return requestId === currentRequestId && !signal.aborted;
 }
 
+/** Reject health-check results from an older check or an aborted component lifecycle. */
+export function isHealthCheckCurrent(checkId: number, currentCheckId: number, signal?: AbortSignal): boolean {
+  return checkId === currentCheckId && !signal?.aborted;
+}
+
 export function apiErrorFromPayload(status: number, payload: unknown): string {
   if (typeof payload === "object" && payload !== null && "detail" in payload) {
     const detail = (payload as { detail?: unknown }).detail;
