@@ -142,7 +142,10 @@ function App() {
 
   useEffect(() => {
     function onGlobalKeyDown(event: globalThis.KeyboardEvent) {
-      if (isNewChatShortcut(event)) {
+      const target = event.target;
+      const targetIsEditable = target instanceof HTMLElement
+        && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
+      if (isNewChatShortcut({ ...event, targetIsEditable })) {
         event.preventDefault();
         newChat();
       }
