@@ -10,7 +10,7 @@ const THEME_KEY = "tara.chat.theme.v1";
 function isMessage(value: unknown): value is Message {
   if (typeof value !== "object" || value === null) return false;
   const message = value as Record<string, unknown>;
-  return typeof message.id === "string" && (message.role === "user" || message.role === "assistant") && typeof message.content === "string";
+  return typeof message.id === "string" && message.id.length > 0 && (message.role === "user" || message.role === "assistant") && typeof message.content === "string";
 }
 function isConversation(value: unknown): value is Conversation {
   if (typeof value !== "object" || value === null) return false;
@@ -172,7 +172,8 @@ function App() {
 
   async function sendMessage(raw = draft, addUserMessage = true) {
     const text = raw.trim();
-    if (!text || isBusy) return;
+    // The ref blocks rapid duplicate submits before React has rendered the pending state.
+    if (!text || isBusy || abortRef.current) return;
     if (addUserMessage) {
       const userMessage: Message = { id: crypto.randomUUID(), role: "user", content: text };
       setMessages((current) => [...current, userMessage]);
@@ -201,7 +202,11 @@ function App() {
       if (typeof data !== "object" || data === null || !("message" in data) || typeof data.message !== "string") {
         throw new Error("The backend response did not contain a valid message.");
       }
-      setMessages((current) => [...current, { id: crypto.randomUUID(), role: "assistant", content: data.message as string }]);
+      const assistantMessage = data.message.trim();
+      if (!assistantMessage) {
+        throw new Error("The backend returned an empty message. Please retry.");
+      }
+      setMessages((current) => [...current, { id: crypto.randomUUID(), role: "assistant", content: assistantMessage }]);
       setRequestState("idle");
       setRetryAvailable(false);
       setBackendStatus("ready");
