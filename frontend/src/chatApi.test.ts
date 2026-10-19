@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   apiErrorFromPayload,
   assistantMessageFromPayload,
+  errorMessageFromUnknown,
   healthStatusFromPayload,
   isHealthCheckCurrent,
   isRequestCurrent,
@@ -31,6 +32,24 @@ describe("assistantMessageFromPayload", () => {
     "rejects malformed or empty assistant responses: %j",
     (payload) => expect(() => assistantMessageFromPayload(payload)).toThrow(),
   );
+});
+
+describe("errorMessageFromUnknown", () => {
+  it("returns a trimmed Error message", () => {
+    expect(errorMessageFromUnknown(new Error("  Network unavailable  "))).toBe("Network unavailable");
+  });
+
+  it("returns a useful non-empty string when a string is thrown", () => {
+    expect(errorMessageFromUnknown("  Request failed  ")).toBe("Request failed");
+  });
+
+  it.each([null, undefined, 0, false, "", "   ", {}])("uses a fallback for unusable thrown values: %j", (error) => {
+    expect(errorMessageFromUnknown(error)).toBe("An unexpected error occurred.");
+  });
+
+  it("allows a caller-provided fallback", () => {
+    expect(errorMessageFromUnknown(null, "Please try again.")).toBe("Please try again.");
+  });
 });
 
 describe("isRequestCurrent", () => {
