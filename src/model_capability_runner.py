@@ -82,20 +82,13 @@ class ModelCapabilityRunner:
     def evaluate(self, cases: tuple[BenchmarkCase, ...], *, name: str = "tara-real-model") -> ModelEvaluation:
         benchmark = IntelligenceBenchmark(name, cases)
         observations: dict[str, str] = {}
-        for case in cases:
-            try:
-                observations[case.case_id] = self.generate(case.prompt)
-            except Exception as exc:
-                observations[case.case_id] = f"<execution-error:{type(exc).__name__}: {exc}>"
-
         outputs_by_prompt: dict[str, list[str]] = {}
         for case in cases:
             try:
                 output = self.generate(case.prompt)
-                observations[case.case_id] = output
             except Exception as exc:
                 output = f"<execution-error:{type(exc).__name__}: {exc}>"
-                observations[case.case_id] = output
+            observations[case.case_id] = output
             outputs_by_prompt.setdefault(case.prompt, []).append(output)
 
         # IntelligenceBenchmark's solver receives a prompt, not a case ID.
