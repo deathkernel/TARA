@@ -51,6 +51,7 @@ function App() {
   const [backendStatus, setBackendStatus] = useState<"checking" | "ready" | "needs-config" | "offline">("checking");
   const [copiedId, setCopiedId] = useState("");
   const [lastSubmitted, setLastSubmitted] = useState("");
+  const [retryAvailable, setRetryAvailable] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const modalRef = useRef<HTMLElement>(null);
   const modalTriggerRef = useRef<HTMLElement | null>(null);
@@ -149,6 +150,7 @@ function App() {
     setMessages([]);
     setActiveChatId("");
     setLastSubmitted("");
+    setRetryAvailable(false);
     setDraft("");
     setRequestState("idle");
     setError("");
@@ -166,6 +168,7 @@ function App() {
       setDraft("");
     }
     setError("");
+    setRetryAvailable(false);
     setRequestState("pending");
     const controller = new AbortController();
     const requestId = ++requestIdRef.current;
@@ -188,10 +191,12 @@ function App() {
       }
       setMessages((current) => [...current, { id: crypto.randomUUID(), role: "assistant", content: data.message as string }]);
       setRequestState("idle");
+      setRetryAvailable(false);
       setBackendStatus("ready");
     } catch (err) {
       if (controller.signal.aborted || requestId !== requestIdRef.current) return;
       setError(err instanceof Error ? err.message : "An unexpected error occurred.");
+      setRetryAvailable(true);
       setRequestState("error");
       if (err instanceof TypeError) setBackendStatus("offline");
     } finally {
@@ -208,6 +213,7 @@ function App() {
     setLastSubmitted([...conversation.messages].reverse().find((message) => message.role === "user")?.content ?? "");
     setRequestState("idle");
     setError("");
+    setRetryAvailable(false);
     setSidebarOpen(false);
   }
 
@@ -257,7 +263,7 @@ function App() {
           <button className="nav-item active" onClick={() => setSidebarOpen(false)}><MessageSquare size={17} /><span>Chat</span></button>
           <button className="nav-item" aria-expanded={historyExpanded} onClick={() => setHistoryExpanded((value) => !value)}><FileText size={17} /><span>Recent chats</span><span className="nav-soon">{recentChats.length}</span><ChevronDown size={13} className={historyExpanded ? "history-chevron expanded" : "history-chevron"} /></button>
           {historyExpanded && (recentChats.length ? recentChats.slice(0, 30).map((chat) => <button key={chat.id} className={`history-item${chat.id === activeChatId ? " selected" : ""}`} title={chat.title} onClick={() => openConversation(chat)}><MessageSquare size={13} /><span>{chat.title}</span></button>) : <p className="history-empty">Your conversations will appear here.</p>)}
-          <button className="nav-item" onClick={() => setError("Reasoning details are not yet exposed by the current chat API.")}><Activity size={17} /><span>Reasoning</span></button>
+          <button className="nav-item" onClick={() => { setError("Reasoning details are not yet exposed by the current chat API."); setRetryAvailable(false); }}><Activity size={17} /><span>Reasoning</span></button>
         </nav>
         <div className="side-label side-label-spaced">TOOLS</div>
         <nav className="nav-list" aria-label="Tools">
@@ -295,11 +301,11 @@ function App() {
               <div ref={endRef} />
             </div>
           )}
-          {error && <div className="error-banner" role="alert"><div className="error-icon"><Activity size={17} /></div><div className="error-text"><strong>We couldn't complete that request</strong><span>{error}</span><button className="retry-btn" onClick={() => { setError(""); void sendMessage(lastSubmitted, false); }}> <RefreshCw size={13} /> Try again</button></div><button className="icon-btn" aria-label="Dismiss error" onClick={() => setError("")}><X size={16} /></button></div>}
+          {error && <div className="error-banner" role="alert"><div className="error-icon"><Activity size={17} /></div><div className="error-text"><strong>We couldn't complete that request</strong><span>{error}</span>{retryAvailable && lastSubmitted.trim() && <button className="retry-btn" onClick={() => { setError(""); void sendMessage(lastSubmitted, false); }}> <RefreshCw size={13} /> Try again</button>}</div><button className="icon-btn" aria-label="Dismiss error" onClick={() => setError("")}><X size={16} /></button></div>}
         </section>
         <footer className="composer-area">
           <form className="composer" onSubmit={submit}><textarea ref={inputRef} aria-label="Message TARA" value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={onComposerKeyDown} placeholder="Message TARA…  (Shift + Enter for new line)" rows={1} disabled={isBusy} onInput={e => { const el = e.currentTarget; el.style.height = "auto"; el.style.height = `${Math.min(el.scrollHeight, 180)}px`; }} />
-            <div className="composer-bottom"><div className="composer-tools"><button type="button" className="icon-btn" aria-label="Attachments are not available yet" title="Attachments coming later" onClick={() => setError("File attachments are not part of the initial MVP.")}><Paperclip size={17} /></button><span className="composer-hint"><ShieldCheck size={13} /> Responses come from your configured TARA backend</span></div><div className="composer-actions">{isBusy && <button type="button" className="stop-btn" onClick={stopRequest} aria-label="Stop generating response"><Square size={13} fill="currentColor" /> Stop</button>}<button type="submit" className="send-btn" disabled={!draft.trim() || isBusy} aria-label="Send message" title={isBusy ? "Wait for the current response" : "Send message"}>{isBusy ? <span className="send-loading" /> : <ArrowUp size={19} />}</button></div></div>
+            <div className="composer-bottom"><div className="composer-tools"><button type="button" className="icon-btn" aria-label="Attachments are not available yet" title="Attachments coming later" onClick={() => { setError("File attachments are not part of the initial MVP."); setRetryAvailable(false); }}><Paperclip size={17} /></button><span className="composer-hint"><ShieldCheck size={13} /> Responses come from your configured TARA backend</span></div><div className="composer-actions">{isBusy && <button type="button" className="stop-btn" onClick={stopRequest} aria-label="Stop generating response"><Square size={13} fill="currentColor" /> Stop</button>}<button type="submit" className="send-btn" disabled={!draft.trim() || isBusy} aria-label="Send message" title={isBusy ? "Wait for the current response" : "Send message"}>{isBusy ? <span className="send-loading" /> : <ArrowUp size={19} />}</button></div></div>
           </form>
           <p className="disclaimer"><ShieldCheck size={12} /> TARA can make mistakes. Verify important information.</p>
         </footer>
