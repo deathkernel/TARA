@@ -33,3 +33,22 @@ npm run build
 ```
 
 No generated build output is committed. Do not put provider API keys in `VITE_*` variables; those are exposed to the browser.
+
+
+## Start the Python API
+
+The current adapter uses the repository's existing `GroqProvider`. It does not claim to wrap every TARA cognitive module.
+
+From the repository root:
+
+```bash
+python -m pip install -r requirements-web.txt
+# Configure GROQ_API_KEY in your backend environment (never in VITE_* variables)
+uvicorn src.web_api:app --host 127.0.0.1 --port 8000
+```
+
+Then start the frontend in another terminal with `npm install && npm run dev` from `frontend/`. The Vite development proxy forwards `/api` requests to `http://127.0.0.1:8000` by default; override with `TARA_API_PROXY_TARGET` if needed.
+
+API tests live in `tests/test_web_api.py` and require the project's test dependencies plus `fastapi` and `httpx`. Run them with `python -m pytest tests/test_web_api.py`.
+
+The API health endpoint reports process health separately from whether a provider key is configured. Provider credentials remain server-side. Configure `TARA_CORS_ORIGINS` only for browser origins that should be allowed.
