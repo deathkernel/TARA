@@ -82,13 +82,26 @@ class ModelCapabilityRunner:
     def evaluate(self, cases: tuple[BenchmarkCase, ...], *, name: str = "tara-real-model") -> ModelEvaluation:
         benchmark = IntelligenceBenchmark(name, cases)
         observations: dict[str, str] = {}
+        outputs_by_prompt: dict[str, list[str]] = {}
         for case in cases:
             try:
-                observations[case.case_id] = self.generate(case.prompt)
+                output = self.generate(case.prompt)
+                observations[case.case_id] = output
             except Exception as exc:
-                observations[case.case_id] = f"<execution-error:{type(exc).__name__}: {exc}>"
+                output = f"<execution-error:{type(exc).__name__}: {exc}>"
+                observations[case.case_id] = output
+            outputs_by_prompt.setdefault(case.prompt, []).append(output)
 
-        report = benchmark.run(observations.__getitem__)
+        # IntelligenceBenchmark's solver contract receives a prompt, not a case ID.
+        # Consume outputs in case order so duplicate prompts remain case-specific.
+        prompt_offsets: dict[str, int] = {}
+
+        def solve(prompt: str) -> str:
+            offset = prompt_offsets.get(prompt, 0)
+            prompt_offsets[prompt] = offset + 1
+            return outputs_by_prompt[prompt][offset]
+
+        report = benchmark.run(solve)
         model_id = model_fingerprint(self.model, self.tokenizer)
         fingerprint = hashlib.sha256(
             json.dumps(
