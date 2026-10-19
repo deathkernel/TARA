@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { apiErrorFromPayload, assistantMessageFromPayload } from "./chatApi";
+import { apiErrorFromPayload, assistantMessageFromPayload, isRequestCurrent } from "./chatApi";
 
 describe("apiErrorFromPayload", () => {
   it("uses a non-empty backend detail", () => {
@@ -25,4 +25,20 @@ describe("assistantMessageFromPayload", () => {
     "rejects malformed or empty assistant responses: %j",
     (payload) => expect(() => assistantMessageFromPayload(payload)).toThrow(),
   );
+});
+
+describe("isRequestCurrent", () => {
+  it("accepts the latest non-aborted request", () => {
+    expect(isRequestCurrent(3, 3, new AbortController().signal)).toBe(true);
+  });
+
+  it("rejects stale request IDs", () => {
+    expect(isRequestCurrent(2, 3, new AbortController().signal)).toBe(false);
+  });
+
+  it("rejects an aborted request even when its ID matches", () => {
+    const controller = new AbortController();
+    controller.abort();
+    expect(isRequestCurrent(3, 3, controller.signal)).toBe(false);
+  });
 });
