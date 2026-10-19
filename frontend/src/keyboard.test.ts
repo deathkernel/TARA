@@ -22,6 +22,7 @@ describe("isNewChatShortcut", () => {
     ["a repeated keydown", { repeat: true }],
     ["IME composition", { isComposing: true }],
     ["no modifier", { ctrlKey: false }],
+    ["editable input", { targetIsEditable: true }],
   ] as const)("ignores %s", (_label, overrides) => {
     expect(isNewChatShortcut(event(overrides))).toBe(false);
   });
