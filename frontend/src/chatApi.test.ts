@@ -18,6 +18,28 @@ describe("apiErrorFromPayload", () => {
     (payload) => expect(apiErrorFromPayload(503, payload)).toBe("TARA backend returned HTTP 503."),
   );
 
+  it("formats FastAPI validation-error arrays into readable messages", () => {
+    expect(apiErrorFromPayload(422, {
+      detail: [
+        { loc: ["body", "message"], msg: "Field required", type: "missing" },
+        { loc: ["body", "other"], msg: "Must be text", type: "string_type" },
+      ],
+    })).toBe("Field required Must be text");
+  });
+
+  it("limits validation-error output to three messages", () => {
+    expect(apiErrorFromPayload(422, {
+      detail: [
+        { msg: "First" }, { msg: "Second" }, { msg: "Third" }, { msg: "Fourth" },
+      ],
+    })).toBe("First Second Third");
+  });
+
+  it("ignores malformed validation-error entries", () => {
+    expect(apiErrorFromPayload(422, { detail: [null, { msg: 42 }, {}] }))
+      .toBe("TARA backend returned HTTP 422.");
+  });
+
   it("trims backend detail", () => {
     expect(apiErrorFromPayload(400, { detail: "  Bad request  " })).toBe("Bad request");
   });
