@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { apiErrorFromPayload, assistantMessageFromPayload, isRequestCurrent } from "./chatApi";
+import {
+  apiErrorFromPayload,
+  assistantMessageFromPayload,
+  healthStatusFromPayload,
+  isHealthCheckCurrent,
+  isRequestCurrent,
+} from "./chatApi";
 
 describe("apiErrorFromPayload", () => {
   it("uses a non-empty backend detail", () => {
@@ -43,14 +49,32 @@ describe("isRequestCurrent", () => {
   });
 });
 
+describe("isHealthCheckCurrent", () => {
+  it("accepts the newest health check without an abort signal", () => {
+    expect(isHealthCheckCurrent(4, 4)).toBe(true);
+  });
+
+  it("rejects an older health check", () => {
+    expect(isHealthCheckCurrent(3, 4)).toBe(false);
+  });
+
+  it("accepts the newest non-aborted health check", () => {
+    expect(isHealthCheckCurrent(4, 4, new AbortController().signal)).toBe(true);
+  });
+
+  it("rejects an aborted health check even when its ID matches", () => {
+    const controller = new AbortController();
+    controller.abort();
+    expect(isHealthCheckCurrent(4, 4, controller.signal)).toBe(false);
+  });
+});
+
 describe("healthStatusFromPayload", () => {
-  it("reports ready only when the provider is configured", async () => {
-    const { healthStatusFromPayload } = await import("./chatApi");
+  it("reports ready only when the provider is configured", () => {
     expect(healthStatusFromPayload({ status: "ok", provider_configured: true })).toBe("ready");
   });
 
-  it("distinguishes a reachable API with a missing provider key", async () => {
-    const { healthStatusFromPayload } = await import("./chatApi");
+  it("distinguishes a reachable API with a missing provider key", () => {
     expect(healthStatusFromPayload({ status: "ok", provider_configured: false })).toBe("needs-config");
   });
 
@@ -62,8 +86,7 @@ describe("healthStatusFromPayload", () => {
     { status: "ok" },
     { status: "ok", provider_configured: "true" },
     { status: "ok", provider_configured: null },
-  ])("rejects malformed health payloads: %j", async (payload) => {
-    const { healthStatusFromPayload } = await import("./chatApi");
+  ])("rejects malformed health payloads: %j", (payload) => {
     expect(healthStatusFromPayload(payload)).toBeNull();
   });
 });
