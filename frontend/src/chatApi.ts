@@ -1,3 +1,7 @@
+export function isRequestCurrent(requestId: number, currentRequestId: number, signal: AbortSignal): boolean {
+  return requestId === currentRequestId && !signal.aborted;
+}
+
 export function apiErrorFromPayload(status: number, payload: unknown): string {
   if (typeof payload === "object" && payload !== null && "detail" in payload) {
     const detail = (payload as { detail?: unknown }).detail;
