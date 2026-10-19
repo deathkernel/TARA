@@ -24,7 +24,7 @@ The backend is expected to expose:
 - `GET /api/health`: JSON response containing `{"status":"ok","provider_configured":true|false}`. The UI validates `status` and separately displays provider configuration.
 - `POST /api/chat`: JSON request `{"message":"..."}`, response `{"message":"assistant response"}`.
 
-These endpoints are an integration contract and must be implemented/verified on the Python side. The UI shows a connection error instead of inventing a reply when the backend is unavailable. `Enter` sends a message, `Shift+Enter` inserts a newline, `Ctrl+K` / `⌘K` starts a new chat, and `Escape` closes the mobile navigation overlay.
+These endpoints are an integration contract and must be implemented/verified on the Python side. The UI shows a connection error instead of inventing a reply when the backend is unavailable. `Enter` sends a message, `Shift+Enter` inserts a newline, `Ctrl+K` / `⌘K` starts a new chat, and `Escape` closes dialogs and mobile navigation. Recent conversations (up to 30) and the selected theme are stored locally in this browser; they are not synced to an account. Use **Recent chats** in the sidebar to expand or collapse the history list.
 
 ## Build
 
