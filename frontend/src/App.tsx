@@ -104,8 +104,9 @@ function App() {
   useEffect(() => {
     // Keep open TARA tabs in sync when a user changes local history or theme elsewhere.
     function syncBrowserPreferences(event: StorageEvent) {
-      if (event.key === HISTORY_KEY) setRecentChats(readHistory());
-      if (event.key === THEME_KEY) setLightMode(readTheme());
+      // A null key means another tab called localStorage.clear().
+      if (event.key === null || event.key === HISTORY_KEY) setRecentChats(readHistory());
+      if (event.key === null || event.key === THEME_KEY) setLightMode(readTheme());
     }
     window.addEventListener("storage", syncBrowserPreferences);
     return () => window.removeEventListener("storage", syncBrowserPreferences);
