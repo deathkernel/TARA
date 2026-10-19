@@ -3,6 +3,7 @@ import { Activity, ArrowDown, ArrowUp, Check, ChevronDown, CircleHelp, Code2, Co
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Conversation, HISTORY_KEY, Message, THEME_KEY, parseHistory } from "./chatStorage";
+import { assistantMessageFromPayload, apiErrorFromPayload } from "./chatApi";
 
 function readTheme(): boolean {
   try { return localStorage.getItem(THEME_KEY) === "light"; } catch { return false; }
@@ -195,17 +196,8 @@ function App() {
       });
       const data: unknown = await response.json().catch(() => ({}));
       if (requestId !== requestIdRef.current || controller.signal.aborted) return;
-      if (!response.ok) {
-        const detail = typeof data === "object" && data !== null && "detail" in data && typeof data.detail === "string" ? data.detail : "";
-        throw new Error(detail || `TARA backend returned HTTP ${response.status}.`);
-      }
-      if (typeof data !== "object" || data === null || !("message" in data) || typeof data.message !== "string") {
-        throw new Error("The backend response did not contain a valid message.");
-      }
-      const assistantMessage = data.message.trim();
-      if (!assistantMessage) {
-        throw new Error("The backend returned an empty message. Please retry.");
-      }
+      if (!response.ok) throw new Error(apiErrorFromPayload(response.status, data));
+      const assistantMessage = assistantMessageFromPayload(data);
       setMessages((current) => [...current, { id: crypto.randomUUID(), role: "assistant", content: assistantMessage }]);
       setRequestState("idle");
       setRetryAvailable(false);
