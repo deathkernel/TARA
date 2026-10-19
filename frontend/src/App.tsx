@@ -72,6 +72,14 @@ function App() {
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }); }, [messages, requestState]);
 
   useEffect(() => {
+    // Keep the composer compact after sending, clearing, or switching chats.
+    const input = inputRef.current;
+    if (!input) return;
+    input.style.height = "auto";
+    input.style.height = `${Math.min(input.scrollHeight, 180)}px`;
+  }, [draft]);
+
+  useEffect(() => {
     try { localStorage.setItem(HISTORY_KEY, JSON.stringify(recentChats.slice(0, 30))); } catch { /* storage may be disabled or full */ }
   }, [recentChats]);
 
