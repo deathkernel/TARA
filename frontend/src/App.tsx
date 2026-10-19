@@ -76,7 +76,11 @@ function App() {
         event.preventDefault();
         newChat();
       }
-      if (event.key === "Escape") setSidebarOpen(false);
+      if (event.key === "Escape") {
+        setSidebarOpen(false);
+        setSettingsOpen(false);
+        setHelpOpen(false);
+      }
     }
     window.addEventListener("keydown", onGlobalKeyDown);
     return () => window.removeEventListener("keydown", onGlobalKeyDown);
@@ -186,7 +190,7 @@ function App() {
         <div className="side-label">WORKSPACE</div>
         <nav className="nav-list" aria-label="Main navigation">
           <button className="nav-item active" onClick={() => setSidebarOpen(false)}><MessageSquare size={17} /><span>Chat</span></button>
-          <button className="nav-item" onClick={() => setSidebarOpen((open) => !open)}><FileText size={17} /><span>Recent chats</span><span className="nav-soon">{recentChats.length}</span></button>
+          <button className="nav-item" onClick={() => setSidebarOpen(false)}><FileText size={17} /><span>Recent chats</span><span className="nav-soon">{recentChats.length}</span></button>
           {recentChats.slice(0, 5).map((chat) => <button key={chat.id} className={`history-item${chat.id === activeChatId ? " selected" : ""}`} title={chat.title} onClick={() => openConversation(chat)}><MessageSquare size={13} /><span>{chat.title}</span></button>)}
           <button className="nav-item" onClick={() => setError("Reasoning details are not yet exposed by the current chat API.")}><Activity size={17} /><span>Reasoning</span></button>
         </nav>
