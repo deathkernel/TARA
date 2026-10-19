@@ -1,5 +1,7 @@
 import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from "react";
-import { Activity, ArrowDown, ArrowUp, Check, ChevronDown, CircleHelp, Code2, Command, FileText, Globe2, Menu, MessageSquare, Moon, Paperclip, Plus, RefreshCw, Send, Settings2, ShieldCheck, Sparkles, Square, Sun, X, Zap } from "lucide-react";
+import { Activity, ArrowDown, ArrowUp, Check, ChevronDown, CircleHelp, Code2, Command, FileText, Globe2, Menu, MessageSquare, Moon, Paperclip, Plus, RefreshCw, Settings2, ShieldCheck, Sparkles, Square, Sun, X, Zap } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 type Message = { id: string; role: "user" | "assistant"; content: string };
 type RequestState = "idle" | "pending" | "error";
@@ -143,7 +145,7 @@ function App() {
               <div className="starter-grid">{starterPrompts.map(({ icon: Icon, title, text: sub, prompt }) => <button className="starter-card" key={title} onClick={() => { setDraft(prompt); inputRef.current?.focus(); }}><span className="starter-icon"><Icon size={18} /></span><strong>{title}</strong><span>{sub}</span><ArrowDown size={14} className="starter-arrow" /></button>)}</div>
             </div>
           ) : (
-            <div className="message-list">{messages.map(message => <article className={`message ${message.role}`} key={message.id}><div className={message.role === "assistant" ? "message-avatar tara-avatar" : "message-avatar user-avatar"}>{message.role === "assistant" ? <Sparkles size={16} /> : "Y"}</div><div className="message-body"><div className="message-meta"><strong>{message.role === "assistant" ? "TARA" : "You"}</strong><span>{message.role === "assistant" ? "Assistant" : "You"}</span>{message.role === "assistant" && <button className="copy-btn" onClick={() => void copyMessage(message)} aria-label="Copy assistant message">{copiedId === message.id ? <Check size={14} /> : <FileText size={14} />}{copiedId === message.id ? "Copied" : "Copy"}</button>}</div><div className="message-content">{message.content}</div></div></article>)}
+            <div className="message-list">{messages.map(message => <article className={`message ${message.role}`} key={message.id}><div className={message.role === "assistant" ? "message-avatar tara-avatar" : "message-avatar user-avatar"}>{message.role === "assistant" ? <Sparkles size={16} /> : "Y"}</div><div className="message-body"><div className="message-meta"><strong>{message.role === "assistant" ? "TARA" : "You"}</strong><span>{message.role === "assistant" ? "Assistant" : "You"}</span>{message.role === "assistant" && <button className="copy-btn" onClick={() => void copyMessage(message)} aria-label="Copy assistant message">{copiedId === message.id ? <Check size={14} /> : <FileText size={14} />}{copiedId === message.id ? "Copied" : "Copy"}</button>}</div><div className="message-content markdown-content"><ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown></div></div></article>)}
               {isBusy && <article className="message assistant"><div className="message-avatar tara-avatar"><Sparkles size={16} /></div><div className="message-body"><div className="message-meta"><strong>TARA</strong><span>Working on your message</span></div><div className="typing"><span /><span /><span /> <span className="typing-label">Waiting for response…</span></div></div></article>}
               <div ref={endRef} />
             </div>
