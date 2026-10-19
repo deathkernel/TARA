@@ -1,0 +1,4 @@
+# Minimal HTTP adapter dependencies for the TARA Chat MVP
+fastapi
+uvicorn
+httpx
