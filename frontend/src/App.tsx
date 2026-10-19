@@ -347,6 +347,7 @@ function App() {
             </div>
           )}
           <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">{copyStatus}</p>
+          {copyStatus && <p className={`copy-feedback ${copyStatus.startsWith("Clipboard access") ? "copy-feedback-error" : ""}`}>{copyStatus}</p>}
           {error && <div className="error-banner" role="alert"><div className="error-icon"><Activity size={17} /></div><div className="error-text"><strong>We couldn't complete that request</strong><span>{error}</span>{retryAvailable && lastSubmitted.trim() && <button className="retry-btn" onClick={() => { setError(""); void sendMessage(lastSubmitted, false); }}> <RefreshCw size={13} /> Try again</button>}</div><button className="icon-btn" aria-label="Dismiss error" onClick={() => setError("")}><X size={16} /></button></div>}
         </section>
         <footer className="composer-area">
