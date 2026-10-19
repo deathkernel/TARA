@@ -4,6 +4,15 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 type Message = { id: string; role: "user" | "assistant"; content: string };
+type Conversation = { id: string; title: string; updatedAt: number; messages: Message[] };
+const HISTORY_KEY = "tara.chat.history.v1";
+function readHistory(): Conversation[] {
+  try {
+    const value: unknown = JSON.parse(localStorage.getItem(HISTORY_KEY) ?? "[]");
+    if (!Array.isArray(value)) return [];
+    return value.filter((item): item is Conversation => typeof item === "object" && item !== null && typeof item.id === "string" && typeof item.title === "string" && typeof item.updatedAt === "number" && Array.isArray(item.messages));
+  } catch { return []; }
+}
 type RequestState = "idle" | "pending" | "error";
 const API_BASE = (import.meta.env.VITE_TARA_API_URL as string | undefined)?.replace(/\/$/, "") ?? "";
 
@@ -14,7 +23,11 @@ const starterPrompts = [
 ];
 
 function App() {
+  const [recentChats, setRecentChats] = useState<Conversation[]>(() => readHistory());
+  const [activeChatId, setActiveChatId] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [draft, setDraft] = useState("");
   const [requestState, setRequestState] = useState<RequestState>("idle");
   const [error, setError] = useState("");
@@ -44,6 +57,20 @@ function App() {
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }); }, [messages, requestState]);
 
   useEffect(() => {
+    try { localStorage.setItem(HISTORY_KEY, JSON.stringify(recentChats.slice(0, 30))); } catch { /* storage may be disabled or full */ }
+  }, [recentChats]);
+
+  useEffect(() => {
+    if (!messages.length) return;
+    const id = activeChatId || crypto.randomUUID();
+    if (!activeChatId) setActiveChatId(id);
+    const firstUserMessage = messages.find((message) => message.role === "user")?.content ?? "New conversation";
+    const title = firstUserMessage.length > 44 ? `${firstUserMessage.slice(0, 41)}…` : firstUserMessage;
+    const conversation: Conversation = { id, title, updatedAt: Date.now(), messages };
+    setRecentChats((current) => [conversation, ...current.filter((item) => item.id !== id)].slice(0, 30));
+  }, [messages, activeChatId]);
+
+  useEffect(() => {
     function onGlobalKeyDown(event: globalThis.KeyboardEvent) {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
@@ -59,6 +86,7 @@ function App() {
     requestIdRef.current += 1;
     abortRef.current?.abort();
     setMessages([]);
+    setActiveChatId("");
     setLastSubmitted("");
     setDraft("");
     setRequestState("idle");
@@ -110,6 +138,27 @@ function App() {
     }
   }
 
+  function openConversation(conversation: Conversation) {
+    requestIdRef.current += 1;
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setActiveChatId(conversation.id);
+    setMessages(conversation.messages);
+    setLastSubmitted([...conversation.messages].reverse().find((message) => message.role === "user")?.content ?? "");
+    setRequestState("idle");
+    setError("");
+    setSidebarOpen(false);
+  }
+
+  function clearHistory() {
+    setRecentChats([]);
+    setActiveChatId("");
+    setMessages([]);
+    setLastSubmitted("");
+    setError("");
+    try { localStorage.removeItem(HISTORY_KEY); } catch { /* storage may be disabled */ }
+  }
+
   function stopRequest() {
     requestIdRef.current += 1;
     abortRef.current?.abort();
@@ -137,7 +186,8 @@ function App() {
         <div className="side-label">WORKSPACE</div>
         <nav className="nav-list" aria-label="Main navigation">
           <button className="nav-item active" onClick={() => setSidebarOpen(false)}><MessageSquare size={17} /><span>Chat</span></button>
-          <button className="nav-item" onClick={() => setError("Conversation history will be available when a persistent history store is implemented.")}><FileText size={17} /><span>Recent chats</span><span className="nav-soon">Soon</span></button>
+          <button className="nav-item" onClick={() => setSidebarOpen((open) => !open)}><FileText size={17} /><span>Recent chats</span><span className="nav-soon">{recentChats.length}</span></button>
+          {recentChats.slice(0, 5).map((chat) => <button key={chat.id} className={`history-item${chat.id === activeChatId ? " selected" : ""}`} title={chat.title} onClick={() => openConversation(chat)}><MessageSquare size={13} /><span>{chat.title}</span></button>)}
           <button className="nav-item" onClick={() => setError("Reasoning details are not yet exposed by the current chat API.")}><Activity size={17} /><span>Reasoning</span></button>
         </nav>
         <div className="side-label side-label-spaced">TOOLS</div>
@@ -150,11 +200,12 @@ function App() {
         if (data.status !== "ok") throw new Error("Unexpected health response");
         setBackendStatus(data.provider_configured ? "ready" : "needs-config");
       }).catch(() => setBackendStatus("offline")); }}><RefreshCw size={14} /></button></div>
-          <div className="side-footer"><button className="nav-item" onClick={() => setError("Settings will be added after backend configuration is finalized.")}><Settings2 size={17} /><span>Settings</span></button><button className="nav-item" onClick={() => setError("TARA Chat MVP · API and persistent history depend on backend implementation.")}><CircleHelp size={17} /><span>Help & status</span></button></div>
+          <div className="side-footer"><button className="nav-item" onClick={() => setSettingsOpen(true)}><Settings2 size={17} /><span>Settings</span></button><button className="nav-item" onClick={() => setHelpOpen(true)}><CircleHelp size={17} /><span>Help & status</span></button></div>
           <div className="profile"><div className="avatar">T</div><div><strong>Local workspace</strong><span>Private session</span></div><ShieldCheck size={16} className="profile-shield" /></div>
         </div>
       </aside>
       {sidebarOpen && <button className="scrim" aria-label="Close navigation overlay" onClick={() => setSidebarOpen(false)} />}
+      {(settingsOpen || helpOpen) && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) { setSettingsOpen(false); setHelpOpen(false); } }}><section className="settings-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title"><div className="modal-heading"><div><span className="modal-eyebrow">{settingsOpen ? "PREFERENCES" : "TARA WORKSPACE"}</span><h2 id="modal-title">{settingsOpen ? "Settings" : "Help & status"}</h2></div><button className="icon-btn" aria-label="Close dialog" onClick={() => { setSettingsOpen(false); setHelpOpen(false); }}><X size={18} /></button></div>{settingsOpen ? <><div className="setting-row"><div><strong>Appearance</strong><span>Choose the workspace color theme.</span></div><button className="setting-action" onClick={() => setLightMode((value) => !value)}>{lightMode ? "Light theme" : "Dark theme"} · Switch</button></div><div className="setting-row"><div><strong>Local chat history</strong><span>{recentChats.length} saved conversation{recentChats.length === 1 ? "" : "s"} on this browser.</span></div><button className="setting-action danger-action" onClick={clearHistory}>Clear history</button></div><p className="modal-note">History is stored in this browser only. Clearing browser storage can remove it; it is not synced to an account.</p></> : <><div className="help-status"><span className={`status-dot ${backendStatus}`} /><div><strong>{backendStatus === "ready" ? "Backend reachable" : backendStatus === "needs-config" ? "Provider key missing" : backendStatus === "checking" ? "Checking backend" : "Backend unavailable"}</strong><span>{backendStatus === "ready" ? "The health check reports a configured provider." : backendStatus === "needs-config" ? "The API is reachable, but GROQ_API_KEY is not configured." : backendStatus === "checking" ? "Waiting for the health check." : "Check that the API server is running."}</span></div><button className="setting-action" onClick={() => { setBackendStatus("checking"); fetch(`${API_BASE}/api/health`).then((response) => { if (!response.ok) throw new Error(); return response.json(); }).then((data: { status?: string; provider_configured?: boolean }) => setBackendStatus(data.status === "ok" ? data.provider_configured ? "ready" : "needs-config" : "offline")).catch(() => setBackendStatus("offline")); }}>Recheck</button></div><p className="modal-note">Keyboard: Enter sends, Shift+Enter adds a line, Ctrl/⌘+K starts a new chat, Escape closes the navigation.</p></>}</section></div>}
       <main className="main">
         <header className="topbar">
           <div className="topbar-left"><button className="icon-btn mobile-menu" aria-label="Open navigation" onClick={() => setSidebarOpen(true)}><Menu size={19} /></button><div className="breadcrumb"><span>Workspace</span><span className="crumb-sep">/</span><strong>{messages.length ? "Conversation" : "New chat"}</strong></div></div>
