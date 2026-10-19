@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from "react";
 import { Activity, ArrowDown, ArrowUp, Check, ChevronDown, CircleHelp, Code2, Command, FileText, Globe2, Menu, MessageSquare, Moon, Paperclip, Plus, RefreshCw, Settings2, ShieldCheck, Sparkles, Square, Sun, X, Zap } from "lucide-react";
 import ReactMarkdown from "react-markdown";
