@@ -7,7 +7,7 @@ export const THEME_KEY = "tara.chat.theme.v1";
 export function isMessage(value: unknown): value is Message {
   if (typeof value !== "object" || value === null) return false;
   const message = value as Record<string, unknown>;
-  return typeof message.id === "string" && message.id.trim().length > 0 && (message.role === "user" || message.role === "assistant") && typeof message.content === "string";
+  return typeof message.id === "string" && message.id.trim().length > 0 && (message.role === "user" || message.role === "assistant") && typeof message.content === "string" && message.content.trim().length > 0;
 }
 
 export function isConversation(value: unknown): value is Conversation {
