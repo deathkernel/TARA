@@ -15,7 +15,7 @@ function isMessage(value: unknown): value is Message {
 function isConversation(value: unknown): value is Conversation {
   if (typeof value !== "object" || value === null) return false;
   const chat = value as Record<string, unknown>;
-  return typeof chat.id === "string" && chat.id.length > 0 && typeof chat.title === "string" && typeof chat.updatedAt === "number" && Number.isFinite(chat.updatedAt) && Array.isArray(chat.messages) && chat.messages.every(isMessage);
+  return typeof chat.id === "string" && chat.id.length > 0 && typeof chat.title === "string" && chat.title.trim().length > 0 && typeof chat.updatedAt === "number" && Number.isFinite(chat.updatedAt) && Array.isArray(chat.messages) && chat.messages.length > 0 && chat.messages.every(isMessage);
 }
 function readTheme(): boolean {
   try { return localStorage.getItem(THEME_KEY) === "light"; } catch { return false; }
@@ -141,7 +141,7 @@ function App() {
 
   useEffect(() => {
     function onGlobalKeyDown(event: globalThis.KeyboardEvent) {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+      if (!event.repeat && !event.isComposing && (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
         newChat();
       }
