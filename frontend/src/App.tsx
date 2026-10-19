@@ -3,7 +3,7 @@ import { Activity, ArrowDown, ArrowUp, Check, ChevronDown, CircleHelp, Code2, Co
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Conversation, HISTORY_KEY, Message, THEME_KEY, parseHistory } from "./chatStorage";
-import { assistantMessageFromPayload, apiErrorFromPayload, isRequestCurrent } from "./chatApi";
+import { assistantMessageFromPayload, apiErrorFromPayload, healthStatusFromPayload, isRequestCurrent } from "./chatApi";
 import { isNewChatShortcut, shouldSendOnEnter } from "./keyboard";
 
 function readTheme(): boolean {
@@ -54,11 +54,12 @@ function App() {
     try {
       const response = await fetch(`${API_BASE}/api/health`, signal ? { signal } : undefined);
       if (!response.ok) throw new Error("Health check failed");
-      const data: { status?: string; provider_configured?: boolean } = await response.json();
-      if (data.status !== "ok") throw new Error("Unexpected health response");
+      const data: unknown = await response.json();
+      const status = healthStatusFromPayload(data);
+      if (!status) throw new Error("Unexpected health response");
       // Ignore older checks if a newer manual recheck has already started.
       if (signal?.aborted || checkId !== healthCheckIdRef.current) return;
-      setBackendStatus(data.provider_configured ? "ready" : "needs-config");
+      setBackendStatus(status);
     } catch {
       if (!signal?.aborted && checkId === healthCheckIdRef.current) setBackendStatus("offline");
     }
