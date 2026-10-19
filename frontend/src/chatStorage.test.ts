@@ -18,6 +18,7 @@ describe("isMessage", () => {
     { id: "   ", role: "assistant", content: "Hello" },
     { id: "m1", role: "system", content: "Hello" },
     { id: "m1", role: "user", content: 42 },
+    { id: "m1", role: "assistant", content: "   " },
   ])("rejects malformed messages: %j", (value) => {
     expect(isMessage(value)).toBe(false);
   });
