@@ -145,7 +145,7 @@ function App() {
       const target = event.target;
       const targetIsEditable = target instanceof HTMLElement
         && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
-      if (isNewChatShortcut({ ...event, targetIsEditable })) {
+      if (isNewChatShortcut({ key: event.key, repeat: event.repeat, isComposing: event.isComposing, metaKey: event.metaKey, ctrlKey: event.ctrlKey, targetIsEditable })) {
         event.preventDefault();
         newChat();
       }
