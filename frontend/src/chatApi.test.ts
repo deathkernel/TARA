@@ -42,3 +42,28 @@ describe("isRequestCurrent", () => {
     expect(isRequestCurrent(3, 3, controller.signal)).toBe(false);
   });
 });
+
+describe("healthStatusFromPayload", () => {
+  it("reports ready only when the provider is configured", async () => {
+    const { healthStatusFromPayload } = await import("./chatApi");
+    expect(healthStatusFromPayload({ status: "ok", provider_configured: true })).toBe("ready");
+  });
+
+  it("distinguishes a reachable API with a missing provider key", async () => {
+    const { healthStatusFromPayload } = await import("./chatApi");
+    expect(healthStatusFromPayload({ status: "ok", provider_configured: false })).toBe("needs-config");
+  });
+
+  it.each([
+    null,
+    [],
+    {},
+    { status: "offline", provider_configured: true },
+    { status: "ok" },
+    { status: "ok", provider_configured: "true" },
+    { status: "ok", provider_configured: null },
+  ])("rejects malformed health payloads: %j", async (payload) => {
+    const { healthStatusFromPayload } = await import("./chatApi");
+    expect(healthStatusFromPayload(payload)).toBeNull();
+  });
+});
