@@ -215,6 +215,9 @@ Keep this section updated as PRs change; do not mark proposed features as shippe
 - [x] Validate Ollama endpoint origins, timeout bounds, resource settings, system prompts, temperature, and completion-token types.
 - [x] Prevent configured Ollama endpoints from following HTTP redirects; cap response bodies at 8 MiB and completion output at 4,096 tokens.
 - [x] Add regression coverage for invalid endpoint URLs, oversized/malformed responses, invalid configuration, and completion options.
+- [x] Validate environment-provided context, CPU-thread, and batch settings with explicit integer parsing and hard bounds; allow `num_thread=0` for Ollama automatic selection.
+- [x] Add regression cases for malformed, zero, negative, and over-limit environment settings.
+- [ ] Run the focused Ollama provider tests and full Python/Rust CI on the exact follow-up commit.
 - [x] Bound CI job duration, cancel superseded branch runs, and avoid running the expensive three-seed profile experiment for unrelated source changes.
 - [ ] Verify Python/Rust CI and the three-seed experiment on the exact latest branch head; these results are not yet confirmed.
 
