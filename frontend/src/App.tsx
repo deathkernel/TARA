@@ -60,15 +60,22 @@ function App() {
   const requestIdRef = useRef(0);
   const isBusy = requestState === "pending";
 
+  async function checkBackendStatus(signal?: AbortSignal) {
+    setBackendStatus("checking");
+    try {
+      const response = await fetch(`${API_BASE}/api/health`, signal ? { signal } : undefined);
+      if (!response.ok) throw new Error("Health check failed");
+      const data: { status?: string; provider_configured?: boolean } = await response.json();
+      if (data.status !== "ok") throw new Error("Unexpected health response");
+      setBackendStatus(data.provider_configured ? "ready" : "needs-config");
+    } catch {
+      if (!signal?.aborted) setBackendStatus("offline");
+    }
+  }
+
   useEffect(() => {
     const controller = new AbortController();
-    fetch(`${API_BASE}/api/health`, { signal: controller.signal })
-      .then((response) => { if (!response.ok) throw new Error("Health check failed"); return response.json(); })
-      .then((data: { status?: string; provider_configured?: boolean }) => {
-        if (data.status !== "ok") throw new Error("Unexpected health response");
-        setBackendStatus(data.provider_configured ? "ready" : "needs-config");
-      })
-      .catch(() => { if (!controller.signal.aborted) setBackendStatus("offline"); });
+    void checkBackendStatus(controller.signal);
     return () => controller.abort();
   }, []);
 
@@ -272,16 +279,13 @@ function App() {
           <button className="nav-item" onClick={() => void sendMessage("Help me plan a project.")}><Zap size={17} /><span>Project planning</span></button>
         </nav>
         <div className="sidebar-bottom">
-          <div className="backend-indicator" role="status" aria-live="polite" aria-atomic="true"><span className={`status-dot ${backendStatus}`} /><div><strong>{backendStatus === "checking" ? "Checking backend" : backendStatus === "ready" ? "Backend ready" : backendStatus === "needs-config" ? "Groq key needed" : "Backend unavailable"}</strong><span>{backendStatus === "ready" ? "Provider configured" : backendStatus === "needs-config" ? "Set GROQ_API_KEY on server" : backendStatus === "checking" ? "Verifying connection…" : "Start API to chat"}</span></div><button className="icon-btn" aria-label="Recheck backend" onClick={() => { setBackendStatus("checking"); fetch(`${API_BASE}/api/health`).then(r => { if (!r.ok) throw new Error(); return r.json(); }).then((data: { status?: string; provider_configured?: boolean }) => {
-        if (data.status !== "ok") throw new Error("Unexpected health response");
-        setBackendStatus(data.provider_configured ? "ready" : "needs-config");
-      }).catch(() => setBackendStatus("offline")); }}><RefreshCw size={14} /></button></div>
+          <div className="backend-indicator" role="status" aria-live="polite" aria-atomic="true"><span className={`status-dot ${backendStatus}`} /><div><strong>{backendStatus === "checking" ? "Checking backend" : backendStatus === "ready" ? "Backend ready" : backendStatus === "needs-config" ? "Groq key needed" : "Backend unavailable"}</strong><span>{backendStatus === "ready" ? "Provider configured" : backendStatus === "needs-config" ? "Set GROQ_API_KEY on server" : backendStatus === "checking" ? "Verifying connection…" : "Start API to chat"}</span></div><button className="icon-btn" aria-label="Recheck backend" onClick={() => { void checkBackendStatus(); }}><RefreshCw size={14} /></button></div>
           <div className="side-footer"><button className="nav-item" onClick={(event) => { modalTriggerRef.current = event.currentTarget; setHelpOpen(false); setSettingsOpen(true); }}><Settings2 size={17} /><span>Settings</span></button><button className="nav-item" onClick={(event) => { modalTriggerRef.current = event.currentTarget; setSettingsOpen(false); setHelpOpen(true); }}><CircleHelp size={17} /><span>Help & status</span></button></div>
           <div className="profile"><div className="avatar">T</div><div><strong>Local workspace</strong><span>Private session</span></div><ShieldCheck size={16} className="profile-shield" /></div>
         </div>
       </aside>
       {sidebarOpen && <button className="scrim" aria-label="Close navigation overlay" onClick={() => setSidebarOpen(false)} />}
-      {(settingsOpen || helpOpen) && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) { setSettingsOpen(false); setHelpOpen(false); } }}><section ref={modalRef} className="settings-modal" tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby="modal-description"><div className="modal-heading"><div><span className="modal-eyebrow">{settingsOpen ? "PREFERENCES" : "TARA WORKSPACE"}</span><h2 id="modal-title">{settingsOpen ? "Settings" : "Help & status"}</h2></div><button className="icon-btn" aria-label="Close dialog" onClick={() => { setSettingsOpen(false); setHelpOpen(false); }}><X size={18} /></button></div>{settingsOpen ? <><div className="setting-row"><div><strong>Appearance</strong><span>Choose the workspace color theme.</span></div><button className="setting-action" onClick={() => setLightMode((value) => !value)}>{lightMode ? "Switch to dark" : "Switch to light"}</button></div><div className="setting-row"><div><strong>Local chat history</strong><span>{recentChats.length} saved conversation{recentChats.length === 1 ? "" : "s"} on this browser.</span></div><button className="setting-action danger-action" onClick={clearHistory}>Clear history</button></div><p className="modal-note" id="modal-description">History is stored in this browser only. Clearing browser storage can remove it; it is not synced to an account.</p></> : <><div className="help-status"><span className={`status-dot ${backendStatus}`} /><div><strong>{backendStatus === "ready" ? "Backend reachable" : backendStatus === "needs-config" ? "Provider key missing" : backendStatus === "checking" ? "Checking backend" : "Backend unavailable"}</strong><span>{backendStatus === "ready" ? "The health check reports a configured provider." : backendStatus === "needs-config" ? "The API is reachable, but GROQ_API_KEY is not configured." : backendStatus === "checking" ? "Waiting for the health check." : "Check that the API server is running."}</span></div><button className="setting-action" onClick={() => { setBackendStatus("checking"); fetch(`${API_BASE}/api/health`).then((response) => { if (!response.ok) throw new Error(); return response.json(); }).then((data: { status?: string; provider_configured?: boolean }) => setBackendStatus(data.status === "ok" ? data.provider_configured ? "ready" : "needs-config" : "offline")).catch(() => setBackendStatus("offline")); }}>Recheck</button></div><p className="modal-note" id="modal-description">Keyboard: Enter sends, Shift+Enter adds a line, Ctrl/⌘+K starts a new chat, Escape closes dialogs and navigation.</p></>}</section></div>}
+      {(settingsOpen || helpOpen) && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) { setSettingsOpen(false); setHelpOpen(false); } }}><section ref={modalRef} className="settings-modal" tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby="modal-description"><div className="modal-heading"><div><span className="modal-eyebrow">{settingsOpen ? "PREFERENCES" : "TARA WORKSPACE"}</span><h2 id="modal-title">{settingsOpen ? "Settings" : "Help & status"}</h2></div><button className="icon-btn" aria-label="Close dialog" onClick={() => { setSettingsOpen(false); setHelpOpen(false); }}><X size={18} /></button></div>{settingsOpen ? <><div className="setting-row"><div><strong>Appearance</strong><span>Choose the workspace color theme.</span></div><button className="setting-action" onClick={() => setLightMode((value) => !value)}>{lightMode ? "Switch to dark" : "Switch to light"}</button></div><div className="setting-row"><div><strong>Local chat history</strong><span>{recentChats.length} saved conversation{recentChats.length === 1 ? "" : "s"} on this browser.</span></div><button className="setting-action danger-action" onClick={clearHistory}>Clear history</button></div><p className="modal-note" id="modal-description">History is stored in this browser only. Clearing browser storage can remove it; it is not synced to an account.</p></> : <><div className="help-status"><span className={`status-dot ${backendStatus}`} /><div><strong>{backendStatus === "ready" ? "Backend reachable" : backendStatus === "needs-config" ? "Provider key missing" : backendStatus === "checking" ? "Checking backend" : "Backend unavailable"}</strong><span>{backendStatus === "ready" ? "The health check reports a configured provider." : backendStatus === "needs-config" ? "The API is reachable, but GROQ_API_KEY is not configured." : backendStatus === "checking" ? "Waiting for the health check." : "Check that the API server is running."}</span></div><button className="setting-action" onClick={() => { void checkBackendStatus(); }}>Recheck</button></div><p className="modal-note" id="modal-description">Keyboard: Enter sends, Shift+Enter adds a line, Ctrl/⌘+K starts a new chat, Escape closes dialogs and navigation.</p></>}</section></div>}
       <main className="main">
         <header className="topbar">
           <div className="topbar-left"><button className="icon-btn mobile-menu" aria-label="Open navigation" onClick={() => setSidebarOpen(true)}><Menu size={19} /></button><div className="breadcrumb"><span>Workspace</span><span className="crumb-sep">/</span><strong>{messages.length ? "Conversation" : "New chat"}</strong></div></div>
