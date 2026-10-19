@@ -174,11 +174,19 @@ function App() {
   }
 
   function clearHistory() {
+    // Clearing history also invalidates an in-flight response so it cannot
+    // repopulate the conversation after the user has cleared their data.
+    requestIdRef.current += 1;
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setRequestState("idle");
     setRecentChats([]);
     setActiveChatId("");
     setMessages([]);
     setLastSubmitted("");
+    setDraft("");
     setError("");
+    setSettingsOpen(false);
     try { localStorage.removeItem(HISTORY_KEY); } catch { /* storage may be disabled */ }
   }
 
@@ -244,7 +252,7 @@ function App() {
               <div className="starter-grid">{starterPrompts.map(({ icon: Icon, title, text: sub, prompt }) => <button className="starter-card" key={title} onClick={() => { setDraft(prompt); inputRef.current?.focus(); }}><span className="starter-icon"><Icon size={18} /></span><strong>{title}</strong><span>{sub}</span><ArrowDown size={14} className="starter-arrow" /></button>)}</div>
             </div>
           ) : (
-            <div className="message-list" aria-busy={isBusy}>{messages.map(message => <article className={`message ${message.role}`} key={message.id}><div className={message.role === "assistant" ? "message-avatar tara-avatar" : "message-avatar user-avatar"}>{message.role === "assistant" ? <Sparkles size={16} /> : "Y"}</div><div className="message-body"><div className="message-meta"><strong>{message.role === "assistant" ? "TARA" : "You"}</strong><span>{message.role === "assistant" ? "Assistant" : "You"}</span>{message.role === "assistant" && <button className="copy-btn" onClick={() => void copyMessage(message)} aria-label="Copy assistant message">{copiedId === message.id ? <Check size={14} /> : <FileText size={14} />}{copiedId === message.id ? "Copied" : "Copy"}</button>}</div><div className="message-content markdown-content"><ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown></div></div></article>)}
+            <div className="message-list" aria-busy={isBusy}>{messages.map(message => <article className={`message ${message.role}`} key={message.id}><div className={message.role === "assistant" ? "message-avatar tara-avatar" : "message-avatar user-avatar"}>{message.role === "assistant" ? <Sparkles size={16} /> : "Y"}</div><div className="message-body"><div className="message-meta"><strong>{message.role === "assistant" ? "TARA" : "You"}</strong><span>{message.role === "assistant" ? "Assistant" : "You"}</span>{message.role === "assistant" && <button className="copy-btn" onClick={() => void copyMessage(message)} aria-label={copiedId === message.id ? "Message copied" : "Copy assistant message"}>{copiedId === message.id ? <Check size={14} /> : <FileText size={14} />}{copiedId === message.id ? "Copied" : "Copy"}</button>}</div><div className="message-content markdown-content"><ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown></div></div></article>)}
               {isBusy && <article className="message assistant"><div className="message-avatar tara-avatar"><Sparkles size={16} /></div><div className="message-body"><div className="message-meta"><strong>TARA</strong><span>Working on your message</span></div><div className="typing" role="status" aria-live="polite"><span /><span /><span /> <span className="typing-label">Waiting for response…</span></div></div></article>}
               <div ref={endRef} />
             </div>
