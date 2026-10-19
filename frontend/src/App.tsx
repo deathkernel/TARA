@@ -26,20 +26,37 @@ function App() {
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const requestIdRef = useRef(0);
   const isBusy = requestState === "pending";
 
   useEffect(() => {
     const controller = new AbortController();
     fetch(`${API_BASE}/api/health`, { signal: controller.signal })
       .then((response) => { if (!response.ok) throw new Error("Health check failed"); return response.json(); })
-      .then((data: { status?: string; provider_configured?: boolean }) => setBackendStatus(data.provider_configured ? "ready" : "needs-config"))
+      .then((data: { status?: string; provider_configured?: boolean }) => {
+        if (data.status !== "ok") throw new Error("Unexpected health response");
+        setBackendStatus(data.provider_configured ? "ready" : "needs-config");
+      })
       .catch(() => { if (!controller.signal.aborted) setBackendStatus("offline"); });
     return () => controller.abort();
   }, []);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }); }, [messages, requestState]);
 
+  useEffect(() => {
+    function onGlobalKeyDown(event: globalThis.KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        newChat();
+      }
+      if (event.key === "Escape") setSidebarOpen(false);
+    }
+    window.addEventListener("keydown", onGlobalKeyDown);
+    return () => window.removeEventListener("keydown", onGlobalKeyDown);
+  }, []);
+
   function newChat() {
+    requestIdRef.current += 1;
     abortRef.current?.abort();
     setMessages([]);
     setLastSubmitted("");
@@ -50,16 +67,19 @@ function App() {
     inputRef.current?.focus();
   }
 
-  async function sendMessage(raw = draft) {
+  async function sendMessage(raw = draft, addUserMessage = true) {
     const text = raw.trim();
     if (!text || isBusy) return;
-    const userMessage: Message = { id: crypto.randomUUID(), role: "user", content: text };
-    setMessages((current) => [...current, userMessage]);
-    setLastSubmitted(text);
-    setDraft("");
+    if (addUserMessage) {
+      const userMessage: Message = { id: crypto.randomUUID(), role: "user", content: text };
+      setMessages((current) => [...current, userMessage]);
+      setLastSubmitted(text);
+      setDraft("");
+    }
     setError("");
     setRequestState("pending");
     const controller = new AbortController();
+    const requestId = ++requestIdRef.current;
     abortRef.current = controller;
     try {
       const response = await fetch(`${API_BASE}/api/chat`, {
@@ -69,6 +89,7 @@ function App() {
         signal: controller.signal,
       });
       const data: unknown = await response.json().catch(() => ({}));
+      if (requestId !== requestIdRef.current || controller.signal.aborted) return;
       if (!response.ok) {
         const detail = typeof data === "object" && data !== null && "detail" in data && typeof data.detail === "string" ? data.detail : "";
         throw new Error(detail || `TARA backend returned HTTP ${response.status}.`);
@@ -78,12 +99,9 @@ function App() {
       }
       setMessages((current) => [...current, { id: crypto.randomUUID(), role: "assistant", content: data.message as string }]);
       setRequestState("idle");
-      setBackendStatus("needs-config");
+      setBackendStatus("ready");
     } catch (err) {
-      if (controller.signal.aborted) {
-        setRequestState("idle");
-        return;
-      }
+      if (controller.signal.aborted || requestId !== requestIdRef.current) return;
       setError(err instanceof Error ? err.message : "An unexpected error occurred.");
       setRequestState("error");
       setBackendStatus("offline");
@@ -93,6 +111,7 @@ function App() {
   }
 
   function stopRequest() {
+    requestIdRef.current += 1;
     abortRef.current?.abort();
     abortRef.current = null;
     setRequestState("idle");
@@ -127,7 +146,10 @@ function App() {
           <button className="nav-item" onClick={() => void sendMessage("Help me plan a project.")}><Zap size={17} /><span>Project planning</span></button>
         </nav>
         <div className="sidebar-bottom">
-          <div className="backend-indicator"><span className={`status-dot ${backendStatus}`} /><div><strong>{backendStatus === "checking" ? "Checking backend" : backendStatus === "ready" ? "Backend ready" : backendStatus === "needs-config" ? "Groq key needed" : "Backend unavailable"}</strong><span>{backendStatus === "ready" ? "Provider configured" : backendStatus === "needs-config" ? "Set GROQ_API_KEY on server" : backendStatus === "checking" ? "Verifying connection…" : "Start API to chat"}</span></div><button className="icon-btn" aria-label="Recheck backend" onClick={() => { setBackendStatus("checking"); fetch(`${API_BASE}/api/health`).then(r => { if (!r.ok) throw new Error(); return r.json(); }).then((data: { provider_configured?: boolean }) => setBackendStatus(data.provider_configured ? "ready" : "needs-config")).catch(() => setBackendStatus("offline")); }}><RefreshCw size={14} /></button></div>
+          <div className="backend-indicator"><span className={`status-dot ${backendStatus}`} /><div><strong>{backendStatus === "checking" ? "Checking backend" : backendStatus === "ready" ? "Backend ready" : backendStatus === "needs-config" ? "Groq key needed" : "Backend unavailable"}</strong><span>{backendStatus === "ready" ? "Provider configured" : backendStatus === "needs-config" ? "Set GROQ_API_KEY on server" : backendStatus === "checking" ? "Verifying connection…" : "Start API to chat"}</span></div><button className="icon-btn" aria-label="Recheck backend" onClick={() => { setBackendStatus("checking"); fetch(`${API_BASE}/api/health`).then(r => { if (!r.ok) throw new Error(); return r.json(); }).then((data: { status?: string; provider_configured?: boolean }) => {
+        if (data.status !== "ok") throw new Error("Unexpected health response");
+        setBackendStatus(data.provider_configured ? "ready" : "needs-config");
+      }).catch(() => setBackendStatus("offline")); }}><RefreshCw size={14} /></button></div>
           <div className="side-footer"><button className="nav-item" onClick={() => setError("Settings will be added after backend configuration is finalized.")}><Settings2 size={17} /><span>Settings</span></button><button className="nav-item" onClick={() => setError("TARA Chat MVP · API and persistent history depend on backend implementation.")}><CircleHelp size={17} /><span>Help & status</span></button></div>
           <div className="profile"><div className="avatar">T</div><div><strong>Local workspace</strong><span>Private session</span></div><ShieldCheck size={16} className="profile-shield" /></div>
         </div>
@@ -153,7 +175,7 @@ function App() {
               <div ref={endRef} />
             </div>
           )}
-          {error && <div className="error-banner" role="alert"><div className="error-icon"><Activity size={17} /></div><div className="error-text"><strong>We couldn't complete that request</strong><span>{error}</span><button className="retry-btn" onClick={() => { setError(""); void sendMessage(lastSubmitted); }}> <RefreshCw size={13} /> Try again</button></div><button className="icon-btn" aria-label="Dismiss error" onClick={() => setError("")}><X size={16} /></button></div>}
+          {error && <div className="error-banner" role="alert"><div className="error-icon"><Activity size={17} /></div><div className="error-text"><strong>We couldn't complete that request</strong><span>{error}</span><button className="retry-btn" onClick={() => { setError(""); void sendMessage(lastSubmitted, false); }}> <RefreshCw size={13} /> Try again</button></div><button className="icon-btn" aria-label="Dismiss error" onClick={() => setError("")}><X size={16} /></button></div>}
         </section>
         <footer className="composer-area">
           <form className="composer" onSubmit={submit}><textarea ref={inputRef} aria-label="Message TARA" value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={onComposerKeyDown} placeholder="Message TARA…  (Shift + Enter for new line)" rows={1} disabled={isBusy} onInput={e => { const el = e.currentTarget; el.style.height = "auto"; el.style.height = `${Math.min(el.scrollHeight, 180)}px`; }} />
