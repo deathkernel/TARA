@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1020">
+  <title>TARA — AI Chat</title>
+  <style>
+    :root{color-scheme:dark;--bg:#090d18;--panel:#101728;--panel2:#151f33;--line:#27334b;--text:#edf3ff;--muted:#94a3bd;--accent:#8b9dff;--accent2:#b1a2ff;--user:#27365a;--error:#ffb4a9}
+    *{box-sizing:border-box}
+    body{margin:0;background:radial-gradient(ellipse at 20% 0%,#192447 0,transparent 42%),var(--bg);color:var(--text);font:15px/1.55 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;min-height:100vh}
+    .app{max-width:1120px;height:100dvh;min-height:540px;margin:auto;padding:20px;display:grid;grid-template-columns:250px minmax(0,1fr);gap:18px}
+    .sidebar,.chat{border:1px solid var(--line);background:rgba(16,23,40,.9);border-radius:22px;min-height:0;box-shadow:0 18px 60px #0003}
+    .sidebar{padding:22px 18px;display:flex;flex-direction:column;gap:22px}
+    .brand{display:flex;align-items:center;gap:12px}.logo{width:44px;height:44px;border-radius:15px;background:linear-gradient(135deg,#8497ff,#c09bff);display:grid;place-items:center;color:#11162b;font-weight:900;font-size:21px;box-shadow:0 8px 24px #8b9dff35}
+    h1{font-size:19px;margin:0;letter-spacing:.08em} .sub{font-size:12px;color:var(--muted);margin-top:1px}
+    .new-chat{background:#202c44;border:1px solid #33415d;border-radius:12px;color:var(--text);padding:11px 13px;font:inherit;text-align:left;cursor:pointer}
+    .side-label{font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:var(--muted);font-weight:700;margin-bottom:7px}
+    .status{padding:12px;border:1px solid var(--line);border-radius:14px;background:#0b1221;font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+    .status-row{display:flex;align-items:center;gap:8px;color:var(--text);font-weight:650;margin-bottom:5px}.dot{width:8px;height:8px;border-radius:50%;background:#f3ba65;box-shadow:0 0 12px #f3ba6540}.dot.ok{background:#5fe0b2;box-shadow:0 0 12px #5fe0b240}.dot.bad{background:#ff837c}
+    .side-note{margin-top:auto;color:var(--muted);font-size:12px}
+    .chat{display:flex;flex-direction:column;overflow:hidden}
+    .topbar{padding:17px 22px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px}
+    .top-title{font-weight:700}.top-sub{color:var(--muted);font-size:12px}.local-tag{font-size:11px;color:#b7c2ff;border:1px solid #46517c;border-radius:99px;padding:5px 9px;white-space:nowrap}
+    .messages{flex:1;overflow:auto;padding:26px clamp(16px,4vw,52px);display:flex;flex-direction:column;gap:18px;scroll-behavior:smooth}
+    .welcome{margin:auto;max-width:560px;text-align:center;padding:24px 0}.orb{width:66px;height:66px;border-radius:24px;margin:0 auto 20px;display:grid;place-items:center;font-size:30px;background:linear-gradient(145deg,#8297ff,#c4a1ff);color:#0e1430;box-shadow:0 12px 42px #8996ff30}
+    .welcome h2{font-size:clamp(25px,4vw,34px);line-height:1.15;letter-spacing:-.04em;margin:0 0 12px}.welcome p{color:var(--muted);margin:0 auto 24px;max-width:430px}
+    .suggestions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;text-align:left}.suggestion{background:#111b2e;border:1px solid var(--line);border-radius:13px;padding:12px;color:#cdd7ef;font:inherit;font-size:13px;cursor:pointer;transition:.15s}.suggestion:hover,.new-chat:hover{border-color:#6878b3;background:#1b2942}
+    .message{max-width:min(82%,700px);display:flex;flex-direction:column;gap:5px;animation:appear .18s ease-out}.message.user{align-self:flex-end}.message.assistant{align-self:flex-start}.who{font-size:11px;color:var(--muted);padding:0 4px}.bubble{padding:12px 15px;border:1px solid var(--line);background:#141e31;border-radius:16px;white-space:pre-wrap;overflow-wrap:anywhere}.user .bubble{background:var(--user);border-color:#3b4b73;border-bottom-right-radius:5px}.assistant .bubble{border-bottom-left-radius:5px}
+    .message.error .bubble{border-color:#8c514f;color:var(--error)}.typing{display:flex;gap:5px;align-items:center;padding:5px 2px}.typing span{width:6px;height:6px;background:#a8b4ff;border-radius:50%;animation:pulse 1s infinite}.typing span:nth-child(2){animation-delay:.15s}.typing span:nth-child(3){animation-delay:.3s}
+    .composer-wrap{padding:14px clamp(14px,3vw,32px) 18px;border-top:1px solid var(--line);background:#0e1525}.composer{display:flex;align-items:flex-end;gap:10px;padding:8px 8px 8px 14px;border:1px solid #33415d;background:#111b2d;border-radius:17px;transition:border-color .15s}.composer:focus-within{border-color:#8190e8;box-shadow:0 0 0 3px #8190e81a}
+    textarea{resize:none;flex:1;max-height:150px;min-height:30px;border:0;outline:0;background:transparent;color:var(--text);font:inherit;padding:5px 0}textarea::placeholder{color:#7887a3}
+    .send{width:40px;height:40px;flex:0 0 40px;border:0;border-radius:12px;background:linear-gradient(135deg,#91a0ff,#b9a5ff);color:#10162d;font-size:20px;font-weight:800;cursor:pointer}.send:disabled{opacity:.4;cursor:not-allowed}.hint{text-align:center;font-size:11px;color:#72809a;margin-top:8px}
+    @keyframes pulse{0%,60%,100%{opacity:.35;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}@keyframes appear{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+    @media(max-width:720px){.app{padding:8px;grid-template-columns:1fr;gap:8px;min-height:0;height:100dvh}.sidebar{display:none}.chat{border-radius:16px}.topbar{padding:13px 16px}.messages{padding:18px 13px}.message{max-width:94%}.welcome{padding:12px 0}.suggestions{grid-template-columns:1fr}.composer-wrap{padding:10px}.local-tag{font-size:10px}}
+    @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;scroll-behavior:auto!important}}
+  </style>
+</head>
+<body>
+  <main class="app">
+    <aside class="sidebar">
+      <div class="brand"><div class="logo">T</div><div><h1>TARA</h1><div class="sub">Tiny Artificial Reasoning Architecture</div></div></div>
+      <button class="new-chat" id="newChat">＋ &nbsp; New conversation</button>
+      <div><div class="side-label">Connection</div><div class="status"><div class="status-row"><span class="dot" id="statusDot"></span><span id="statusTitle">Checking Ollama…</span></div><div id="statusText">Connecting to your local model.</div></div></div>
+      <div><div class="side-label">Model</div><div class="status" id="modelName">Loading model…</div></div>
+      <div class="side-note">Local browser interface<br>Messages are processed by your local TARA server and Ollama model.</div>
+    </aside>
+    <section class="chat" aria-label="TARA chat">
+      <header class="topbar"><div><div class="top-title">Chat with TARA</div><div class="top-sub">Your local AI workspace</div></div><div class="local-tag">● &nbsp; LOCAL SESSION</div></header>
+      <div class="messages" id="messages" aria-live="polite">
+        <div class="welcome" id="welcome">
+          <div class="orb">✦</div><h2>Hey there. I'm TARA.</h2>
+          <p>Ask a question, brainstorm an idea, or start with one of these prompts. This chat uses your configured Ollama model.</p>
+          <div class="suggestions">
+            <button class="suggestion">Explain a difficult concept in simple words.</button>
+            <button class="suggestion">Help me plan my next project step by step.</button>
+            <button class="suggestion">Brainstorm three creative ideas for me.</button>
+            <button class="suggestion">What can you help me with in this chat?</button>
+          </div>
+        </div>
+      </div>
+      <div class="composer-wrap"><form class="composer" id="chatForm"><textarea id="prompt" rows="1" maxlength="4000" placeholder="Message TARA…" aria-label="Message TARA" required></textarea><button class="send" id="send" type="submit" aria-label="Send message">↑</button></form><div class="hint">Enter to send · Shift + Enter for a new line</div></div>
+    </section>
+  </main>
+<script>
+(() => {
+  const messagesEl = document.getElementById('messages');
+  const welcome = document.getElementById('welcome');
+  const form = document.getElementById('chatForm');
+  const input = document.getElementById('prompt');
+  const send = document.getElementById('send');
+  const statusDot = document.getElementById('statusDot');
+  const statusTitle = document.getElementById('statusTitle');
+  const statusText = document.getElementById('statusText');
+  const modelName = document.getElementById('modelName');
+  let history = [];
+  let busy = false;
+
+  function addMessage(role, text, isError = false) {
+    const wrap = document.createElement('div');
+    wrap.className = 'message ' + role + (isError ? ' error' : '');
+    const who = document.createElement('div');
+    who.className = 'who';
+    who.textContent = role === 'user' ? 'You' : 'TARA';
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    bubble.textContent = text;
+    wrap.append(who, bubble);
+    messagesEl.appendChild(wrap);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    return wrap;
+  }
+
+  function setBusy(value) {
+    busy = value;
+    send.disabled = value;
+    input.disabled = value;
+    send.textContent = value ? '…' : '↑';
+  }
+
+  async function checkHealth() {
+    try {
+      const response = await fetch('/api/health', {cache: 'no-store'});
+      const data = await response.json();
+      modelName.textContent = data.model || 'Ollama model';
+      statusDot.className = 'dot ' + (data.ok ? 'ok' : 'bad');
+      statusTitle.textContent = data.ok ? 'Connected' : (data.ollama === 'connected' ? 'Model not installed' : 'Ollama offline');
+      statusText.textContent = data.message || 'Check the Ollama service.';
+    } catch (_) {
+      statusDot.className = 'dot bad';
+      statusTitle.textContent = 'Server unavailable';
+      statusText.textContent = 'Restart the TARA server and refresh this page.';
+      modelName.textContent = 'Unavailable';
+    }
+  }
+
+  async function submitMessage(text) {
+    const prompt = text.trim();
+    if (!prompt || busy) return;
+    if (welcome && welcome.isConnected) welcome.remove();
+    else if (document.getElementById('welcome')) document.getElementById('welcome').remove();
+    history.push({role: 'user', content: prompt});
+    addMessage('user', prompt);
+    const waiting = addMessage('assistant', '');
+    waiting.querySelector('.bubble').innerHTML = '<div class="typing" aria-label="TARA is thinking"><span></span><span></span><span></span></div>';
+    setBusy(true);
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({messages: history.slice(-19)})
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'TARA could not answer. Check the server.');
+      waiting.querySelector('.bubble').textContent = data.reply;
+      history.push({role: 'assistant', content: data.reply});
+    } catch (error) {
+      waiting.classList.add('error');
+      waiting.querySelector('.bubble').textContent = error.message || 'Connection error. Please try again.';
+      history.pop();
+      checkHealth();
+    } finally {
+      setBusy(false);
+      input.focus();
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+  }
+
+  form.addEventListener('submit', event => {
+    event.preventDefault();
+    const value = input.value;
+    input.value = '';
+    input.style.height = 'auto';
+    submitMessage(value);
+  });
+
+  input.addEventListener('input', () => {
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 150) + 'px';
+  });
+
+  input.addEventListener('keydown', event => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      form.requestSubmit();
+    }
+  });
+
+  document.querySelectorAll('.suggestion').forEach(button => {
+    button.addEventListener('click', () => submitMessage(button.textContent));
+  });
+
+  document.getElementById('newChat').addEventListener('click', () => {
+    if (busy) return;
+    history = [];
+    messagesEl.replaceChildren();
+    const clone = document.createElement('div');
+    clone.className = 'welcome';
+    clone.innerHTML = '<div class="orb">✦</div><h2>What shall we explore?</h2><p>Start a fresh conversation with TARA.</p><div class="suggestions"><button class="suggestion">Explain a difficult concept in simple words.</button><button class="suggestion">Help me plan my next project step by step.</button><button class="suggestion">Brainstorm three creative ideas for me.</button><button class="suggestion">What can you help me with in this chat?</button></div>';
+    messagesEl.appendChild(clone);
+    clone.querySelectorAll('.suggestion').forEach(button => button.addEventListener('click', () => submitMessage(button.textContent)));
+    input.focus();
+  });
+
+  checkHealth();
+  input.focus();
+})();
+</script>
+</body>
+</html>
