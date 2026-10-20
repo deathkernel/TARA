@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -36,7 +35,7 @@ def build_conversation_prompt(messages: Any) -> str:
 
     transcript: list[str] = []
     total_chars = 0
-    for index, message in enumerate(messages):
+    for message in messages:
         if not isinstance(message, dict):
             raise ChatRequestError("Each message must be an object.")
         role = message.get("role")
@@ -84,16 +83,15 @@ def get_health(provider: OllamaProvider) -> dict[str, Any]:
     try:
         with urlopen(f"{provider.host}/api/tags", timeout=3) as response:
             data = json.loads(response.read().decode("utf-8"))
+        if not isinstance(data, dict):
+            raise ValueError("Ollama returned an unexpected model-list response.")
         models = data.get("models", [])
         names = [
             item.get("name", "")
             for item in models
             if isinstance(item, dict) and isinstance(item.get("name", ""), str)
         ]
-        installed = any(
-            name == provider.model or name.split(":")[0] == provider.model.split(":")[0]
-            for name in names
-        )
+        installed = provider.model in names
         return {
             "ok": installed,
             "ollama": "connected",
@@ -102,14 +100,14 @@ def get_health(provider: OllamaProvider) -> dict[str, Any]:
             "available_models": names,
             "message": "Ready" if installed else f"Model '{provider.model}' is not installed. Run: ollama pull {provider.model}",
         }
-    except (URLError, TimeoutError, OSError, json.JSONDecodeError, UnicodeDecodeError) as exc:
+    except (URLError, TimeoutError, OSError, ValueError, json.JSONDecodeError, UnicodeDecodeError) as exc:
         return {
             "ok": False,
             "ollama": "disconnected",
             "model": provider.model,
             "model_installed": False,
             "available_models": [],
-            "message": f"Cannot reach Ollama at {provider.host}. Open Ollama and retry. ({exc})",
+            "message": f"Cannot verify Ollama at {provider.host}. Open Ollama and retry. ({exc})",
         }
 
 
@@ -178,7 +176,7 @@ def make_handler(tara: TARABrain, provider: OllamaProvider):
             self._send_json(200, result)
 
         def log_message(self, format: str, *args: Any) -> None:
-            # Keep local development logs concise; never log user message bodies.
+            # Never log user message bodies.
             super().log_message(format, *args)
 
     return TARARequestHandler

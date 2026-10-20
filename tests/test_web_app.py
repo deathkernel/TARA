@@ -77,6 +77,24 @@ def test_get_health_reports_installed_model(monkeypatch):
     assert status["model_installed"] is True
 
 
+def test_get_health_does_not_treat_other_model_tags_as_installed(monkeypatch):
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def read(self):
+            return json.dumps({"models": [{"name": "llama3.2:1b"}]}).encode()
+
+    monkeypatch.setattr("src.web_app.urlopen", lambda *args, **kwargs: FakeResponse())
+    provider = SimpleNamespace(host="http://localhost:11434", model="llama3.2:3b")
+    status = get_health(provider)
+    assert status["ok"] is False
+    assert status["model_installed"] is False
+
+
 def test_get_health_reports_unreachable_ollama(monkeypatch):
     def fail(*args, **kwargs):
         raise URLError("connection refused")
