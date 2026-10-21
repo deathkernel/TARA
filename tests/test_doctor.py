@@ -58,7 +58,7 @@ def test_doctor_test_runner_rejects_invalid_timeout(tmp_path, timeout):
 
 def test_scan_reports_syntax_error_only_once(tmp_path):
     (tmp_path / "src").mkdir()
-    (tmp_path / "src" / "broken.py").write_text("def broken(:\\n", encoding="utf-8")
+    (tmp_path / "src" / "broken.py").write_text("def broken(:\n", encoding="utf-8")
 
     findings = [
         finding for finding in scan_repository(tmp_path).findings
