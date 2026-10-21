@@ -5,7 +5,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from .brain import TARABrain
-from .ollama_provider import OllamaProvider, OllamaUnavailable
+from .web_ollama_provider import OllamaProvider, OllamaUnavailable
 
 class ChatTurn(BaseModel):
     role: str
