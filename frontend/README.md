@@ -11,12 +11,14 @@ This React + TypeScript interface lives inside the TARA repository and calls the
    ```bat
    cd frontend
    npm install
+   npm test
+   npm run build
    npm run dev
    ```
 
 4. Open http://127.0.0.1:5173.
 
-Vite proxies `/api/health` and `/api/chat` to the existing backend at `http://127.0.0.1:8000`. If your backend uses another local port, set `TARA_API_PROXY_TARGET` before starting Vite.
+Vite development and preview servers proxy `/api/health` and `/api/chat` to the existing backend at `http://127.0.0.1:8000`. If your backend uses another local port, set `TARA_API_PROXY_TARGET` before starting Vite or preview. `npm test` runs chat-context regression tests; `npm run build` performs TypeScript validation and creates the production bundle.
 
 ## Existing API contract
 
