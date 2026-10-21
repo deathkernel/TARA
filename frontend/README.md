@@ -1,28 +1,33 @@
-# TARA Frontend (frontend-only)
+# TARA Frontend
 
-This React + TypeScript interface lives inside the TARA repository and calls the existing local TARA HTTP endpoints. It does not add or modify Python/backend code.
+This React + TypeScript chat UI lives inside the TARA repository at `frontend/`. It connects to the Python API in `src/web_app.py`, which calls TARA's existing `TARABrain` and `OllamaProvider`.
 
 ## Run on Windows
 
-1. Start the existing TARA web backend from the repository root: `python -m src.web_app`.
-2. Ensure Ollama is running and the configured model is installed (`ollama list`; install if needed with `ollama pull llama3.2:3b`).
-3. In a second terminal, run:
+Open two Command Prompt windows from the repository root.
 
-   ```bat
-   cd frontend
-   npm install
-   npm test
-   npm run build
-   npm run dev
-   ```
+**Terminal 1 — start the TARA API**
 
-4. Open http://127.0.0.1:5173.
+```bat
+python -m src.web_app
+```
 
-Vite development and preview servers proxy `/api/health` and `/api/chat` to the existing backend at `http://127.0.0.1:8000`. If your backend uses another local port, set `TARA_API_PROXY_TARGET` before starting Vite or preview. `npm test` runs chat-context regression tests; `npm run build` performs TypeScript validation and creates the production bundle.
+**Terminal 2 — start the React frontend**
 
-## Existing API contract
+```bat
+cd frontend
+npm install
+npm test
+npm run build
+npm run dev
+```
 
-- `GET /api/health` returns the backend's `ok`, `model`, `ollama`, and `message` fields.
-- `POST /api/chat` accepts `{"messages":[{"role":"user|assistant","content":"..."}]}` and returns `{"reply":"..."}`.
+Open http://127.0.0.1:5173.
 
-Conversation history is stored in this browser's local storage. This PR changes frontend files only. It runs the React app through Vite for development; serving the compiled `dist/` folder from the Python server is intentionally outside this frontend-only change.
+Vite proxies `/api/health` and `/api/chat` to the local Python backend at `http://127.0.0.1:8000`. To use another backend port, set `TARA_API_PROXY_TARGET` before starting Vite.
+
+## Ollama model
+
+The backend resolves the model from `--model`, `TARA_LLAMA_MODEL`, `OLLAMA_MODEL`, then `llama3.2:3b`. The Ollama URL resolves from `--ollama-host`, `OLLAMA_HOST`, then `http://127.0.0.1:11434`. If needed, install the default model with `ollama pull llama3.2:3b`.
+
+The frontend stores conversation history in browser local storage. API requests are limited by message count and character budget. The backend binds to localhost by default; change the host only if you intentionally want network access.
