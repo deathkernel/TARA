@@ -76,15 +76,15 @@ def test_doctor_test_runner_timeout_preserves_readable_partial_output(tmp_path, 
         raise subprocess.TimeoutExpired(
             cmd=args[0],
             timeout=kwargs["timeout"],
-            output=b"2 passed\\n",
-            stderr=b"warning: partial output\\n",
+            output=b"2 passed\n",
+            stderr=b"warning: partial output\n",
         )
 
     monkeypatch.setattr(subprocess, "run", timeout_run)
     result = run_test_suite(tmp_path, timeout=5)
 
     assert result.returncode == 124
-    assert result.stdout == "2 passed\\n"
+    assert result.stdout == "2 passed\n"
     assert "warning: partial output" in result.stderr
     assert "pytest timed out" in result.stderr
     assert "b'2 passed" not in result.stdout
