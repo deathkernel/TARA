@@ -38,7 +38,8 @@ def test_registry_output_is_deterministic_and_machine_readable(tmp_path):
     assert first == second
     decoded = json.loads(first)
     assert decoded[0]["name"] == "core_reasoning"
-    assert "runtime" in decoded[0]["description"].lower() or decoded[0]["status"] == "not_detected"
+    assert decoded[0]["status"] == "not_detected"
+    assert decoded[0]["missing_files"]
 
 
 def test_registry_rejects_missing_root(tmp_path):
