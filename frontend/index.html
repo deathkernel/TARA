@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="description" content="TARA — Tiny Artificial Reasoning Architecture">
+  <title>TARA — Workspace</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <a class="brand" href="#" aria-label="TARA home">
+        <span class="brand-mark"><span></span><span></span><span></span><span></span></span>
+        <span class="brand-copy"><strong>TARA</strong><small>REASONING WORKSPACE</small></span>
+      </a>
+      <button class="new-chat" id="new-chat"><span class="plus">＋</span> New conversation <kbd>⌘ K</kbd></button>
+      <div class="side-label">WORKSPACE</div>
+      <nav class="nav" aria-label="Main navigation">
+        <button class="nav-item active" data-view="chat"><span class="nav-icon">◈</span> Chat <span class="nav-count">01</span></button>
+        <button class="nav-item" data-view="memory"><span class="nav-icon">◉</span> Memory</button>
+        <button class="nav-item" data-view="tasks"><span class="nav-icon">⌘</span> Tasks <span class="nav-pill">Soon</span></button>
+        <button class="nav-item" data-view="tools"><span class="nav-icon">⌁</span> Tools <span class="nav-pill">Soon</span></button>
+      </nav>
+      <div class="side-label recent-label">RECENT</div>
+      <div class="recent-list" id="recent-list">
+        <button class="recent-item selected"><span>↳</span><span>Getting started with TARA</span></button>
+        <button class="recent-item"><span>↳</span><span>Reasoning architecture</span></button>
+        <button class="recent-item"><span>↳</span><span>Project notes</span></button>
+      </div>
+      <div class="sidebar-bottom">
+        <div class="runtime-card">
+          <div class="runtime-top"><span class="status-dot"></span><span>LOCAL WORKSPACE</span><span class="runtime-menu">···</span></div>
+          <div class="runtime-model">TARA runtime <span class="mono">●</span></div>
+          <p>Connect a local runtime to enable live responses.</p>
+          <button id="runtime-help" class="runtime-link">Connection settings <span>↗</span></button>
+        </div>
+        <button class="profile" id="open-settings">
+          <span class="avatar">T</span><span class="profile-copy"><strong>Local session</strong><small>Personal workspace</small></span><span class="more">···</span>
+        </button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-left"><button id="mobile-menu" class="icon-button mobile-only" aria-label="Toggle navigation">☰</button><span class="breadcrumb">Workspace</span><span class="slash">/</span><span class="crumb-current" id="page-label">Chat</span></div>
+        <div class="topbar-right"><span class="local-badge"><span class="status-dot"></span> Local-first</span><button class="icon-button" id="theme-toggle" aria-label="Toggle contrast">◐</button><button class="settings-button" id="top-settings"><span>⚙</span> Settings</button></div>
+      </header>
+
+      <section id="chat-view" class="view active-view">
+        <div class="chat-stage">
+          <div class="hero">
+            <div class="eyebrow"><span class="eyebrow-line"></span> YOUR REASONING PARTNER <span class="eyebrow-line"></span></div>
+            <div class="orb-wrap"><div class="orb-halo"></div><div class="orb"><div class="orb-core"></div><i></i><b></b></div><span class="orb-spark spark-one">✳</span><span class="orb-spark spark-two">✧</span></div>
+            <h1>Think clearly.<br><span>Build intelligently.</span></h1>
+            <p class="hero-copy">Meet TARA — a modular reasoning architecture designed to help you explore ideas, plan work, and solve problems with clarity.</p>
+            <div class="capability-chips"><span><i>✳</i> Reasoning</span><span><i>⌘</i> Planning</span><span><i>◉</i> Memory</span><span><i>↗</i> Tools with permission</span></div>
+          </div>
+
+          <div class="conversation" id="conversation" aria-live="polite">
+            <div class="welcome-note"><span class="note-icon">✦</span><span><strong>Start with a question</strong><small>Your messages stay in this browser demo until a local API is connected.</small></span><button id="dismiss-note" aria-label="Dismiss notice">×</button></div>
+          </div>
+          <div class="composer-wrap">
+            <div class="suggestions" id="suggestions">
+              <button data-prompt="Explain TARA's architecture in simple terms."><span>✳</span> Explain TARA's architecture</button>
+              <button data-prompt="Help me make a plan for my next coding task."><span>⌘</span> Plan a coding task</button>
+              <button data-prompt="What should I connect to enable local chat?"><span>⌁</span> Set up local chat</button>
+            </div>
+            <form class="composer" id="composer">
+              <textarea id="message-input" rows="1" placeholder="Message TARA…  Ask, explore, or plan something" aria-label="Message TARA"></textarea>
+              <div class="composer-tools"><div class="composer-left"><button type="button" id="attach-button" class="tool-button" title="Attachments are not enabled">＋</button><span class="composer-hint">Local demo <span>·</span> Runtime not connected</span></div><button class="send-button" id="send-button" type="submit" aria-label="Send message"><span>↑</span></button></div>
+            </form>
+            <p class="disclaimer">TARA is under active development. Verify important outputs before acting on them.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="memory-view" class="view content-view">
+        <div class="page-heading"><div class="eyebrow left-eyebrow">COGNITIVE CONTEXT</div><h1>Memory <span>& context</span></h1><p>A transparent space for inspecting what the runtime remembers. No persistent memory is connected in this frontend demo.</p></div>
+        <div class="empty-panel"><div class="empty-icon">◉</div><h2>Memory is not connected yet</h2><p>When a backend memory endpoint is available, this area can show saved items, importance, provenance, and controls to inspect or remove them.</p><button class="secondary-button" data-go="settings">Review connection settings ↗</button></div>
+      </section>
+
+      <section id="tasks-view" class="view content-view">
+        <div class="page-heading"><div class="eyebrow left-eyebrow">WORKFLOW CONTROL</div><h1>Tasks <span>& planning</span></h1><p>Task state should come from the TARA runtime, not be invented by the interface.</p></div>
+        <div class="feature-grid"><article class="feature-card"><span class="feature-symbol">⌘</span><h3>Plan</h3><p>Display the active plan and its ordered steps when a runtime endpoint is connected.</p><span class="muted-tag">Awaiting backend</span></article><article class="feature-card"><span class="feature-symbol">◌</span><h3>Verify</h3><p>Show observed results and verification status with clear evidence and failure details.</p><span class="muted-tag">Awaiting backend</span></article><article class="feature-card"><span class="feature-symbol">↻</span><h3>Recover</h3><p>Expose re-planning and resume controls only where the backend supports them.</p><span class="muted-tag">Awaiting backend</span></article></div>
+      </section>
+
+      <section id="tools-view" class="view content-view">
+        <div class="page-heading"><div class="eyebrow left-eyebrow">AUTHORIZED INTEGRATIONS</div><h1>Tools <span>& capabilities</span></h1><p>Tools must be explicitly authorized and executed by the backend. The UI never treats model text as permission.</p></div>
+        <div class="tool-list"><div class="tool-row"><span class="tool-symbol">⌘</span><span><strong>Local reasoning provider</strong><small>Ollama or configured provider · runtime integration required</small></span><span class="muted-tag">Not connected</span></div><div class="tool-row"><span class="tool-symbol">↗</span><span><strong>External read-only APIs</strong><small>Connect only the endpoints implemented in your active branch</small></span><span class="muted-tag">Not connected</span></div><div class="tool-row"><span class="tool-symbol">⚿</span><span><strong>Permission-gated actions</strong><small>Approval and validation must be enforced server-side</small></span><span class="muted-tag">Not connected</span></div></div>
+      </section>
+
+      <section id="settings-view" class="view content-view">
+        <div class="page-heading"><div class="eyebrow left-eyebrow">PREFERENCES</div><h1>Settings <span>& connections</span></h1><p>Configure the next integration step. Secrets belong in environment variables on the local backend, never in the browser.</p></div>
+        <div class="settings-panel"><div class="settings-section"><div><h3>Runtime connection</h3><p>Set the local API URL when a backend adapter exists.</p></div><label class="field-label" for="api-url">API base URL</label><div class="url-field"><input id="api-url" type="url" value="http://127.0.0.1:8000" spellcheck="false"><button id="save-url" class="secondary-button">Save locally</button></div><p class="field-help" id="url-help">Saved only in this browser. Saving does not mean the endpoint is running.</p></div><div class="settings-section"><div><h3>Interface</h3><p>Small preferences for your workspace.</p></div><label class="toggle-row"><span><strong>Compact mode</strong><small>Reduce spacing in the interface</small></span><input type="checkbox" id="compact-toggle"><span class="toggle"></span></label></div><div class="settings-section"><div><h3>Privacy & safety</h3><p>Frontend demo messages are held in current page memory. API keys are never requested here.</p><button id="clear-chat" class="danger-button">Clear current conversation</button></div></div></div>
+      </section>
+      <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    </main>
+  </div>
+  <script src="./app.js"></script>
+</body>
+</html>
