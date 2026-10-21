@@ -46,3 +46,23 @@ def test_scaffold_is_review_required_and_does_not_overwrite(tmp_path):
 @pytest.mark.parametrize("name", ["../escape", "BadName", "x", "bad-name", "a" * 50])
 def test_scaffold_rejects_unsafe_names(tmp_path, name):
     with pytest.raises(ValueError): scaffold_command(name, "description", tmp_path)
+
+
+@pytest.mark.parametrize("timeout", [0, -1, 3601, True, 1.5, "30"])
+def test_doctor_test_runner_rejects_invalid_timeout(tmp_path, timeout):
+    from src.self_test import run_test_suite
+
+    with pytest.raises(ValueError, match="timeout"):
+        run_test_suite(tmp_path, timeout=timeout)
+
+
+def test_scan_reports_syntax_error_only_once(tmp_path):
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "broken.py").write_text("def broken(:\\n", encoding="utf-8")
+
+    findings = [
+        finding for finding in scan_repository(tmp_path).findings
+        if finding.code == "PYTHON_SYNTAX" and finding.path == "src/broken.py"
+    ]
+    assert len(findings) == 1
+    assert findings[0].line == 1
