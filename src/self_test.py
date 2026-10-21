@@ -54,9 +54,15 @@ def summarize_pytest_output(stdout, stderr=""):
 
 
 def run_test_suite(repo_root=".", timeout=300):
-    """Run TARA's fixed pytest suite and return inspectable test evidence."""
-    if timeout <= 0:
-        raise ValueError("timeout must be positive")
+    """Run TARA's fixed pytest suite and return inspectable test evidence.
+
+    The timeout is deliberately bounded to prevent callers from accidentally
+    turning a diagnostic command into an unbounded process.
+    """
+    if isinstance(timeout, bool) or not isinstance(timeout, int):
+        raise ValueError("timeout must be an integer between 1 and 3600 seconds")
+    if not 1 <= timeout <= 3600:
+        raise ValueError("timeout must be between 1 and 3600 seconds")
     root = Path(repo_root)
     if not root.is_dir():
         raise FileNotFoundError(str(root))
