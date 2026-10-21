@@ -7,3 +7,6 @@ torch
 pyarrow
 groq
 elevenlabs
+fastapi
+uvicorn
+httpx

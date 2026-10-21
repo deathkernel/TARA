@@ -196,3 +196,10 @@ Prefer mocked responses for deterministic unit tests. Live integrations may requ
 - Clearly label retired pipelines as historical instead of presenting them as current commands.
 - Track proposals separately from merged/current functionality.
 - Update the ledger when a phase or PR changes status.
+
+
+## Local React web workspace
+
+TARA includes a React + TypeScript + Vite frontend under frontend/ and a FastAPI adapter at src/web_api.py. The adapter calls TARA's TARABrain and a configured local Ollama model; it does not replace the existing CLI runtime.
+
+On Windows, run run_tara_web.bat from the repository root, then open http://127.0.0.1:5173. Install Node.js LTS and Ollama first. The default model is llama3.2:3b; install it with ollama pull llama3.2:3b if needed. See frontend/README.md for manual setup and configuration. Browser conversation history is stored locally; provider configuration and inference remain on the Python backend.

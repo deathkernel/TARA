@@ -1,24 +1,23 @@
-# TARA Web Frontend — Initial Scaffold
+# TARA Web App
 
-This directory contains a standalone, dependency-free web UI scaffold for TARA. The current main branch describes TARA as a Python reasoning/runtime project; a browser-facing HTTP API is not assumed here. Until an API adapter is implemented and verified, chat sends a clear local-demo response rather than pretending it called the model.
+The React + TypeScript frontend lives inside the TARA repository. It calls the local FastAPI adapter at /api; the adapter passes messages into TARABrain and uses Ollama for inference.
 
-## Start
+## Quick start (Windows)
 
-From the repository root:
+From the repository root, run run_tara_web.bat, then open http://127.0.0.1:5173. The launcher opens separate terminal windows for the Python API and Vite server.
 
-```bash
-python -m http.server 4173 --directory frontend
-```
+## Manual start
 
-Open http://localhost:4173.
+1. Install Python dependencies from the repository root: python -m pip install -r requirements.txt
+2. Start Ollama and install the default model if needed: ollama pull llama3.2:3b
+3. Terminal 1, repository root: python -m uvicorn src.web_api:app --host 127.0.0.1 --port 8000
+4. Terminal 2: cd frontend, then npm install, then npm run dev.
+5. Open http://127.0.0.1:5173 and keep both terminals open.
 
-## Files
+## Configuration
 
-- `index.html` — accessible app shell
-- `styles.css` — responsive dark workspace styling
-- `app.js` — navigation, chat composer, local conversation UI, theme and settings interactions
-- `README.md` — integration boundary and next steps
+TARA_OLLAMA_URL defaults to http://127.0.0.1:11434. TARA_OLLAMA_MODEL defaults to llama3.2:3b. Conversation history is saved in browser local storage. The Python brain processes prompts through its runtime memory/context. This first integration uses non-streaming inference.
 
-## Current limitations
+## Stack
 
-This is a front-end scaffold, not a connected inference client. No credentials belong in browser code. The backend must expose a local, documented API (with validation, timeouts, bounded payloads, and origin protections) before the composer can call TARA safely. Keep tool execution and permission checks server-side.
+React 18 + TypeScript + Vite, Tailwind CSS 3, FastAPI + Pydantic, existing TARA TARABrain, and local Ollama inference.
