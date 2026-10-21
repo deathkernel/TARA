@@ -2,24 +2,45 @@
 
 **TARA — Tiny Artificial Reasoning Architecture**
 
-TARA is a modular Python reasoning project. Its architecture separates language-model inference from perception, planning, memory, tool selection, reflection, world-state context, verification, and task orchestration. This README serves two purposes: a quick-start guide for the current runtime and a progress ledger for the project's engineering phases.
+TARA is a research-first neural-network project built from mathematical and implementation fundamentals. The goal is a highly capable, inspectable artificial reasoning system that connects a neural language core with perception, memory, structured reasoning, advanced planning, intelligent tools, algorithm discovery, self-improvement, continual learning, reflection, autonomous tasks, scheduling, temporal context and an explicit world model.
 
-> **Runtime rule:** the normal chat workflow uses Ollama (or another configured inference provider). It does not require training TARA's own language model. Dataset, training, and checkpoint experiments listed in the history below are historical engineering work, not startup steps.
+## Pre-training readiness — complete
 
-## Current status at a glance
+The repository now has an explicit readiness gate before the first real training run:
 
-| Area | Tracking status | Notes |
-|---|---|---|
-| Local chat | Current workflow | Ollama supplies language-model inference; TARA provides the application/runtime around it. |
-| Cognitive architecture | Architecture area | Perception, reasoning, planning, tools, reflection, world context, and orchestration are separate concerns. |
-| Public read-only API tools | In progress in the PR stack | GitHub, Wikipedia, Open-Meteo, Hacker News, and Stack Exchange command integration is proposed in the open changes; do not assume it is on `main` until merged. |
-| Voice output | Optional integration | Requires local provider configuration and credentials. |
-| Training/data/checkpoints | Legacy/historical | Not required to run chat with Ollama. Do not use old training commands as current setup instructions. |
-| Tests/CI | Required validation | Run the test suite and check CI before considering code changes ready. |
+- **PyTorch dependency declared** in `requirements.txt`.
+- **Dataset loader + audit** validate the source corpus before training.
+- **Context-fit check** verifies that the corpus can produce training sequences for the requested context length.
+- **Training configuration validation** checks model and optimization parameters.
+- **CPU/CUDA detection** confirms that the selected training backend is available.
+- **No training side effects** — the readiness command only checks prerequisites and never creates a checkpoint.
 
-## Run locally
+Run the gate first:
 
-Install dependencies, make sure Ollama is running, and install the model you want to use:
+```bash
+python training_preflight.py --data data/algorithm_tasks.jsonl --context 128
+```
+
+A successful preflight means the repository prerequisites are satisfied. It does **not** mean that training has already happened or that the resulting model will be capable; those require an actual training run and measured evaluation.
+
+## Public curriculum dataset pipeline
+
+TARA now has a bounded public-dataset acquisition layer. It streams selected Hugging Face datasets instead of downloading entire multi-terabyte corpora, then applies text-length filtering, deterministic shuffling, cross-source deduplication, provenance/license metadata and a reproducible fingerprint.
+
+The current curriculum manifest is in `data/dataset_sources.json`.
+
+### Basic level
+
+- **FineWeb-Edu** — educational web text for general language and knowledge learning.
+- **GSM8K** — mathematical word-problem reasoning.
+- **TinyStories** — optional small-language-model warm-up corpus.
+
+### Advanced level
+
+- **FineWeb** — broad English web pretraining data.
+- **The Stack v2 Smol** — advanced code data; source licenses and upstream terms must be respected.
+
+Prepare a bounded Basic v1 sample without downloading an entire corpus:
 
 ```bash
 python -m pip install -r requirements.txt

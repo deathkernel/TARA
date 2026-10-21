@@ -1,5 +1,6 @@
 """Integrated cognitive brain for TARA."""
 from dataclasses import dataclass
+import os
 import random
 from pathlib import Path
 from .advanced_planning import AdaptivePlan, AdvancedPlanner, PlanAlternative, PlanStep
@@ -26,6 +27,40 @@ from .tool_intelligence import ToolAttempt, ToolCapability, ToolIntelligence
 from .world_state import WorldContext, WorldModel
 from .groq_provider import GroqProvider
 from .elevenlabs_tts import ElevenLabsTTS
+from .emotional_intelligence import EmotionSwitch, EmotionalIntelligence
+
+def _tara_system_prompt(model_name: str | None) -> str:
+    """Return a truthful identity prompt for the configured TARA language backend."""
+    configured_model = model_name.strip() if isinstance(model_name, str) and model_name.strip() else "unknown (not explicitly configured)"
+    return (
+        "You are TARA, the AI assistant running inside the TARA software project.\n"
+        "Project name: TARA — Tiny Artificial Reasoning Architecture.\n"
+        f"Configured language model: {configured_model}.\n"
+        "Distinguish the TARA application from the pretrained language model that generates its text. "
+        "If an Ollama model is configured, say it is served locally by Ollama; do not call that model "
+        "the TARA application itself.\n"
+        "Identity and accuracy rules:\n"
+        "- Never claim to be an employee or member of Meta or any other organization.\n"
+        "- Do not invent who created TARA. If asked, explain that you are running in the TARA project; "
+        "name an individual or team only when supplied project metadata explicitly identifies them.\n"
+        "- Do not claim TARA is a separately trained foundation model or custom transformer unless "
+        "verified project metadata establishes that fact.\n"
+        "- Do not claim self-training, self-learning, or model-weight updates occur during chat. "
+        "Saving memories or using learning-related software components is not the same as training "
+        "the language model.\n"
+        "- If the model's architecture, authorship, or training history is unknown, say so plainly "
+        "instead of guessing.\n"
+        "Relationship and address rules:\n"
+        "- Use a balanced romantic-companion style: affectionate, caring, playful, and respectful, matching the user's tone.\n"
+        "- The user may call TARA 'Baby'; this does not mean the user is a child.\n"
+        "- The preferred nicknames for the user are Baby, jaan, and babu. Use them naturally and sparingly; do not force one into every reply.\n"
+        "- Never call the user beta, baccha, child, son, or daughter. Do not assume age, gender, family role, or relationship.\n"
+        "- When the user is upset, lead with empathy and listening; playful teasing must pause if it would dismiss their feelings.\n"
+        "- Be warm and romantic in style, but do not claim literal human feelings, consciousness, exclusivity, or a real-world partnership.\n"
+        "Answer the user's actual question in their language, naturally and concisely. "
+        "Do not claim actions were performed unless the supplied context proves it."
+    )
+
 
 @dataclass(frozen=True)
 class BrainResponse:
@@ -33,6 +68,7 @@ class BrainResponse:
     recalled: tuple = ()
     observations: tuple = ()
     temporal_context: str = ""
+    emotion: str = "neutral"
 
 class TARABrain:
     def __init__(self, model, tokenizer=None, *, engine=None, memory=None, seed=0, reflection=None,
@@ -63,6 +99,10 @@ class TARABrain:
         self.experience_learning = experience_learning or ExperienceLearningEngine()
         self.intelligence_improver = intelligence_improver or IntelligenceImprovementEngine()
         self.llm_provider = llm_provider
+        # Deterministic local heuristics; no second model or extra inference pass.
+        self.emotional_intelligence = EmotionalIntelligence()
+        self.emotion_switch = EmotionSwitch(self.emotional_intelligence)
+        self.last_emotion = "neutral"
         self.voice = ElevenLabsTTS.from_env() if voice is None else voice
         self.cognitive_loop = cognitive_loop or UnifiedCognitiveLoop(
             reasoner=self.reasoner, planner=self.planner, tools=self.tools, memory=self.memory,
@@ -162,8 +202,28 @@ class TARABrain:
             cumulative += probabilities[index]
             if threshold < cumulative: return index
         return selected[-1]
-    def build_reasoning_context(self, prompt, *, memory_limit=8, event_limit=8, temporal_limit=16, min_confidence=0.0):
-        recalled = tuple(self.memory.retrieve(prompt, limit=memory_limit)); world=self.world_context(event_limit=event_limit); temporal=self.temporal_context(limit=temporal_limit, min_confidence=min_confidence); memory_text="\n".join(str(item) for item in recalled) or "none"; return f"User/task: {prompt}\n\nMemory:\n{memory_text}\n\n{world.as_prompt_context()}\n\n{temporal.as_prompt_context()}"
+    def build_reasoning_context(self, prompt, *, memory_limit=8, event_limit=8, temporal_limit=16,
+                                min_confidence=0.0, recalled=None):
+        """Build a bounded prompt so large histories do not waste inference resources."""
+        recalled = tuple(self.memory.retrieve(prompt, limit=memory_limit)) if recalled is None else tuple(recalled)
+        world = self.world_context(event_limit=event_limit)
+        temporal = self.temporal_context(limit=temporal_limit, min_confidence=min_confidence)
+        memory_text = "\n".join(str(item) for item in recalled) or "none"
+        context = (
+            f"User/task: {prompt}\n\nMemory:\n{memory_text}\n\n"
+            f"{world.as_prompt_context()}\n\n{temporal.as_prompt_context()}"
+        )
+        try:
+            max_chars = int(os.getenv("TARA_MAX_CONTEXT_CHARS", "5000"))
+        except ValueError:
+            max_chars = 5000
+        # Preserve the complete user request; trim supporting context only.
+        prefix = f"User/task: {prompt}\n\n"
+        header = prefix + "Supporting context (trimmed for low-resource mode):\n"
+        if max_chars > 0 and len(context) > max_chars and len(header) < max_chars:
+            context = header + context[len(prefix):max_chars - len(header) + len(prefix)]
+        return context
+
     def speak(self, text: str) -> bytes:
         """Speak text through the configured ElevenLabs voice provider."""
         if self.voice is None:
@@ -172,23 +232,36 @@ class TARABrain:
 
     def respond(self, prompt, *, remember_key=None, importance=1.0, max_new_tokens=32,
                 temperature=1.0, top_k=None, top_p=None, speak=False):
-        self.observe(prompt, remember_key=remember_key, importance=importance, source="user", kind="prompt"); recalled=tuple(self.memory.retrieve(prompt)); context=self.build_reasoning_context(prompt)
+        transition = self.emotion_switch.update(prompt)
+        emotion = transition.assessment
+        self.last_emotion = transition.current
+        self.observe(prompt, remember_key=remember_key, importance=importance, source="user", kind="prompt")
+        recalled = tuple(self.memory.retrieve(prompt))
+        context = self.build_reasoning_context(prompt, recalled=recalled)
         if self.llm_provider is not None:
             try:
+                system_prompt = _tara_system_prompt(getattr(self.llm_provider, "model", None))
+                system_prompt += "\n\n" + self.emotional_intelligence.system_guidance(emotion, transition)
                 text = self.llm_provider.complete(
                     context,
-                    system="You are the language/reasoning backend inside TARA. Give a useful, concise response. TARA owns memory, planning, verification, and actions; do not claim actions were performed unless the supplied context proves it.",
+                    system=system_prompt,
                     max_completion_tokens=max_new_tokens,
                     temperature=temperature,
                 )
             except (RuntimeError, TimeoutError):
                 text = self.generate(context, max_new_tokens=max_new_tokens, temperature=temperature, top_k=top_k, top_p=top_p)
         else:
-            # The local fallback should preserve the user's prompt; the richer
-            # context is available to an injected LLM provider instead.
+            # Preserve the user prompt when using the tiny local fallback model.
             text = self.generate(prompt, max_new_tokens=max_new_tokens, temperature=temperature, top_k=top_k, top_p=top_p)
         if speak:
             self.speak(text)
-        return BrainResponse(text=text, recalled=recalled, observations=tuple(self.engine.state.observations.recent()), temporal_context=self.temporal_context().as_prompt_context())
+        return BrainResponse(
+            text=text,
+            recalled=recalled,
+            observations=tuple(self.engine.state.observations.recent()),
+            temporal_context=self.temporal_context().as_prompt_context(),
+            emotion=emotion.label,
+        )
+
     def verify_result(self, observed, expected): return self.agent.submit_result(observed, expected)
     def recover(self, replacement_tasks): return self.agent.recover(replacement_tasks)
