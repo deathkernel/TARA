@@ -53,6 +53,15 @@ def summarize_pytest_output(stdout, stderr=""):
     return summary
 
 
+def _captured_text(value):
+    """Normalize subprocess output to readable text, including timeout bytes."""
+    if value is None:
+        return ""
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    return str(value)
+
+
 def run_test_suite(repo_root=".", timeout=300):
     """Run TARA's fixed pytest suite and return inspectable test evidence.
 
