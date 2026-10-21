@@ -135,3 +135,35 @@ def test_ollama_provider_rejects_non_object_transport_response():
         assert "invalid response object" in str(exc)
     else:
         raise AssertionError("Expected a malformed transport response to be rejected")
+
+
+
+def test_ollama_provider_rejects_wrong_input_types():
+    for kwargs in ({"model": None}, {"base_url": None}, {"timeout": "fast"}):
+        try:
+            OllamaProvider(**kwargs)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f"Expected invalid constructor args to be rejected: {kwargs}")
+
+
+def test_ollama_provider_rejects_invalid_generation_argument_types():
+    provider = OllamaProvider(transport=lambda *_: {"message": {"content": "ok"}})
+    for kwargs in ({"temperature": "warm"}, {"max_completion_tokens": 2.5}, {"max_completion_tokens": True}):
+        try:
+            provider.complete("Hello", **kwargs)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f"Expected invalid generation args to be rejected: {kwargs}")
+
+
+def test_ollama_provider_rejects_invalid_timeout_from_environment(monkeypatch):
+    monkeypatch.setenv("TARA_LLM_TIMEOUT_SECONDS", "nan")
+    try:
+        OllamaProvider.from_env()
+    except ValueError as exc:
+        assert "finite and positive" in str(exc)
+    else:
+        raise AssertionError("Expected a non-finite environment timeout to be rejected")
