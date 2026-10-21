@@ -3,187 +3,314 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#0b1020">
-  <title>TARA — AI Chat</title>
+  <meta name="theme-color" content="#212121">
+  <meta name="description" content="TARA — your local AI assistant">
+  <title>TARA</title>
   <style>
-    :root{color-scheme:dark;--bg:#090d18;--panel:#101728;--panel2:#151f33;--line:#27334b;--text:#edf3ff;--muted:#94a3bd;--accent:#8b9dff;--accent2:#b1a2ff;--user:#27365a;--error:#ffb4a9}
+    :root{color-scheme:dark;--bg:#212121;--sidebar:#171717;--panel:#2f2f2f;--panel-hover:#292929;--border:#3b3b3b;--text:#ececec;--muted:#a3a3a3;--accent:#10a37f;--danger:#f87171;--sidebar-width:260px}
     *{box-sizing:border-box}
-    body{margin:0;background:radial-gradient(ellipse at 20% 0%,#192447 0,transparent 42%),var(--bg);color:var(--text);font:15px/1.55 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;min-height:100vh}
-    .app{max-width:1120px;height:100dvh;min-height:540px;margin:auto;padding:20px;display:grid;grid-template-columns:250px minmax(0,1fr);gap:18px}
-    .sidebar,.chat{border:1px solid var(--line);background:rgba(16,23,40,.9);border-radius:22px;min-height:0;box-shadow:0 18px 60px #0003}
-    .sidebar{padding:22px 18px;display:flex;flex-direction:column;gap:22px}
-    .brand{display:flex;align-items:center;gap:12px}.logo{width:44px;height:44px;border-radius:15px;background:linear-gradient(135deg,#8497ff,#c09bff);display:grid;place-items:center;color:#11162b;font-weight:900;font-size:21px;box-shadow:0 8px 24px #8b9dff35}
-    h1{font-size:19px;margin:0;letter-spacing:.08em} .sub{font-size:12px;color:var(--muted);margin-top:1px}
-    .new-chat{background:#202c44;border:1px solid #33415d;border-radius:12px;color:var(--text);padding:11px 13px;font:inherit;text-align:left;cursor:pointer}
-    .side-label{font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:var(--muted);font-weight:700;margin-bottom:7px}
-    .status{padding:12px;border:1px solid var(--line);border-radius:14px;background:#0b1221;font-size:12px;color:var(--muted);overflow-wrap:anywhere}
-    .status-row{display:flex;align-items:center;gap:8px;color:var(--text);font-weight:650;margin-bottom:5px}.dot{width:8px;height:8px;border-radius:50%;background:#f3ba65;box-shadow:0 0 12px #f3ba6540}.dot.ok{background:#5fe0b2;box-shadow:0 0 12px #5fe0b240}.dot.bad{background:#ff837c}
-    .side-note{margin-top:auto;color:var(--muted);font-size:12px}
-    .chat{display:flex;flex-direction:column;overflow:hidden}
-    .topbar{padding:17px 22px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px}
-    .top-title{font-weight:700}.top-sub{color:var(--muted);font-size:12px}.local-tag{font-size:11px;color:#b7c2ff;border:1px solid #46517c;border-radius:99px;padding:5px 9px;white-space:nowrap}
-    .messages{flex:1;overflow:auto;padding:26px clamp(16px,4vw,52px);display:flex;flex-direction:column;gap:18px;scroll-behavior:smooth}
-    .welcome{margin:auto;max-width:560px;text-align:center;padding:24px 0}.orb{width:66px;height:66px;border-radius:24px;margin:0 auto 20px;display:grid;place-items:center;font-size:30px;background:linear-gradient(145deg,#8297ff,#c4a1ff);color:#0e1430;box-shadow:0 12px 42px #8996ff30}
-    .welcome h2{font-size:clamp(25px,4vw,34px);line-height:1.15;letter-spacing:-.04em;margin:0 0 12px}.welcome p{color:var(--muted);margin:0 auto 24px;max-width:430px}
-    .suggestions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;text-align:left}.suggestion{background:#111b2e;border:1px solid var(--line);border-radius:13px;padding:12px;color:#cdd7ef;font:inherit;font-size:13px;cursor:pointer;transition:.15s}.suggestion:hover,.new-chat:hover{border-color:#6878b3;background:#1b2942}
-    .message{max-width:min(82%,700px);display:flex;flex-direction:column;gap:5px;animation:appear .18s ease-out}.message.user{align-self:flex-end}.message.assistant{align-self:flex-start}.who{font-size:11px;color:var(--muted);padding:0 4px}.bubble{padding:12px 15px;border:1px solid var(--line);background:#141e31;border-radius:16px;white-space:pre-wrap;overflow-wrap:anywhere}.user .bubble{background:var(--user);border-color:#3b4b73;border-bottom-right-radius:5px}.assistant .bubble{border-bottom-left-radius:5px}
-    .message.error .bubble{border-color:#8c514f;color:var(--error)}.typing{display:flex;gap:5px;align-items:center;padding:5px 2px}.typing span{width:6px;height:6px;background:#a8b4ff;border-radius:50%;animation:pulse 1s infinite}.typing span:nth-child(2){animation-delay:.15s}.typing span:nth-child(3){animation-delay:.3s}
-    .composer-wrap{padding:14px clamp(14px,3vw,32px) 18px;border-top:1px solid var(--line);background:#0e1525}.composer{display:flex;align-items:flex-end;gap:10px;padding:8px 8px 8px 14px;border:1px solid #33415d;background:#111b2d;border-radius:17px;transition:border-color .15s}.composer:focus-within{border-color:#8190e8;box-shadow:0 0 0 3px #8190e81a}
-    textarea{resize:none;flex:1;max-height:150px;min-height:30px;border:0;outline:0;background:transparent;color:var(--text);font:inherit;padding:5px 0}textarea::placeholder{color:#7887a3}
-    .send{width:40px;height:40px;flex:0 0 40px;border:0;border-radius:12px;background:linear-gradient(135deg,#91a0ff,#b9a5ff);color:#10162d;font-size:20px;font-weight:800;cursor:pointer}.send:disabled{opacity:.4;cursor:not-allowed}.hint{text-align:center;font-size:11px;color:#72809a;margin-top:8px}
-    @keyframes pulse{0%,60%,100%{opacity:.35;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}@keyframes appear{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
-    @media(max-width:720px){.app{padding:8px;grid-template-columns:1fr;gap:8px;min-height:0;height:100dvh}.sidebar{display:none}.chat{border-radius:16px}.topbar{padding:13px 16px}.messages{padding:18px 13px}.message{max-width:94%}.welcome{padding:12px 0}.suggestions{grid-template-columns:1fr}.composer-wrap{padding:10px}.local-tag{font-size:10px}}
-    @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;scroll-behavior:auto!important}}
+    html,body{height:100%;margin:0}
+    body{background:var(--bg);color:var(--text);font:15px/1.6 ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;overflow:hidden}
+    button,textarea{font:inherit}
+    button{color:inherit}
+    .app{height:100dvh;display:flex;min-width:0}
+    .sidebar{width:var(--sidebar-width);flex:0 0 var(--sidebar-width);background:var(--sidebar);display:flex;flex-direction:column;padding:12px;gap:18px;transition:transform .2s ease,width .2s ease;z-index:5}
+    .side-top{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:3px 2px}
+    .brand{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:-.03em;font-size:18px}
+    .brand-mark{height:30px;width:30px;border:1px solid #555;border-radius:10px;display:grid;place-items:center;background:linear-gradient(145deg,#303030,#1b1b1b);font-weight:800;color:#fff}
+    .icon-btn{width:36px;height:36px;border:1px solid transparent;border-radius:10px;background:transparent;display:grid;place-items:center;cursor:pointer;color:#c5c5c5;flex-shrink:0}
+    .icon-btn:hover{background:#2a2a2a;color:#fff}
+    .new-chat{width:100%;display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid #414141;border-radius:12px;background:transparent;text-align:left;cursor:pointer}
+    .new-chat:hover,.history-item:hover{background:#262626}
+    .side-label{font-size:12px;color:#858585;font-weight:600;padding:0 9px;margin:0 0 5px}
+    .history{flex:1;min-height:0;overflow:auto}
+    .history-item{width:100%;display:flex;align-items:center;gap:8px;border:0;border-radius:9px;background:transparent;text-align:left;padding:9px 10px;color:#d4d4d4;cursor:pointer;font-size:13px;white-space:nowrap;overflow:hidden}
+    .history-item.active{background:#2b2b2b;color:#fff}
+    .history-item .history-title{overflow:hidden;text-overflow:ellipsis;flex:1}
+    .history-item .delete-chat{opacity:0;color:#999;border:0;background:transparent;padding:2px 4px;border-radius:5px;cursor:pointer}
+    .history-item:hover .delete-chat{opacity:1}
+    .history-empty{padding:9px;color:#777;font-size:12px}
+    .sidebar-bottom{border-top:1px solid #303030;padding-top:12px;display:flex;align-items:center;gap:10px}
+    .avatar{height:32px;width:32px;border-radius:50%;background:#0f766e;display:grid;place-items:center;font-weight:700;color:#fff;font-size:13px;flex-shrink:0}
+    .profile-copy{min-width:0;flex:1}.profile-name{font-size:13px;font-weight:600}.profile-sub{font-size:11px;color:#8d8d8d}
+    .main{flex:1;min-width:0;display:flex;flex-direction:column;position:relative}
+    .topbar{height:58px;flex-shrink:0;display:flex;align-items:center;gap:12px;padding:0 22px;border-bottom:1px solid #2d2d2d}
+    .mobile-menu{display:none}
+    .top-name{font-size:16px;font-weight:650;letter-spacing:-.02em}
+    .model-pill{display:inline-flex;align-items:center;gap:7px;color:#bdbdbd;font-size:12px;border:1px solid #414141;border-radius:999px;padding:4px 9px;margin-left:3px}
+    .model-dot{width:6px;height:6px;border-radius:50%;background:#777}.model-dot.ok{background:#10a37f}.model-dot.bad{background:#ef6868}
+    .top-spacer{flex:1}
+    .connection{font-size:12px;color:#999;display:flex;align-items:center;gap:7px}
+    .messages{flex:1;min-height:0;overflow:auto;scroll-behavior:smooth}
+    .welcome{max-width:780px;margin:0 auto;padding:clamp(54px,13vh,130px) 24px 28px;text-align:center}
+    .welcome-logo{width:54px;height:54px;margin:0 auto 24px;border:1px solid #4b4b4b;border-radius:18px;display:grid;place-items:center;font-size:24px;font-weight:800;background:linear-gradient(145deg,#343434,#252525);box-shadow:0 10px 35px #0002}
+    .welcome h1{font-size:clamp(28px,4vw,36px);line-height:1.2;letter-spacing:-.045em;margin:0 0 10px;font-weight:650}
+    .welcome p{margin:0 auto 30px;color:#a4a4a4;max-width:460px;font-size:14px}
+    .suggestions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;max-width:650px;margin:0 auto;text-align:left}
+    .suggestion{min-height:76px;border:1px solid #414141;border-radius:14px;background:transparent;padding:13px 15px;text-align:left;cursor:pointer;display:flex;flex-direction:column;justify-content:space-between;gap:8px;color:#ddd;font-size:13px;transition:background .15s,border-color .15s}
+    .suggestion:hover{background:#2b2b2b;border-color:#5b5b5b}
+    .suggestion small{color:#858585;font-size:11px}
+    .thread{max-width:820px;margin:0 auto;padding:28px 24px 32px;display:flex;flex-direction:column;gap:30px}
+    .message{display:grid;grid-template-columns:34px minmax(0,1fr);gap:14px;align-items:start;animation:fadeIn .16s ease-out}
+    .message.user{grid-template-columns:minmax(0,1fr);max-width:88%;margin-left:auto}
+    .message.user .message-content{justify-self:end;background:#303030;border:1px solid #3c3c3c;border-radius:22px;padding:10px 16px;max-width:100%;white-space:pre-wrap;overflow-wrap:anywhere}
+    .message.assistant .message-content{min-width:0;padding:2px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
+    .message-avatar{height:30px;width:30px;border-radius:50%;display:grid;place-items:center;background:#10a37f;color:white;font-size:13px;font-weight:800}
+    .message.user .message-avatar{display:none}
+    .message-actions{display:flex;gap:3px;margin-top:9px;opacity:.65}
+    .message-actions button{font-size:12px;color:#a5a5a5;border:0;background:transparent;border-radius:7px;padding:4px 7px;cursor:pointer}
+    .message-actions button:hover{background:#333;color:#eee}
+    .message.error .message-content{color:#fca5a5}
+    .typing{display:flex;align-items:center;gap:5px;padding:8px 0;color:#999;font-size:13px}
+    .typing span{width:5px;height:5px;border-radius:50%;background:#b3b3b3;animation:pulse 1s infinite}
+    .typing span:nth-child(2){animation-delay:.15s}.typing span:nth-child(3){animation-delay:.3s}
+    .composer-area{padding:14px 22px 22px;background:linear-gradient(180deg,transparent,#212121 22%);flex-shrink:0}
+    .composer-shell{max-width:820px;margin:0 auto;border:1px solid #4a4a4a;border-radius:25px;background:#2f2f2f;padding:10px 11px 9px 16px;box-shadow:0 8px 30px #0002;transition:border-color .15s}
+    .composer-shell:focus-within{border-color:#666}
+    .composer-row{display:flex;align-items:flex-end;gap:10px}
+    textarea{flex:1;min-width:0;max-height:200px;min-height:28px;resize:none;border:0;outline:0;background:transparent;color:var(--text);font:15px/1.55 inherit;padding:5px 0}
+    textarea::placeholder{color:#a0a0a0}
+    .send{height:36px;width:36px;border:0;border-radius:50%;background:#f4f4f4;color:#202020;display:grid;place-items:center;cursor:pointer;flex-shrink:0}
+    .send:hover{background:#dcdcdc}.send:disabled{opacity:.4;cursor:not-allowed}
+    .composer-meta{display:flex;align-items:center;justify-content:space-between;margin-top:6px;padding-left:2px;color:#858585;font-size:11px}
+    .composer-note{text-align:center;color:#858585;font-size:11px;margin-top:9px}
+    .toast{position:absolute;bottom:115px;left:50%;transform:translateX(-50%);background:#333;border:1px solid #555;color:#eee;border-radius:10px;padding:8px 12px;font-size:12px;display:none;z-index:10}
+    .overlay{display:none}
+    @keyframes pulse{0%,60%,100%{opacity:.35;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+    @media(max-width:760px){.sidebar{position:absolute;inset:0 auto 0 0;width:min(300px,86vw);transform:translateX(-102%);box-shadow:15px 0 45px #0008}.sidebar.open{transform:translateX(0)}.overlay.show{display:block;position:absolute;inset:0;background:#0008;z-index:4}.mobile-menu{display:grid}.topbar{padding:0 12px}.connection{display:none}.welcome{padding-top:12vh}.suggestions{grid-template-columns:1fr}.suggestion{min-height:60px}.thread{padding:22px 15px 28px;gap:25px}.message{grid-template-columns:30px minmax(0,1fr);gap:10px}.message.user{max-width:94%}.composer-area{padding:10px 10px 14px}.composer-shell{border-radius:22px}.composer-note{font-size:10px}.welcome p{margin-bottom:23px}}
+    @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;scroll-behavior:auto!important;transition:none!important}}
   </style>
 </head>
 <body>
-  <main class="app">
-    <aside class="sidebar">
-      <div class="brand"><div class="logo">T</div><div><h1>TARA</h1><div class="sub">Tiny Artificial Reasoning Architecture</div></div></div>
-      <button class="new-chat" id="newChat">＋ &nbsp; New conversation</button>
-      <div><div class="side-label">Connection</div><div class="status"><div class="status-row"><span class="dot" id="statusDot"></span><span id="statusTitle">Checking Ollama…</span></div><div id="statusText">Connecting to your local model.</div></div></div>
-      <div><div class="side-label">Model</div><div class="status" id="modelName">Loading model…</div></div>
-      <div class="side-note">Local browser interface<br>Messages are processed by your local TARA server and Ollama model.</div>
-    </aside>
-    <section class="chat" aria-label="TARA chat">
-      <header class="topbar"><div><div class="top-title">Chat with TARA</div><div class="top-sub">Your local AI workspace</div></div><div class="local-tag">● &nbsp; LOCAL SESSION</div></header>
-      <div class="messages" id="messages" aria-live="polite">
-        <div class="welcome" id="welcome">
-          <div class="orb">✦</div><h2>Hey there. I'm TARA.</h2>
-          <p>Ask a question, brainstorm an idea, or start with one of these prompts. This chat uses your configured Ollama model.</p>
-          <div class="suggestions">
-            <button class="suggestion">Explain a difficult concept in simple words.</button>
-            <button class="suggestion">Help me plan my next project step by step.</button>
-            <button class="suggestion">Brainstorm three creative ideas for me.</button>
-            <button class="suggestion">What can you help me with in this chat?</button>
-          </div>
+<div class="app">
+  <aside class="sidebar" id="sidebar" aria-label="Chat sidebar">
+    <div class="side-top">
+      <div class="brand"><div class="brand-mark">T</div><span>TARA</span></div>
+      <button class="icon-btn" id="closeSidebar" aria-label="Close sidebar" title="Close sidebar">‹</button>
+    </div>
+    <button class="new-chat" id="newChat"><span aria-hidden="true">＋</span><span>New chat</span></button>
+    <section class="history">
+      <div class="side-label">Recent</div>
+      <div id="historyList"><div class="history-empty">Your conversations will appear here.</div></div>
+    </section>
+    <div class="sidebar-bottom">
+      <div class="avatar">T</div>
+      <div class="profile-copy"><div class="profile-name">TARA Assistant</div><div class="profile-sub">Local AI · Ollama</div></div>
+      <button class="icon-btn" id="healthButton" title="Check connection" aria-label="Check connection">↻</button>
+    </div>
+  </aside>
+  <div class="overlay" id="overlay"></div>
+  <main class="main">
+    <header class="topbar">
+      <button class="icon-btn mobile-menu" id="openSidebar" aria-label="Open sidebar" title="Open sidebar">☰</button>
+      <div class="top-name">TARA <span class="model-pill"><span class="model-dot" id="modelDot"></span><span id="modelName">Checking model…</span></span></div>
+      <div class="top-spacer"></div>
+      <div class="connection"><span id="connectionText">Connecting to local server…</span></div>
+      <button class="icon-btn" id="newChatTop" aria-label="Start a new chat" title="New chat">＋</button>
+    </header>
+    <section class="messages" id="messages" aria-live="polite">
+      <div class="welcome" id="welcome">
+        <div class="welcome-logo">T</div>
+        <h1>What can I help with?</h1>
+        <p>Your personal AI workspace, powered by TARA and your local Ollama model.</p>
+        <div class="suggestions">
+          <button class="suggestion" data-prompt="Explain a difficult concept in simple words."><span>Explain a concept</span><small>Make something complex feel simple</small></button>
+          <button class="suggestion" data-prompt="Help me plan my next project step by step."><span>Plan a project</span><small>Turn an idea into clear next steps</small></button>
+          <button class="suggestion" data-prompt="Brainstorm three creative ideas for me."><span>Brainstorm ideas</span><small>Explore options and fresh angles</small></button>
+          <button class="suggestion" data-prompt="Help me write or improve something."><span>Write anything</span><small>Draft, polish, or rewrite text</small></button>
         </div>
       </div>
-      <div class="composer-wrap"><form class="composer" id="chatForm"><textarea id="prompt" rows="1" maxlength="4000" placeholder="Message TARA…" aria-label="Message TARA" required></textarea><button class="send" id="send" type="submit" aria-label="Send message">↑</button></form><div class="hint">Enter to send · Shift + Enter for a new line</div></div>
     </section>
+    <div class="composer-area">
+      <div class="composer-shell">
+        <form id="chatForm">
+          <div class="composer-row">
+            <textarea id="prompt" rows="1" maxlength="4000" placeholder="Message TARA" aria-label="Message TARA" required></textarea>
+            <button class="send" id="send" type="submit" aria-label="Send message" title="Send message">↑</button>
+          </div>
+          <div class="composer-meta"><span>Local conversation</span><span id="charCount">0 / 4000</span></div>
+        </form>
+      </div>
+      <div class="composer-note">TARA can make mistakes. Check important information.</div>
+    </div>
+    <div class="toast" id="toast" role="status"></div>
   </main>
+</div>
 <script>
 (() => {
-  const messagesEl = document.getElementById('messages');
-  const welcome = document.getElementById('welcome');
-  const form = document.getElementById('chatForm');
-  const input = document.getElementById('prompt');
-  const send = document.getElementById('send');
-  const statusDot = document.getElementById('statusDot');
-  const statusTitle = document.getElementById('statusTitle');
-  const statusText = document.getElementById('statusText');
-  const modelName = document.getElementById('modelName');
-  let history = [];
-  let busy = false;
+  const $ = id => document.getElementById(id);
+  const messagesEl = $('messages'), form = $('chatForm'), input = $('prompt'), send = $('send');
+  const historyList = $('historyList'), sidebar = $('sidebar'), overlay = $('overlay');
+  const modelName = $('modelName'), modelDot = $('modelDot'), connectionText = $('connectionText');
+  const charCount = $('charCount'), toastEl = $('toast');
+  const STORAGE_KEY = 'tara.chat.sessions.v1';
+  let sessions = loadSessions(), activeId = null, history = [], busy = false, toastTimer = null;
 
-  function addMessage(role, text, isError = false) {
-    const wrap = document.createElement('div');
-    wrap.className = 'message ' + role + (isError ? ' error' : '');
-    const who = document.createElement('div');
-    who.className = 'who';
-    who.textContent = role === 'user' ? 'You' : 'TARA';
-    const bubble = document.createElement('div');
-    bubble.className = 'bubble';
-    bubble.textContent = text;
-    wrap.append(who, bubble);
-    messagesEl.appendChild(wrap);
-    messagesEl.scrollTop = messagesEl.scrollHeight;
-    return wrap;
+  function loadSessions() {
+    try { const value = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); return Array.isArray(value) ? value : []; }
+    catch (_) { return []; }
   }
+  function saveSessions() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions.slice(0, 50))); }
+    catch (_) { showToast('Browser storage is full; this chat may not be saved.'); }
+  }
+  function newId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+  function showToast(text) {
+    toastEl.textContent = text; toastEl.style.display = 'block';
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => { toastEl.style.display = 'none'; }, 2400);
+  }
+  function scrollBottom() { messagesEl.scrollTop = messagesEl.scrollHeight; }
+  function escapeText(text) { return String(text ?? ''); }
 
+  function createWelcome() {
+    const node = document.createElement('div');
+    node.className = 'welcome'; node.id = 'welcome';
+    node.innerHTML = '<div class="welcome-logo">T</div><h1>What can I help with?</h1><p>Your personal AI workspace, powered by TARA and your local Ollama model.</p><div class="suggestions"><button class="suggestion" data-prompt="Explain a difficult concept in simple words."><span>Explain a concept</span><small>Make something complex feel simple</small></button><button class="suggestion" data-prompt="Help me plan my next project step by step."><span>Plan a project</span><small>Turn an idea into clear next steps</small></button><button class="suggestion" data-prompt="Brainstorm three creative ideas for me."><span>Brainstorm ideas</span><small>Explore options and fresh angles</small></button><button class="suggestion" data-prompt="Help me write or improve something."><span>Write anything</span><small>Draft, polish, or rewrite text</small></button></div>';
+    node.querySelectorAll('[data-prompt]').forEach(button => button.addEventListener('click', () => submitMessage(button.dataset.prompt)));
+    return node;
+  }
+  function ensureSession(prompt = '') {
+    if (activeId) return;
+    activeId = newId();
+    sessions.unshift({id: activeId, title: (prompt || 'New chat').slice(0, 42), updated: Date.now(), messages: []});
+  }
+  function currentSession() { return sessions.find(session => session.id === activeId); }
+  function persistHistory() {
+    const session = currentSession();
+    if (!session) return;
+    session.messages = history.slice(-40);
+    session.updated = Date.now();
+    if (history.length && history[0].role === 'user') session.title = history[0].content.slice(0, 42);
+    sessions.sort((a, b) => b.updated - a.updated);
+    saveSessions(); renderHistory();
+  }
+  function renderHistory() {
+    historyList.replaceChildren();
+    if (!sessions.length) {
+      const empty = document.createElement('div'); empty.className = 'history-empty'; empty.textContent = 'Your conversations will appear here.';
+      historyList.appendChild(empty); return;
+    }
+    sessions.slice(0, 50).forEach(session => {
+      const row = document.createElement('div');
+      row.className = 'history-item' + (session.id === activeId ? ' active' : '');
+      row.title = session.title;
+      const title = document.createElement('span'); title.className = 'history-title'; title.textContent = session.title || 'New chat';
+      const del = document.createElement('button'); del.className = 'delete-chat'; del.type = 'button'; del.textContent = '×'; del.title = 'Delete chat'; del.setAttribute('aria-label', 'Delete chat');
+      del.addEventListener('click', event => { event.stopPropagation(); deleteSession(session.id); });
+      row.append(title, del);
+      row.addEventListener('click', () => openSession(session.id));
+      historyList.appendChild(row);
+    });
+  }
+  function addMessage(role, text, options = {}) {
+    const wrap = document.createElement('article');
+    wrap.className = 'message ' + role + (options.error ? ' error' : '');
+    if (role === 'assistant') {
+      const avatar = document.createElement('div'); avatar.className = 'message-avatar'; avatar.textContent = 'T';
+      wrap.appendChild(avatar);
+    }
+    const content = document.createElement('div'); content.className = 'message-content'; content.textContent = escapeText(text);
+    wrap.appendChild(content);
+    if (role === 'assistant' && !options.typing && !options.error) {
+      const actions = document.createElement('div'); actions.className = 'message-actions';
+      const copy = document.createElement('button'); copy.type = 'button'; copy.textContent = 'Copy'; copy.title = 'Copy response';
+      copy.addEventListener('click', async () => {
+        try { await navigator.clipboard.writeText(text); copy.textContent = 'Copied'; setTimeout(() => copy.textContent = 'Copy', 1200); }
+        catch (_) { showToast('Clipboard permission unavailable in this browser.'); }
+      });
+      actions.appendChild(copy); wrap.appendChild(actions);
+    }
+    messagesEl.appendChild(wrap); scrollBottom(); return wrap;
+  }
   function setBusy(value) {
-    busy = value;
-    send.disabled = value;
-    input.disabled = value;
+    busy = value; send.disabled = value; input.disabled = value;
     send.textContent = value ? '…' : '↑';
+    send.setAttribute('aria-label', value ? 'TARA is thinking' : 'Send message');
   }
-
+  function renderSession(session) {
+    activeId = session ? session.id : null;
+    history = session ? session.messages.map(message => ({role: message.role, content: message.content})) : [];
+    messagesEl.replaceChildren();
+    if (!history.length) messagesEl.appendChild(createWelcome());
+    else history.forEach(message => addMessage(message.role, message.content));
+    renderHistory(); closeMobileSidebar(); input.focus();
+  }
+  function openSession(id) { const session = sessions.find(item => item.id === id); if (session) renderSession(session); }
+  function startNewChat() { if (busy) return; activeId = null; history = []; renderSession(null); }
+  function deleteSession(id) {
+    sessions = sessions.filter(session => session.id !== id);
+    if (activeId === id) { activeId = null; history = []; messagesEl.replaceChildren(createWelcome()); }
+    saveSessions(); renderHistory();
+  }
+  function closeMobileSidebar() { sidebar.classList.remove('open'); overlay.classList.remove('show'); }
+  function addTyping() {
+    const wrap = document.createElement('article'); wrap.className = 'message assistant';
+    const avatar = document.createElement('div'); avatar.className = 'message-avatar'; avatar.textContent = 'T';
+    const content = document.createElement('div'); content.className = 'message-content';
+    const typing = document.createElement('div'); typing.className = 'typing'; typing.setAttribute('aria-label', 'TARA is thinking');
+    typing.innerHTML = '<span></span><span></span><span></span><span style="margin-left:7px">Thinking…</span>';
+    content.appendChild(typing); wrap.append(avatar, content); messagesEl.appendChild(wrap); scrollBottom(); return wrap;
+  }
+  async function submitMessage(text) {
+    const prompt = String(text || '').trim();
+    if (!prompt || busy) return;
+    const welcome = $('welcome'); if (welcome) welcome.remove();
+    ensureSession(prompt);
+    history.push({role: 'user', content: prompt});
+    addMessage('user', prompt); persistHistory();
+    const waiting = addTyping(); setBusy(true);
+    try {
+      const response = await fetch('/api/chat', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({messages: history.slice(-19)})});
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'TARA could not answer. Check the local server.');
+      waiting.remove();
+      history.push({role: 'assistant', content: data.reply});
+      addMessage('assistant', data.reply); persistHistory();
+    } catch (error) {
+      waiting.remove();
+      addMessage('assistant', error.message || 'Connection error. Please try again.', {error: true});
+      history.pop(); persistHistory(); checkHealth();
+    } finally {
+      setBusy(false); input.focus(); scrollBottom();
+    }
+  }
   async function checkHealth() {
     try {
       const response = await fetch('/api/health', {cache: 'no-store'});
       const data = await response.json();
       modelName.textContent = data.model || 'Ollama model';
-      statusDot.className = 'dot ' + (data.ok ? 'ok' : 'bad');
-      statusTitle.textContent = data.ok ? 'Connected' : (data.ollama === 'connected' ? 'Model not installed' : 'Ollama offline');
-      statusText.textContent = data.message || 'Check the Ollama service.';
+      modelDot.className = 'model-dot ' + (data.ok ? 'ok' : 'bad');
+      connectionText.textContent = data.ok ? 'Connected locally' : (data.message || 'Local model unavailable');
     } catch (_) {
-      statusDot.className = 'dot bad';
-      statusTitle.textContent = 'Server unavailable';
-      statusText.textContent = 'Restart the TARA server and refresh this page.';
-      modelName.textContent = 'Unavailable';
-    }
-  }
-
-  async function submitMessage(text) {
-    const prompt = text.trim();
-    if (!prompt || busy) return;
-    if (welcome && welcome.isConnected) welcome.remove();
-    else if (document.getElementById('welcome')) document.getElementById('welcome').remove();
-    history.push({role: 'user', content: prompt});
-    addMessage('user', prompt);
-    const waiting = addMessage('assistant', '');
-    waiting.querySelector('.bubble').innerHTML = '<div class="typing" aria-label="TARA is thinking"><span></span><span></span><span></span></div>';
-    setBusy(true);
-    try {
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({messages: history.slice(-19)})
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'TARA could not answer. Check the server.');
-      waiting.querySelector('.bubble').textContent = data.reply;
-      history.push({role: 'assistant', content: data.reply});
-    } catch (error) {
-      waiting.classList.add('error');
-      waiting.querySelector('.bubble').textContent = error.message || 'Connection error. Please try again.';
-      history.pop();
-      checkHealth();
-    } finally {
-      setBusy(false);
-      input.focus();
-      messagesEl.scrollTop = messagesEl.scrollHeight;
+      modelName.textContent = 'Unavailable'; modelDot.className = 'model-dot bad';
+      connectionText.textContent = 'TARA server offline';
     }
   }
 
   form.addEventListener('submit', event => {
-    event.preventDefault();
-    const value = input.value;
-    input.value = '';
-    input.style.height = 'auto';
+    event.preventDefault(); if (busy) return;
+    const value = input.value; input.value = ''; input.style.height = 'auto'; charCount.textContent = '0 / 4000';
     submitMessage(value);
   });
-
   input.addEventListener('input', () => {
-    input.style.height = 'auto';
-    input.style.height = Math.min(input.scrollHeight, 150) + 'px';
+    input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 200) + 'px';
+    charCount.textContent = input.value.length + ' / 4000';
   });
-
   input.addEventListener('keydown', event => {
-    if (event.key === 'Enter' && !event.shiftKey) {
-      event.preventDefault();
-      form.requestSubmit();
-    }
+    if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); form.requestSubmit(); }
   });
+  $('newChat').addEventListener('click', startNewChat);
+  $('newChatTop').addEventListener('click', startNewChat);
+  $('openSidebar').addEventListener('click', () => { sidebar.classList.add('open'); overlay.classList.add('show'); });
+  $('closeSidebar').addEventListener('click', closeMobileSidebar);
+  overlay.addEventListener('click', closeMobileSidebar);
+  $('healthButton').addEventListener('click', checkHealth);
+  document.querySelectorAll('[data-prompt]').forEach(button => button.addEventListener('click', () => submitMessage(button.dataset.prompt)));
 
-  document.querySelectorAll('.suggestion').forEach(button => {
-    button.addEventListener('click', () => submitMessage(button.textContent));
-  });
-
-  document.getElementById('newChat').addEventListener('click', () => {
-    if (busy) return;
-    history = [];
-    messagesEl.replaceChildren();
-    const clone = document.createElement('div');
-    clone.className = 'welcome';
-    clone.innerHTML = '<div class="orb">✦</div><h2>What shall we explore?</h2><p>Start a fresh conversation with TARA.</p><div class="suggestions"><button class="suggestion">Explain a difficult concept in simple words.</button><button class="suggestion">Help me plan my next project step by step.</button><button class="suggestion">Brainstorm three creative ideas for me.</button><button class="suggestion">What can you help me with in this chat?</button></div>';
-    messagesEl.appendChild(clone);
-    clone.querySelectorAll('.suggestion').forEach(button => button.addEventListener('click', () => submitMessage(button.textContent)));
-    input.focus();
-  });
-
+  sessions = sessions.filter(session => session && typeof session.id === 'string' && Array.isArray(session.messages)).slice(0, 50);
+  renderHistory();
+  renderSession(null);
   checkHealth();
-  input.focus();
 })();
 </script>
 </body>
