@@ -93,6 +93,6 @@ def run_test_suite(repo_root=".", timeout=300):
             stderr=completed.stderr,
         )
     except subprocess.TimeoutExpired as exc:
-        stdout = exc.stdout or ""
-        stderr = exc.stderr or ""
-        return TestRun(command, 124, str(stdout), str(stderr) + "\npytest timed out")
+        stdout = _captured_text(exc.stdout)
+        stderr = _captured_text(exc.stderr)
+        return TestRun(command, 124, stdout, stderr + "\npytest timed out")
