@@ -28,8 +28,8 @@ def test_model_adapter_lazy_loads_and_generates(monkeypatch, tmp_path: Path):
         assert tokenizer is fake_tokenizer
         return f"{prompt}:{max_new_tokens}:{temperature}"
 
-    monkeypatch.setattr("src.polyglot.model_adapter.load_checkpoint", fake_load)
-    monkeypatch.setattr("src.polyglot.model_adapter.generate_text", fake_generate)
+    monkeypatch.setattr("src.model_runtime.load_checkpoint", fake_load)
+    monkeypatch.setattr("src.model_runtime.generate_text", fake_generate)
 
     runtime = TARAAlgorithmModel(checkpoint, max_new_tokens=123)
     assert not runtime.loaded
