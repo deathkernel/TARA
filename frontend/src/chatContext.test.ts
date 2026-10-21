@@ -14,12 +14,18 @@ describe("buildApiMessages", () => {
   });
 
   it("trims old context to the backend character budget while preserving the latest message", () => {
-    const result = buildApiMessages([
-      { role: "user", content: "o".repeat(8000) },
-      { role: "assistant", content: "n".repeat(8000) },
-    ], "latest");
+    const history = [
+      { role: "user" as const, content: "a".repeat(4000) },
+      { role: "assistant" as const, content: "b".repeat(4000) },
+      { role: "user" as const, content: "c".repeat(4000) },
+      { role: "assistant" as const, content: "d".repeat(4000) },
+      { role: "user" as const, content: "e".repeat(4000) },
+    ];
+    const result = buildApiMessages(history, "latest");
     expect(result).toEqual([
-      { role: "assistant", content: "n".repeat(8000) },
+      { role: "user", content: "c".repeat(4000) },
+      { role: "assistant", content: "d".repeat(4000) },
+      { role: "user", content: "e".repeat(4000) },
       { role: "user", content: "latest" },
     ]);
     expect(result.reduce((sum, message) => sum + message.content.length, 0)).toBeLessThanOrEqual(MAX_CONTEXT_CHARS);
