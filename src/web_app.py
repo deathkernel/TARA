@@ -5,6 +5,7 @@ import argparse
 import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+import mimetypes
 from typing import Any
 from urllib.error import URLError
 from urllib.request import urlopen
@@ -13,7 +14,8 @@ from .brain import TARABrain
 from .env import load_dotenv
 from .ollama_provider import OllamaProvider, OllamaProviderError
 
-WEB_ROOT = Path(__file__).resolve().parent.parent / "web"
+ROOT = Path(__file__).resolve().parent.parent
+FRONTEND_DIST = ROOT / "frontend" / "dist"
 MAX_BODY_BYTES = 64 * 1024
 MAX_MESSAGES = 20
 MAX_MESSAGE_CHARS = 4000
@@ -126,24 +128,39 @@ def make_handler(tara: TARABrain, provider: OllamaProvider):
             self.wfile.write(body)
 
         def do_GET(self) -> None:
-            if self.path in {"/", "/index.html"}:
-                try:
-                    body = (WEB_ROOT / "index.html").read_bytes()
-                except OSError:
-                    self._send_json(500, {"error": "Chat UI file is missing. Restore web/index.html."})
-                    return
-                self.send_response(200)
-                self.send_header("Content-Type", "text/html; charset=utf-8")
-                self.send_header("Content-Length", str(len(body)))
-                self.send_header("Cache-Control", "no-cache")
-                self.send_header("X-Content-Type-Options", "nosniff")
-                self.end_headers()
-                self.wfile.write(body)
-                return
             if self.path == "/api/health":
                 self._send_json(200, get_health(provider))
                 return
-            self._send_json(404, {"error": "Not found."})
+            if self.path.startswith("/api/"):
+                self._send_json(404, {"error": "Not found."})
+                return
+            self._serve_static(self.path.split("?", 1)[0])
+
+        def _serve_static(self, request_path: str) -> None:
+            relative = "index.html" if request_path in {"", "/"} else request_path.lstrip("/")
+            path = (FRONTEND_DIST / relative).resolve()
+            try:
+                path.relative_to(FRONTEND_DIST.resolve())
+            except ValueError:
+                self._send_json(404, {"error": "Not found."})
+                return
+            if not path.is_file() and "." not in Path(relative).name:
+                path = FRONTEND_DIST / "index.html"
+            try:
+                body = path.read_bytes()
+            except OSError:
+                self._send_json(503, {"error": "Built frontend not found. Run npm install and npm run build inside frontend/."})
+                return
+            content_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+            if content_type in {"text/html", "text/css", "application/javascript", "text/plain"}:
+                content_type += "; charset=utf-8"
+            self.send_response(200)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-cache" if path.name == "index.html" else "public, max-age=3600")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.end_headers()
+            self.wfile.write(body)
 
         def do_POST(self) -> None:
             if self.path != "/api/chat":
@@ -167,7 +184,7 @@ def make_handler(tara: TARABrain, provider: OllamaProvider):
             except ChatRequestError as exc:
                 self._send_json(400, {"error": str(exc)})
                 return
-            except OllamaProviderError as exc:
+            except (OllamaProviderError, RuntimeError, TimeoutError) as exc:
                 self._send_json(503, {"error": str(exc)})
                 return
             except Exception as exc:
