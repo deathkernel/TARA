@@ -46,7 +46,14 @@ def chat_loop(brain, *, input_fn=input, output_fn=print) -> None:
         if command == "/help":
             output_fn(
                 "Commands: /help, /exit, /learn <key>=<fact>, "
-                "/remember <key>=<fact>, /memory, /forget <key>"
+                "/remember <key>=<fact>, /memory, /emotion, /forget <key>"
+            )
+            continue
+        if command == "/emotion":
+            label = getattr(brain, "last_emotion", "neutral")
+            output_fn(
+                f"TARA: Last detected emotional cue: {label}. "
+                "This is a lightweight text estimate, not a diagnosis; I do not literally feel emotions."
             )
             continue
         if command == "/memory":
@@ -98,8 +105,20 @@ def chat_loop(brain, *, input_fn=input, output_fn=print) -> None:
             continue
 
         try:
-            response = brain.respond(prompt, max_new_tokens=256, temperature=0.6)
-        except (RuntimeError, TimeoutError, OSError) as exc:
+            provider = getattr(brain, "llm_provider", None)
+            default_tokens = getattr(provider, "default_max_tokens", 128)
+            raw_tokens = os.getenv("TARA_MAX_RESPONSE_TOKENS", "").strip()
+            if raw_tokens:
+                try:
+                    max_tokens = int(raw_tokens)
+                except ValueError as exc:
+                    raise ValueError("TARA_MAX_RESPONSE_TOKENS must be a positive integer") from exc
+                if max_tokens <= 0:
+                    raise ValueError("TARA_MAX_RESPONSE_TOKENS must be a positive integer")
+            else:
+                max_tokens = default_tokens
+            response = brain.respond(prompt, max_new_tokens=max_tokens, temperature=0.6)
+        except (RuntimeError, TimeoutError, OSError, ValueError) as exc:
             output_fn(
                 "TARA: I couldn't generate a response. Check that Ollama is "
                 "running and the configured model is installed. "
@@ -128,6 +147,14 @@ def main() -> int:
         return 2
 
     print(f"TARA long-term memory: {memory_path}")
+    print(
+        "TARA resource profile: "
+        f"{getattr(provider, 'power_mode', 'custom')} "
+        f"(context={getattr(provider, 'num_ctx', 'default')}, "
+        f"CPU threads={getattr(provider, 'num_thread', 'auto')}, "
+        f"batch={getattr(provider, 'num_batch', 'default')}, "
+        f"max response tokens={getattr(provider, 'default_max_tokens', 128)})"
+    )
     chat_loop(brain)
     return 0
 

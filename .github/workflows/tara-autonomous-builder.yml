@@ -1,0 +1,182 @@
+name: TARA autonomous brain builder
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tara-autonomous-brain-builder
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Prepare persistent automation branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          BRANCH="automation/tara-autonomous-builder"
+          git fetch origin main
+          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
+            git fetch origin "$BRANCH"
+            git checkout -B "$BRANCH" "origin/$BRANCH"
+            git merge --no-edit origin/main
+          else
+            git checkout -b "$BRANCH" origin/main
+          fi
+
+      - name: Ask a public, keyless coding endpoint for one bounded improvement
+        id: generate
+        shell: bash
+        env:
+          API_BASE: https://oai.endpoints.kepler.ai.cloud.ovh.net/v1
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import pathlib
+          import urllib.error
+          import urllib.request
+
+          base = os.environ["API_BASE"].rstrip("/")
+          headers = {"Content-Type": "application/json", "User-Agent": "TARA-Autonomous-Builder/1.0"}
+
+          def request(url, payload=None):
+              data = None if payload is None else json.dumps(payload).encode("utf-8")
+              req = urllib.request.Request(url, data=data, headers=headers, method="GET" if data is None else "POST")
+              with urllib.request.urlopen(req, timeout=35) as response:
+                  return json.loads(response.read().decode("utf-8"))
+
+          try:
+              catalog = request(base + "/models")
+              models = [item.get("id", "") for item in catalog.get("data", [])]
+              model = next((m for m in models if "qwen3-coder" in m.lower()), None)
+              if not model:
+                  model = next((m for m in models if "coder" in m.lower()), None)
+              if not model:
+                  raise RuntimeError("No public coding model was listed by the endpoint; skipping this cycle.")
+
+              sections = []
+              total = 0
+              for raw_path in sorted(pathlib.Path(".").glob("src/**/*.py")) + sorted(pathlib.Path(".").glob("tests/**/*.py")):
+                  path = raw_path.as_posix()
+                  if not raw_path.is_file():
+                      continue
+                  try:
+                      text = raw_path.read_text(encoding="utf-8")
+                  except (UnicodeDecodeError, OSError):
+                      continue
+                  if len(text) > 7000:
+                      text = text[:7000] + "\n# [truncated for context]\n"
+                  block = f"\n--- FILE: {path} ---\n{text}\n"
+                  if total + len(block) > 26000:
+                      break
+                  sections.append(block)
+                  total += len(block)
+
+              if not sections:
+                  raise RuntimeError("No Python source/test files found; skipping.")
+
+              prompt = """You are contributing one small, useful improvement to TARA (Tiny Artificial Reasoning Architecture), a Python project aiming for human-like cognitive capabilities such as memory, reasoning, planning, learning, and self-evaluation.
+          Inspect the supplied repository context and choose ONE coherent, low-risk improvement that fits the existing architecture. Return ONLY a unified git diff, with standard 'diff --git a/path b/path' headers; no Markdown fences or explanations.
+          Hard constraints:
+          - Change only files under src/ or tests/; at most 4 files.
+          - Add/update tests for the behavior when practical.
+          - No new dependencies, network calls, secrets, credentials, shell execution, workflow changes, or permission changes.
+          - Do not weaken/remove existing tests, safety checks, or behavior just to make tests pass.
+          - Avoid duplicate implementations; follow existing naming and style.
+          - If the context is insufficient for a safe, meaningful improvement, return exactly NO_CHANGE.
+          - Keep the patch small and self-contained; do not claim tests were run.
+          Repository context follows:
+          """ + "".join(sections)
+
+              result = request(base + "/chat/completions", {
+                  "model": model,
+                  "messages": [
+                      {"role": "system", "content": "You are a careful Python maintainer. Output only a valid unified git diff or the exact token NO_CHANGE."},
+                      {"role": "user", "content": prompt},
+                  ],
+                  "temperature": 0.15,
+                  "max_tokens": 2200,
+              })
+              choices = result.get("choices", [])
+              if not choices:
+                  raise RuntimeError("The public endpoint returned no completion.")
+              output = choices[0].get("message", {}).get("content", "").strip()
+              if output == "NO_CHANGE" or "diff --git " not in output:
+                  pathlib.Path("tara.patch").write_text("", encoding="utf-8")
+                  print("No applicable patch produced this cycle.")
+              else:
+                  output = output[output.find("diff --git "):]
+                  pathlib.Path("tara.patch").write_text(output + "\n", encoding="utf-8")
+                  print(f"Generated candidate patch using public model: {model}")
+          except (urllib.error.URLError, TimeoutError, ValueError, RuntimeError, KeyError) as exc:
+              print(f"Public API unavailable or unsuitable this cycle; safely skipping: {exc}")
+              pathlib.Path("tara.patch").write_text("", encoding="utf-8")
+          PY
+
+      - name: Validate and apply candidate patch
+        id: patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -s tara.patch ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Only allow source and test files. Reject traversal, workflow, dependency, and deletion changes.
+          python - <<'PY'
+          import re
+          from pathlib import Path
+          patch = Path("tara.patch").read_text(encoding="utf-8")
+          paths = re.findall(r"^diff --git a/(.*?) b/(.*?)$", patch, re.M)
+          if not paths or len(paths) > 4:
+              raise SystemExit("Rejected: patch has no recognized files or changes too many files.")
+          for old, new in paths:
+              for path in (old, new):
+                  if not (path.startswith("src/") or path.startswith("tests/")):
+                      raise SystemExit(f"Rejected path outside src/ and tests/: {path}")
+                  if ".." in Path(path).parts or path.startswith("/") or "\\" in path:
+                      raise SystemExit(f"Rejected unsafe path: {path}")
+              if old != new:
+                  raise SystemExit("Rejected file rename.")
+          if re.search(r"^deleted file mode ", patch, re.M):
+              raise SystemExit("Rejected file deletion.")
+          PY
+          git apply --check tara.patch
+          git apply tara.patch
+          python -m compileall -q src tests
+          if [ -z "$(git status --porcelain -- src tests)" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Commit and push candidate to automation branch
+        if: steps.patch.outputs.changed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src tests
+          git commit -m "chore(tara): autonomous cognitive improvement"
+          git push origin HEAD:automation/tara-autonomous-builder
