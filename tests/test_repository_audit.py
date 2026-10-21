@@ -57,7 +57,7 @@ def test_auditor_respects_root_gitignore_patterns(tmp_path):
     (tmp_path / "ignored_drop.py").write_text(
         "this is invalid python (:\n", encoding="utf-8"
     )
-    (tmp_path / "ignored_keep.py").write_text("# should be included\n", encoding="utf-8")
+    (tmp_path / "ignored_keep.py").write_text("def keep_but_invalid(:\n", encoding="utf-8")
 
     report = RepositoryAuditor(tmp_path).audit()
     syntax_paths = {
@@ -65,7 +65,7 @@ def test_auditor_respects_root_gitignore_patterns(tmp_path):
     }
     assert "generated/generated_module.py" not in syntax_paths
     assert "ignored_drop.py" not in syntax_paths
-    assert "ignored_keep.py" not in syntax_paths
+    assert "ignored_keep.py" in syntax_paths
 
 
 def test_auditor_respects_nested_gitignore_and_builtin_exclusions(tmp_path):
