@@ -249,6 +249,10 @@ class TARABrain:
                     temperature=temperature,
                 )
             except (RuntimeError, TimeoutError):
+                # Without a local tokenizer/model there is no safe fallback to generate from.
+                # Re-raise the provider error so the web API can report it accurately.
+                if self.model is None or self.tokenizer is None:
+                    raise
                 text = self.generate(context, max_new_tokens=max_new_tokens, temperature=temperature, top_k=top_k, top_p=top_p)
         else:
             # Preserve the user prompt when using the tiny local fallback model.

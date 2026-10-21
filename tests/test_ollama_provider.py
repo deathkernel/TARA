@@ -94,3 +94,14 @@ def test_ollama_provider_loads_environment(monkeypatch):
     assert provider.model == "llama3.2:1b"
     assert provider.base_url == "http://127.0.0.1:11434"
     assert provider.timeout == 30.0
+
+
+def test_ollama_provider_defaults_when_cli_passes_none(monkeypatch):
+    monkeypatch.delenv("TARA_LLAMA_MODEL", raising=False)
+    monkeypatch.delenv("OLLAMA_MODEL", raising=False)
+    monkeypatch.delenv("OLLAMA_HOST", raising=False)
+
+    provider = OllamaProvider(model=None, base_url=None, transport=lambda *_: {"message": {"content": "ok"}})
+
+    assert provider.model == "llama3.2:3b"
+    assert provider.base_url == "http://127.0.0.1:11434"

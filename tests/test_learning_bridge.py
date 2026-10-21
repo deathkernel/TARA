@@ -49,3 +49,36 @@ def test_bridge_persists_success_and_failure_and_exports(tmp_path):
         assert bridge.export_failures(failures) == 1
         assert replay.read_text(encoding="utf-8").count("\n") == 1
         assert failures.read_text(encoding="utf-8").count("\n") == 1
+
+class AttributeCandidate:
+    language = "python"
+    problem = "attribute-based candidate"
+    source = "return 42"
+
+
+def test_bridge_serializes_attribute_and_mapping_candidates(tmp_path):
+    with CognitiveMemory(tmp_path / "memory.sqlite") as memory:
+        bridge = LearningBridge(memory)
+        problem = bridge.record_problem("Serialize candidate data")
+        candidates = [
+            (AttributeCandidate(), "python", "attribute-based candidate", "return 42"),
+            (
+                {"language": "rust", "problem": "mapping candidate", "source": "fn solve() {}"},
+                "rust",
+                "mapping candidate",
+                "fn solve() {}",
+            ),
+        ]
+
+        for candidate, language, expected_problem, expected_source in candidates:
+            item_id = bridge.record_benchmark(
+                problem_id=problem,
+                candidate=candidate,
+                benchmark=Benchmark(2, 2, 1.0, 1.0, True),
+            )
+            stored = memory.get(item_id)
+            assert stored["content"]["candidate"]["language"] == language
+            assert stored["content"]["candidate"]["problem"] == expected_problem
+            assert stored["content"]["candidate"]["source"] == expected_source
+            assert stored["attributes"]["language"] == language
+

@@ -12,6 +12,8 @@ class TARAAlgorithmModel:
     """Lazy, CPU-safe wrapper around a trained algorithm-LM checkpoint."""
 
     def __init__(self, checkpoint: str | Path, *, max_new_tokens: int = 512) -> None:
+        if isinstance(max_new_tokens, bool) or not isinstance(max_new_tokens, int) or max_new_tokens <= 0:
+            raise ValueError("max_new_tokens must be a positive integer")
         self.checkpoint = Path(checkpoint)
         self.max_new_tokens = max_new_tokens
         self._model: Any | None = None
@@ -32,12 +34,15 @@ class TARAAlgorithmModel:
         if not self.loaded:
             self.load()
         assert self._model is not None and self._tokenizer is not None
+        token_limit = self.max_new_tokens if max_new_tokens is None else max_new_tokens
+        if isinstance(token_limit, bool) or not isinstance(token_limit, int) or token_limit <= 0:
+            raise ValueError("max_new_tokens must be a positive integer")
         from src.model_runtime import generate_text
         return generate_text(
             self._model,
             self._tokenizer,
             prompt,
-            max_new_tokens=max_new_tokens or self.max_new_tokens,
+            max_new_tokens=token_limit,
             temperature=temperature,
         )
 

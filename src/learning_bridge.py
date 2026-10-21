@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 from .cognitive_memory import CognitiveMemory
 from .polyglot.knowledge import KnowledgeRecord
@@ -40,9 +40,21 @@ class LearningBridge:
     ) -> str:
         verified = bool(benchmark.verified)
         kind = "verified_algorithm" if verified else "algorithm_failure"
+        if hasattr(candidate, "__dataclass_fields__"):
+            candidate_payload = asdict(candidate)
+        elif isinstance(candidate, Mapping):
+            candidate_payload = dict(candidate)
+        else:
+            # Candidate implementations may expose data as ordinary attributes
+            # rather than dataclass fields (including class-level attributes).
+            candidate_payload = {
+                name: getattr(candidate, name)
+                for name in ("language", "problem", "source", "metadata")
+                if hasattr(candidate, name)
+            }
         content = {
             "problem_id": problem_id,
-            "candidate": asdict(candidate) if hasattr(candidate, "__dataclass_fields__") else candidate,
+            "candidate": candidate_payload,
             "benchmark": {
                 "passed": benchmark.passed,
                 "total": benchmark.total,
@@ -59,7 +71,7 @@ class LearningBridge:
             confidence=float(benchmark.correctness),
             verification="verified" if verified else "rejected",
             provenance={"source": "polyglot_benchmark"},
-            attributes={"language": getattr(candidate, "language", "unknown")},
+            attributes={"language": candidate_payload.get("language", getattr(candidate, "language", "unknown"))},
         )
         self.memory.link(problem_id, "verified_solution" if verified else "failed_attempt", item_id)
         return item_id
