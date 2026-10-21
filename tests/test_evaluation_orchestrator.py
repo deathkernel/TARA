@@ -65,7 +65,7 @@ def test_orchestrator_without_improvement_is_measurement_only(tmp_path: Path):
         "Evaluator",
         (),
         {
-            "evaluate": lambda self, path, name: _evaluation(0.25, fingerprint="fp"),
+            "evaluate": lambda self, path, name=None: _evaluation(0.25, fingerprint="fp"),
         },
     )()
 
