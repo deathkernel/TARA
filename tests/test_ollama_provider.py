@@ -167,3 +167,31 @@ def test_ollama_provider_rejects_invalid_timeout_from_environment(monkeypatch):
         assert "finite and positive" in str(exc)
     else:
         raise AssertionError("Expected a non-finite environment timeout to be rejected")
+
+
+
+def test_ollama_provider_rejects_non_integer_resource_overrides():
+    for kwargs in (
+        {"num_ctx": 2.5},
+        {"num_ctx": True},
+        {"num_thread": "4"},
+        {"num_thread": False},
+        {"num_batch": 128.5},
+        {"num_batch": True},
+    ):
+        try:
+            OllamaProvider(**kwargs)
+        except ValueError as exc:
+            assert "integer" in str(exc)
+        else:
+            raise AssertionError(f"Expected invalid resource override to be rejected: {kwargs}")
+
+
+def test_ollama_provider_rejects_invalid_keep_alive_type_or_empty_value():
+    for value in (123, "", "   "):
+        try:
+            OllamaProvider(keep_alive=value)
+        except ValueError as exc:
+            assert "keep_alive" in str(exc)
+        else:
+            raise AssertionError(f"Expected invalid keep_alive to be rejected: {value!r}")
