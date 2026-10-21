@@ -94,3 +94,44 @@ def test_ollama_provider_loads_environment(monkeypatch):
     assert provider.model == "llama3.2:1b"
     assert provider.base_url == "http://127.0.0.1:11434"
     assert provider.timeout == 30.0
+
+
+
+def test_ollama_provider_rejects_non_finite_timeout():
+    for timeout in (float("inf"), float("nan")):
+        try:
+            OllamaProvider(timeout=timeout)
+        except ValueError as exc:
+            assert "finite and positive" in str(exc)
+        else:
+            raise AssertionError("Expected a non-finite timeout to be rejected")
+
+
+def test_ollama_provider_rejects_non_finite_temperature():
+    provider = OllamaProvider(transport=lambda *_: {"message": {"content": "ok"}})
+    try:
+        provider.complete("Hello", temperature=float("nan"))
+    except ValueError as exc:
+        assert "finite" in str(exc)
+    else:
+        raise AssertionError("Expected a non-finite temperature to be rejected")
+
+
+def test_ollama_provider_rejects_invalid_thread_environment(monkeypatch):
+    monkeypatch.setenv("TARA_OLLAMA_NUM_THREADS", "-1")
+    try:
+        OllamaProvider.from_env()
+    except ValueError as exc:
+        assert "TARA_OLLAMA_NUM_THREADS" in str(exc)
+    else:
+        raise AssertionError("Expected a negative thread count to be rejected")
+
+
+def test_ollama_provider_rejects_non_object_transport_response():
+    provider = OllamaProvider(transport=lambda *_: ["not", "an", "object"])
+    try:
+        provider.complete("Hello")
+    except RuntimeError as exc:
+        assert "invalid response object" in str(exc)
+    else:
+        raise AssertionError("Expected a malformed transport response to be rejected")
