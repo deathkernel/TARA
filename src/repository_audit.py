@@ -1,16 +1,17 @@
 """Static repository audit for TARA Phase 36.
 
-The auditor is intentionally dependency-free. It checks Python syntax, required
-core files, duplicate pytest workflows, and non-deterministic built-in hash()
-calls. It never executes repository code.
+The dependency-free auditor checks Python syntax, required core files, duplicate
+pytest workflows, non-deterministic built-in hash() calls, and common .gitignore
+rules. It never executes repository code.
 """
 from __future__ import annotations
 
 import ast
+import fnmatch
+import re
 from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
-from typing import Iterable
 
 
 @dataclass(frozen=True)
@@ -42,6 +43,7 @@ class RepositoryAuditor:
         "src/unified_cognitive_loop.py",
         "tests/test_tara_core.py",
     )
+    ALWAYS_IGNORED = {".git", ".venv", "venv", "__pycache__"}
 
     def __init__(self, root: str | Path):
         self.root = Path(root).resolve()
@@ -51,67 +53,189 @@ class RepositoryAuditor:
     def audit(self) -> AuditReport:
         issues: list[AuditIssue] = []
         python_files = sorted(
-            path for path in self.root.rglob("*.py")
-            if not self._ignored(path)
+            path for path in self.root.rglob("*.py") if not self._ignored(path)
         )
+        workflow_dir = self.root / ".github" / "workflows"
         workflow_files = sorted(
-            path for path in (self.root / ".github" / "workflows").glob("*")
-            if path.is_file()
-        )
+            path for path in workflow_dir.glob("*")
+            if path.is_file() and not self._ignored(path)
+        ) if workflow_dir.is_dir() else []
 
         for path in python_files:
             self._audit_python(path, issues)
 
         for relative in self.REQUIRED_FILES:
             if not (self.root / relative).is_file():
-                issues.append(AuditIssue("MISSING_REQUIRED_FILE", relative, "required Phase 36 file is missing"))
+                issues.append(AuditIssue(
+                    "MISSING_REQUIRED_FILE", relative,
+                    "required Phase 36 file is missing",
+                ))
 
         pytest_workflows = []
         for path in workflow_files:
             try:
                 content = path.read_text(encoding="utf-8")
-            except UnicodeDecodeError:
+            except (OSError, UnicodeDecodeError):
                 continue
             if "python -m pytest" in content:
                 pytest_workflows.append(path)
         if len(pytest_workflows) > 1:
-            names = ", ".join(str(path.relative_to(self.root)) for path in pytest_workflows)
+            names = ", ".join(
+                str(path.relative_to(self.root)) for path in pytest_workflows
+            )
             issues.append(AuditIssue(
-                "DUPLICATE_PYTEST_WORKFLOWS",
-                ".github/workflows",
+                "DUPLICATE_PYTEST_WORKFLOWS", ".github/workflows",
                 f"multiple workflows run the full pytest suite: {names}",
             ))
 
-        parts = [str(issue.code) + "|" + issue.path + "|" + issue.detail for issue in issues]
+        parts = [
+            f"{issue.code}|{issue.path}|{issue.detail}" for issue in issues
+        ]
         fingerprint = sha256("\x1f".join(parts).encode("utf-8")).hexdigest()
         return AuditReport(
             files_scanned=len(python_files) + len(workflow_files),
             python_files=len(python_files),
             workflow_files=len(workflow_files),
-            issues=tuple(sorted(issues, key=lambda item: (item.code, item.path, item.detail))),
+            issues=tuple(sorted(
+                issues, key=lambda item: (item.code, item.path, item.detail)
+            )),
             fingerprint=fingerprint,
         )
 
     def _audit_python(self, path: Path, issues: list[AuditIssue]) -> None:
-        relative = str(path.relative_to(self.root))
+        relative = path.relative_to(self.root).as_posix()
         try:
             tree = ast.parse(path.read_text(encoding="utf-8"), filename=relative)
         except (OSError, UnicodeDecodeError, SyntaxError) as exc:
             issues.append(AuditIssue("PYTHON_SYNTAX", relative, str(exc)))
             return
-
         for node in ast.walk(tree):
-            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "hash":
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id == "hash"
+            ):
                 issues.append(AuditIssue(
-                    "NONDETERMINISTIC_HASH",
-                    relative,
+                    "NONDETERMINISTIC_HASH", relative,
                     "built-in hash() is process-randomized; use stable hashing for persisted/fingerprint logic",
                     severity="warning",
                 ))
 
+    def _ignored(self, path: Path) -> bool:
+        """Respect built-in exclusions and common root/nested .gitignore rules.
+
+        Supports comments, negation, directory-only rules, slash-containing
+        patterns, and * / ? wildcards; this is not the full Git pathspec engine.
+        """
+        try:
+            path = path.resolve()
+            relative = path.relative_to(self.root).as_posix()
+        except ValueError:
+            return True
+        if any(part in self.ALWAYS_IGNORED for part in Path(relative).parts):
+            return True
+
+        ignored = False
+        for base, pattern, negated, directory_only, anchored in self._ignore_rules(path):
+            try:
+                candidate = path.relative_to(base).as_posix()
+            except ValueError:
+                continue
+            if self._matches_rule(pattern, candidate, directory_only, anchored):
+                ignored = not negated
+        return ignored
+
+    def _ignore_rules(self, path: Path):
+        directories = [self.root]
+        parents = []
+        current = path.parent
+        while current != self.root and self.root in current.parents:
+            parents.append(current)
+            current = current.parent
+        directories.extend(reversed(parents))
+        for directory in directories:
+            ignore_file = directory / ".gitignore"
+            if not ignore_file.is_file():
+                continue
+            try:
+                lines = ignore_file.read_text(encoding="utf-8").splitlines()
+            except (OSError, UnicodeDecodeError):
+                continue
+            for raw in lines:
+                line = raw.rstrip()
+                if not line:
+                    continue
+                if line.startswith(r"\#"):
+                    line = line[1:]
+                elif line.startswith("#"):
+                    continue
+                negated = line.startswith("!")
+                if negated:
+                    line = line[1:]
+                if line.startswith(r"\!"):
+                    line = line[1:]
+                    negated = False
+                directory_only = line.endswith("/")
+                anchored = line.startswith("/")
+                line = line.strip("/")
+                if line:
+                    yield directory, line, negated, directory_only, anchored
+
     @staticmethod
-    def _ignored(path: Path) -> bool:
-        return any(part in {".git", ".venv", "venv", "__pycache__"} for part in path.parts)
+    def _matches_rule(
+        pattern: str, candidate: str, directory_only: bool, anchored: bool = False
+    ) -> bool:
+        if anchored:
+            # A leading slash anchors the rule to the directory containing this
+            # .gitignore. Directory rules match ancestor directories; file rules
+            # match the complete path rather than any nested basename.
+            if directory_only:
+                parts = candidate.split("/")
+                return any(
+                    _slash_glob_match(pattern, "/".join(parts[:i]))
+                    for i in range(1, len(parts))
+                )
+            return _slash_glob_match(pattern, candidate)
+
+        parts = candidate.split("/")
+        prefixes = ["/".join(parts[:i]) for i in range(1, len(parts) + 1)]
+        for prefix in prefixes:
+            if directory_only and prefix == candidate:
+                continue  # The scanned target is a file; only ancestor dirs match.
+            if "/" not in pattern:
+                if fnmatch.fnmatchcase(prefix.rsplit("/", 1)[-1], pattern):
+                    return True
+            elif _slash_glob_match(pattern, prefix):
+                return True
+        return False
+
+
+def _slash_glob_match(pattern: str, value: str) -> bool:
+    """Match slash-aware globs where * and ? cannot cross path separators."""
+    pieces = ["^"]
+    index = 0
+    while index < len(pattern):
+        char = pattern[index]
+        if char == "*" and index + 1 < len(pattern) and pattern[index + 1] == "*":
+            pieces.append(".*")
+            index += 2
+            continue
+        if char == "*":
+            pieces.append("[^/]*")
+        elif char == "?":
+            pieces.append("[^/]")
+        elif char == "[":
+            end = pattern.find("]", index + 1)
+            if end != -1:
+                pieces.append(pattern[index:end + 1])
+                index = end
+            else:
+                pieces.append(r"\[")
+        else:
+            pieces.append(re.escape(char))
+        index += 1
+    pieces.append("$")
+    return re.match("".join(pieces), value) is not None
 
 
 def main() -> int:
