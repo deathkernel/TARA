@@ -6,6 +6,7 @@ local language model; this adapter does not train or fine-tune it.
 from __future__ import annotations
 
 import json
+import math
 import os
 from typing import Any, Callable
 from urllib.error import HTTPError, URLError
@@ -31,6 +32,17 @@ def _positive_int_env(name: str, default: int) -> int:
         raise ValueError(f"{name} must be a positive integer") from exc
     if value <= 0:
         raise ValueError(f"{name} must be a positive integer")
+    return value
+
+
+def _nonnegative_int_env(name: str, default: int) -> int:
+    raw = os.getenv(name, str(default)).strip()
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise ValueError(f"{name} must be a non-negative integer") from exc
+    if value < 0:
+        raise ValueError(f"{name} must be a non-negative integer")
     return value
 
 
@@ -70,12 +82,14 @@ class OllamaProvider:
         keep_alive: str | None = None,
         transport: JsonTransport | None = None,
     ) -> None:
-        if not model.strip():
-            raise ValueError("model must not be empty")
-        if not base_url.strip():
-            raise ValueError("base_url must not be empty")
-        if timeout <= 0:
-            raise ValueError("timeout must be positive")
+        if not isinstance(model, str) or not model.strip():
+            raise ValueError("model must be a non-empty string")
+        if not isinstance(base_url, str) or not base_url.strip():
+            raise ValueError("base_url must be a non-empty string")
+        if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or not math.isfinite(timeout) or timeout <= 0:
+            raise ValueError("timeout must be finite and positive")
+        if not isinstance(power_mode, str):
+            raise ValueError("power_mode must be eco, balanced, or performance")
         normalized_mode = power_mode.strip().lower()
         if normalized_mode not in _POWER_PROFILES:
             raise ValueError(f"Unsupported TARA_POWER_MODE {power_mode!r}; use eco, balanced, or performance")
@@ -84,14 +98,17 @@ class OllamaProvider:
         self.base_url = base_url.rstrip("/")
         self.timeout = float(timeout)
         self.power_mode = normalized_mode
-        self.num_ctx = profile["num_ctx"] if num_ctx is None else int(num_ctx)
-        self.num_thread = profile["num_thread"] if num_thread is None else int(num_thread)
-        self.num_batch = profile["num_batch"] if num_batch is None else int(num_batch)
-        self.keep_alive = keep_alive or profile["keep_alive"]
+        for name, value in (("num_ctx", num_ctx), ("num_thread", num_thread), ("num_batch", num_batch)):
+            if value is not None and (isinstance(value, bool) or not isinstance(value, int)):
+                raise ValueError(f"{name} must be an integer")
+        self.num_ctx = profile["num_ctx"] if num_ctx is None else num_ctx
+        self.num_thread = profile["num_thread"] if num_thread is None else num_thread
+        self.num_batch = profile["num_batch"] if num_batch is None else num_batch
+        if keep_alive is not None and (not isinstance(keep_alive, str) or not keep_alive.strip()):
+            raise ValueError("keep_alive must be a non-empty string")
+        self.keep_alive = profile["keep_alive"] if keep_alive is None else keep_alive
         if self.num_ctx <= 0 or self.num_thread < 0 or self.num_batch <= 0:
             raise ValueError("num_ctx and num_batch must be positive; num_thread must be zero (auto) or positive")
-        if not self.keep_alive.strip():
-            raise ValueError("keep_alive must not be empty")
         self._profile_max_tokens = profile["max_tokens"]
         self._transport = transport or _http_json
 
@@ -115,7 +132,10 @@ class OllamaProvider:
             timeout=timeout,
             power_mode=mode,
             num_ctx=_positive_int_env("TARA_OLLAMA_NUM_CTX", profile["num_ctx"]),
-            num_thread=int(os.getenv("TARA_OLLAMA_NUM_THREADS", str(eco_threads if mode == "eco" else profile["num_thread"]))),
+            num_thread=_nonnegative_int_env(
+                "TARA_OLLAMA_NUM_THREADS",
+                eco_threads if mode == "eco" else profile["num_thread"],
+            ),
             num_batch=_positive_int_env("TARA_OLLAMA_NUM_BATCH", profile["num_batch"]),
             keep_alive=os.getenv("TARA_OLLAMA_KEEP_ALIVE", profile["keep_alive"]).strip(),
         )
@@ -138,10 +158,10 @@ class OllamaProvider:
             raise ValueError("prompt must not be empty")
         if max_completion_tokens is None:
             max_completion_tokens = self.default_max_tokens
-        if max_completion_tokens <= 0:
-            raise ValueError("max_completion_tokens must be positive")
-        if not 0.0 <= temperature <= 2.0:
-            raise ValueError("temperature must be between 0 and 2")
+        if isinstance(max_completion_tokens, bool) or not isinstance(max_completion_tokens, int) or max_completion_tokens <= 0:
+            raise ValueError("max_completion_tokens must be a positive integer")
+        if isinstance(temperature, bool) or not isinstance(temperature, (int, float)) or not math.isfinite(temperature) or not 0.0 <= temperature <= 2.0:
+            raise ValueError("temperature must be finite and between 0 and 2")
 
         messages: list[dict[str, str]] = []
         if system and system.strip():
@@ -161,6 +181,8 @@ class OllamaProvider:
             },
         }
         result = self._transport(f"{self.base_url}/api/chat", payload, self.timeout)
+        if not isinstance(result, dict):
+            raise RuntimeError("Ollama returned an invalid response object")
         if result.get("error"):
             raise RuntimeError(f"Ollama error: {result['error']}")
         message = result.get("message")

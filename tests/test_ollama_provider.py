@@ -94,3 +94,104 @@ def test_ollama_provider_loads_environment(monkeypatch):
     assert provider.model == "llama3.2:1b"
     assert provider.base_url == "http://127.0.0.1:11434"
     assert provider.timeout == 30.0
+
+
+
+def test_ollama_provider_rejects_non_finite_timeout():
+    for timeout in (float("inf"), float("nan")):
+        try:
+            OllamaProvider(timeout=timeout)
+        except ValueError as exc:
+            assert "finite and positive" in str(exc)
+        else:
+            raise AssertionError("Expected a non-finite timeout to be rejected")
+
+
+def test_ollama_provider_rejects_non_finite_temperature():
+    provider = OllamaProvider(transport=lambda *_: {"message": {"content": "ok"}})
+    try:
+        provider.complete("Hello", temperature=float("nan"))
+    except ValueError as exc:
+        assert "finite" in str(exc)
+    else:
+        raise AssertionError("Expected a non-finite temperature to be rejected")
+
+
+def test_ollama_provider_rejects_invalid_thread_environment(monkeypatch):
+    monkeypatch.setenv("TARA_OLLAMA_NUM_THREADS", "-1")
+    try:
+        OllamaProvider.from_env()
+    except ValueError as exc:
+        assert "TARA_OLLAMA_NUM_THREADS" in str(exc)
+    else:
+        raise AssertionError("Expected a negative thread count to be rejected")
+
+
+def test_ollama_provider_rejects_non_object_transport_response():
+    provider = OllamaProvider(transport=lambda *_: ["not", "an", "object"])
+    try:
+        provider.complete("Hello")
+    except RuntimeError as exc:
+        assert "invalid response object" in str(exc)
+    else:
+        raise AssertionError("Expected a malformed transport response to be rejected")
+
+
+
+def test_ollama_provider_rejects_wrong_input_types():
+    for kwargs in ({"model": None}, {"base_url": None}, {"timeout": "fast"}):
+        try:
+            OllamaProvider(**kwargs)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f"Expected invalid constructor args to be rejected: {kwargs}")
+
+
+def test_ollama_provider_rejects_invalid_generation_argument_types():
+    provider = OllamaProvider(transport=lambda *_: {"message": {"content": "ok"}})
+    for kwargs in ({"temperature": "warm"}, {"max_completion_tokens": 2.5}, {"max_completion_tokens": True}):
+        try:
+            provider.complete("Hello", **kwargs)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f"Expected invalid generation args to be rejected: {kwargs}")
+
+
+def test_ollama_provider_rejects_invalid_timeout_from_environment(monkeypatch):
+    monkeypatch.setenv("TARA_LLM_TIMEOUT_SECONDS", "nan")
+    try:
+        OllamaProvider.from_env()
+    except ValueError as exc:
+        assert "finite and positive" in str(exc)
+    else:
+        raise AssertionError("Expected a non-finite environment timeout to be rejected")
+
+
+
+def test_ollama_provider_rejects_non_integer_resource_overrides():
+    for kwargs in (
+        {"num_ctx": 2.5},
+        {"num_ctx": True},
+        {"num_thread": "4"},
+        {"num_thread": False},
+        {"num_batch": 128.5},
+        {"num_batch": True},
+    ):
+        try:
+            OllamaProvider(**kwargs)
+        except ValueError as exc:
+            assert "integer" in str(exc)
+        else:
+            raise AssertionError(f"Expected invalid resource override to be rejected: {kwargs}")
+
+
+def test_ollama_provider_rejects_invalid_keep_alive_type_or_empty_value():
+    for value in (123, "", "   "):
+        try:
+            OllamaProvider(keep_alive=value)
+        except ValueError as exc:
+            assert "keep_alive" in str(exc)
+        else:
+            raise AssertionError(f"Expected invalid keep_alive to be rejected: {value!r}")
