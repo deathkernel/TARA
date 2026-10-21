@@ -187,8 +187,15 @@ class RepositoryAuditor:
     ) -> bool:
         if anchored:
             # A leading slash anchors the rule to the directory containing this
-            # .gitignore; it must match the full path relative to that directory.
-            return not directory_only and _slash_glob_match(pattern, candidate)
+            # .gitignore. Directory rules match ancestor directories; file rules
+            # match the complete path rather than any nested basename.
+            if directory_only:
+                parts = candidate.split("/")
+                return any(
+                    _slash_glob_match(pattern, "/".join(parts[:i]))
+                    for i in range(1, len(parts))
+                )
+            return _slash_glob_match(pattern, candidate)
 
         parts = candidate.split("/")
         prefixes = ["/".join(parts[:i]) for i in range(1, len(parts) + 1)]
