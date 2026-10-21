@@ -185,12 +185,17 @@ class RepositoryAuditor:
     def _matches_rule(
         pattern: str, candidate: str, directory_only: bool, anchored: bool = False
     ) -> bool:
+        if anchored:
+            # A leading slash anchors the rule to the directory containing this
+            # .gitignore; it must match the full path relative to that directory.
+            return not directory_only and _slash_glob_match(pattern, candidate)
+
         parts = candidate.split("/")
         prefixes = ["/".join(parts[:i]) for i in range(1, len(parts) + 1)]
         for prefix in prefixes:
             if directory_only and prefix == candidate:
                 continue  # The scanned target is a file; only ancestor dirs match.
-            if "/" not in pattern and not anchored:
+            if "/" not in pattern:
                 if fnmatch.fnmatchcase(prefix.rsplit("/", 1)[-1], pattern):
                     return True
             elif _slash_glob_match(pattern, prefix):
