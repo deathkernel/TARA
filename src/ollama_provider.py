@@ -98,14 +98,17 @@ class OllamaProvider:
         self.base_url = base_url.rstrip("/")
         self.timeout = float(timeout)
         self.power_mode = normalized_mode
-        self.num_ctx = profile["num_ctx"] if num_ctx is None else int(num_ctx)
-        self.num_thread = profile["num_thread"] if num_thread is None else int(num_thread)
-        self.num_batch = profile["num_batch"] if num_batch is None else int(num_batch)
-        self.keep_alive = keep_alive or profile["keep_alive"]
+        for name, value in (("num_ctx", num_ctx), ("num_thread", num_thread), ("num_batch", num_batch)):
+            if value is not None and (isinstance(value, bool) or not isinstance(value, int)):
+                raise ValueError(f"{name} must be an integer")
+        self.num_ctx = profile["num_ctx"] if num_ctx is None else num_ctx
+        self.num_thread = profile["num_thread"] if num_thread is None else num_thread
+        self.num_batch = profile["num_batch"] if num_batch is None else num_batch
+        if keep_alive is not None and (not isinstance(keep_alive, str) or not keep_alive.strip()):
+            raise ValueError("keep_alive must be a non-empty string")
+        self.keep_alive = profile["keep_alive"] if keep_alive is None else keep_alive
         if self.num_ctx <= 0 or self.num_thread < 0 or self.num_batch <= 0:
             raise ValueError("num_ctx and num_batch must be positive; num_thread must be zero (auto) or positive")
-        if not self.keep_alive.strip():
-            raise ValueError("keep_alive must not be empty")
         self._profile_max_tokens = profile["max_tokens"]
         self._transport = transport or _http_json
 
