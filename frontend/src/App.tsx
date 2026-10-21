@@ -308,7 +308,7 @@ function App() {
       <main className="main">
         <header className="topbar">
           <div className="topbar-left"><button className="icon-btn mobile-menu" aria-label="Open navigation" aria-controls="app-sidebar" aria-expanded={sidebarOpen} onClick={() => setSidebarOpen(true)}><Menu size={19} /></button><div className="breadcrumb"><strong>{messages.length ? "TARA chat" : "TARA"}</strong></div></div>
-          <div className="topbar-right"><div className="model-pill" role="status" aria-live="polite"><span className={`status-dot ${backendStatus}`} />{backendStatus === "ready" ? "Backend ready" : backendStatus === "needs-config" ? "Groq key needed" : backendStatus === "checking" ? "Checking status" : "Not connected"}<ChevronDown size={14} /></div><button className="icon-btn" aria-label={lightMode ? "Switch to dark theme" : "Switch to light theme"} onClick={() => setLightMode(v => !v)}>{lightMode ? <Moon size={17} /> : <Sun size={17} />}</button></div>
+          <div className="topbar-right"><div className="model-pill" role="status" aria-live="polite"><span className={`status-dot ${backendStatus}`} />{backendStatus === "ready" ? "Backend ready" : backendStatus === "needs-config" ? "Ollama model missing" : backendStatus === "checking" ? "Checking status" : "Not connected"}<ChevronDown size={14} /></div><button className="icon-btn" aria-label={lightMode ? "Switch to dark theme" : "Switch to light theme"} onClick={() => setLightMode(v => !v)}>{lightMode ? <Moon size={17} /> : <Sun size={17} />}</button></div>
         </header>
         <section className={messages.length ? "conversation has-messages" : "conversation empty"}>
           {messages.length === 0 ? (

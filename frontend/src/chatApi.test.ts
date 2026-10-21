@@ -111,23 +111,16 @@ describe("isHealthCheckCurrent", () => {
 });
 
 describe("healthStatusFromPayload", () => {
-  it("reports ready only when the provider is configured", () => {
-    expect(healthStatusFromPayload({ status: "ok", provider_configured: true })).toBe("ready");
+  it("reports ready when the local Ollama model is installed", () => {
+    expect(healthStatusFromPayload({ ok: true, ollama: "connected", model_installed: true })).toBe("ready");
   });
-
-  it("distinguishes a reachable API with a missing provider key", () => {
-    expect(healthStatusFromPayload({ status: "ok", provider_configured: false })).toBe("needs-config");
+  it("reports a missing model without claiming a missing API key", () => {
+    expect(healthStatusFromPayload({ ok: false, ollama: "connected", model_installed: false })).toBe("needs-config");
   });
-
-  it.each([
-    null,
-    [],
-    {},
-    { status: "offline", provider_configured: true },
-    { status: "ok" },
-    { status: "ok", provider_configured: "true" },
-    { status: "ok", provider_configured: null },
-  ])("rejects malformed health payloads: %j", (payload) => {
-    expect(healthStatusFromPayload(payload)).toBeNull();
+  it("reports Ollama as offline", () => {
+    expect(healthStatusFromPayload({ ok: false, ollama: "disconnected", model_installed: false })).toBe("offline");
   });
+  it.each([null, [], {}, { ok: true }, { ok: "true", ollama: "connected", model_installed: true }])(
+    "rejects malformed health payloads: %j", payload => expect(healthStatusFromPayload(payload)).toBeNull(),
+  );
 });
