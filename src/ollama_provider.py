@@ -6,6 +6,7 @@ local language model; this adapter does not train or fine-tune it.
 from __future__ import annotations
 
 import json
+import math
 import os
 from typing import Any, Callable
 from urllib.error import HTTPError, URLError
@@ -31,6 +32,17 @@ def _positive_int_env(name: str, default: int) -> int:
         raise ValueError(f"{name} must be a positive integer") from exc
     if value <= 0:
         raise ValueError(f"{name} must be a positive integer")
+    return value
+
+
+def _nonnegative_int_env(name: str, default: int) -> int:
+    raw = os.getenv(name, str(default)).strip()
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise ValueError(f"{name} must be a non-negative integer") from exc
+    if value < 0:
+        raise ValueError(f"{name} must be a non-negative integer")
     return value
 
 
@@ -74,8 +86,8 @@ class OllamaProvider:
             raise ValueError("model must not be empty")
         if not base_url.strip():
             raise ValueError("base_url must not be empty")
-        if timeout <= 0:
-            raise ValueError("timeout must be positive")
+        if not math.isfinite(timeout) or timeout <= 0:
+            raise ValueError("timeout must be finite and positive")
         normalized_mode = power_mode.strip().lower()
         if normalized_mode not in _POWER_PROFILES:
             raise ValueError(f"Unsupported TARA_POWER_MODE {power_mode!r}; use eco, balanced, or performance")
@@ -115,7 +127,10 @@ class OllamaProvider:
             timeout=timeout,
             power_mode=mode,
             num_ctx=_positive_int_env("TARA_OLLAMA_NUM_CTX", profile["num_ctx"]),
-            num_thread=int(os.getenv("TARA_OLLAMA_NUM_THREADS", str(eco_threads if mode == "eco" else profile["num_thread"]))),
+            num_thread=_nonnegative_int_env(
+                "TARA_OLLAMA_NUM_THREADS",
+                eco_threads if mode == "eco" else profile["num_thread"],
+            ),
             num_batch=_positive_int_env("TARA_OLLAMA_NUM_BATCH", profile["num_batch"]),
             keep_alive=os.getenv("TARA_OLLAMA_KEEP_ALIVE", profile["keep_alive"]).strip(),
         )
@@ -140,8 +155,8 @@ class OllamaProvider:
             max_completion_tokens = self.default_max_tokens
         if max_completion_tokens <= 0:
             raise ValueError("max_completion_tokens must be positive")
-        if not 0.0 <= temperature <= 2.0:
-            raise ValueError("temperature must be between 0 and 2")
+        if not math.isfinite(temperature) or not 0.0 <= temperature <= 2.0:
+            raise ValueError("temperature must be finite and between 0 and 2")
 
         messages: list[dict[str, str]] = []
         if system and system.strip():
@@ -161,6 +176,8 @@ class OllamaProvider:
             },
         }
         result = self._transport(f"{self.base_url}/api/chat", payload, self.timeout)
+        if not isinstance(result, dict):
+            raise RuntimeError("Ollama returned an invalid response object")
         if result.get("error"):
             raise RuntimeError(f"Ollama error: {result['error']}")
         message = result.get("message")
