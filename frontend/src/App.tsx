@@ -2,6 +2,7 @@ import { FormEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from "
 import { Activity, ArrowDown, ArrowUp, Check, Cpu, Menu, MessageCircle, Plus, Search, Settings2, ShieldCheck, Sparkles, Trash2, X, Zap } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { buildApiMessages } from "./chatContext";
 
 type Role = "user" | "assistant";
 type Message = { id: string; role: Role; content: string; createdAt: number };
@@ -31,7 +32,7 @@ export default function App() {
   const active = chats.find((chat) => chat.id === activeId);
   const messages = active?.messages ?? [];
   const visibleChats = useMemo(() => chats.filter((chat) => chat.title.toLowerCase().includes(search.toLowerCase().trim())), [chats, search]);
-  const connected = health.status === "online" || health.status === "ok" || health.ok === true;
+  const connected = health.status === "online" || health.status === "ok" || (health.ok === true && health.status !== "degraded");
   const model = health.model || "llama3.2:3b";
 
   useEffect(() => { localStorage.setItem(KEY, JSON.stringify(chats)); }, [chats]);
@@ -46,6 +47,16 @@ export default function App() {
   }, []);
   useEffect(() => { bottom.current?.scrollIntoView({ behavior: "smooth", block: "end" }); }, [messages.length, sending]);
   useEffect(() => { if (!toast) return; const timer = window.setTimeout(() => setToast(""), 2500); return () => window.clearTimeout(timer); }, [toast]);
+  useEffect(() => {
+    const onGlobalKeyDown = (event: globalThis.KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k" && !event.altKey) {
+        event.preventDefault();
+        newChat();
+      }
+    };
+    window.addEventListener("keydown", onGlobalKeyDown);
+    return () => window.removeEventListener("keydown", onGlobalKeyDown);
+  }, []);
 
   function updateChat(chatId: string, change: (chat: Conversation) => Conversation) {
     setChats((current) => current.map((chat) => chat.id === chatId ? change(chat) : chat));
@@ -64,12 +75,12 @@ export default function App() {
     let chat = chats.find((item) => item.id === activeId);
     if (!chat) { chat = freshChat(); setActiveId(chat.id); setChats((current) => [chat!, ...current]); }
     const chatId = chat.id;
-    const history = chat.messages.slice(-16).map(({ role, content: text }) => ({ role, content: text }));
+
     const userMessage: Message = { id: id(), role: "user", content, createdAt: Date.now() };
     updateChat(chatId, (item) => ({ ...item, title: item.messages.length ? item.title : titleFor(content), updatedAt: Date.now(), messages: [...item.messages, userMessage] }));
     setDraft(""); setSending(true); setSidebarOpen(false);
     try {
-      const response = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: [...history, { role: "user", content }] }) });
+      const response = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: buildApiMessages(chat.messages.map(({ role, content: text }) => ({ role, content: text })), content) }) });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(typeof data.error === "string" ? data.error : typeof data.detail === "string" ? data.detail : "Request failed (" + response.status + ")");
       const reply: Message = { id: id(), role: "assistant", content: String(data.reply ?? "TARA returned an empty response."), createdAt: Date.now() };
