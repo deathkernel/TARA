@@ -71,7 +71,7 @@ class LearningBridge:
             confidence=float(benchmark.correctness),
             verification="verified" if verified else "rejected",
             provenance={"source": "polyglot_benchmark"},
-            attributes={"language": getattr(candidate, "language", "unknown")},
+            attributes={"language": candidate_payload.get("language", getattr(candidate, "language", "unknown"))},
         )
         self.memory.link(problem_id, "verified_solution" if verified else "failed_attempt", item_id)
         return item_id
