@@ -66,3 +66,25 @@ def test_scan_reports_syntax_error_only_once(tmp_path):
     ]
     assert len(findings) == 1
     assert findings[0].line == 1
+
+
+def test_doctor_test_runner_timeout_preserves_readable_partial_output(tmp_path, monkeypatch):
+    import subprocess
+    from src.self_test import run_test_suite
+
+    def timeout_run(*args, **kwargs):
+        raise subprocess.TimeoutExpired(
+            cmd=args[0],
+            timeout=kwargs["timeout"],
+            output=b"2 passed\\n",
+            stderr=b"warning: partial output\\n",
+        )
+
+    monkeypatch.setattr(subprocess, "run", timeout_run)
+    result = run_test_suite(tmp_path, timeout=5)
+
+    assert result.returncode == 124
+    assert result.stdout == "2 passed\\n"
+    assert "warning: partial output" in result.stderr
+    assert "pytest timed out" in result.stderr
+    assert "b'2 passed" not in result.stdout
