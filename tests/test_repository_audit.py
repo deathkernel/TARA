@@ -89,10 +89,18 @@ def test_auditor_respects_nested_gitignore_and_builtin_exclusions(tmp_path):
 def test_root_anchored_gitignore_patterns_do_not_match_nested_paths(tmp_path):
     _seed_required_files(tmp_path)
     (tmp_path / ".gitignore").write_text(
-        "/ignored.py\n/src/only.py\n", encoding="utf-8"
+        "/ignored.py\n/src/only.py\n/root-generated/\n", encoding="utf-8"
     )
     (tmp_path / "ignored.py").write_text("invalid python (: \n", encoding="utf-8")
+    (tmp_path / "root-generated").mkdir()
+    (tmp_path / "root-generated" / "invalid.py").write_text(
+        "invalid python (: \n", encoding="utf-8"
+    )
     (tmp_path / "nested").mkdir()
+    (tmp_path / "nested" / "root-generated").mkdir()
+    (tmp_path / "nested" / "root-generated" / "invalid.py").write_text(
+        "invalid python (: \n", encoding="utf-8"
+    )
     (tmp_path / "nested" / "ignored.py").write_text(
         "invalid python (: \n", encoding="utf-8"
     )
@@ -110,5 +118,7 @@ def test_root_anchored_gitignore_patterns_do_not_match_nested_paths(tmp_path):
     }
     assert "ignored.py" not in syntax_paths
     assert "src/only.py" not in syntax_paths
+    assert "root-generated/invalid.py" not in syntax_paths
+    assert "nested/root-generated/invalid.py" in syntax_paths
     assert "nested/ignored.py" in syntax_paths
     assert "nested/src/only.py" in syntax_paths
