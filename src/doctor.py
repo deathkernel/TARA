@@ -54,6 +54,10 @@ def scan_repository(root="."):
     findings = []
     audit = RepositoryAuditor(base).audit()
     for issue in audit.issues:
+        # The detailed Python scan below reports syntax errors with a line number
+        # and repair hint. Avoid emitting the auditor's less-detailed duplicate.
+        if issue.code == "PYTHON_SYNTAX":
+            continue
         severity = "WARNING" if issue.severity.lower() == "warning" else "ERROR"
         suggestion = ("Use a stable digest where values must persist." if issue.code == "NONDETERMINISTIC_HASH"
             else "Keep one canonical full-suite pytest workflow." if issue.code == "DUPLICATE_PYTEST_WORKFLOWS"
