@@ -60,8 +60,8 @@ class OllamaProvider:
     def __init__(
         self,
         *,
-        model: str = "llama3.2:3b",
-        base_url: str = "http://127.0.0.1:11434",
+        model: str | None = None,
+        base_url: str | None = None,
         timeout: float = 120.0,
         power_mode: str = "eco",
         num_ctx: int | None = None,
@@ -70,9 +70,15 @@ class OllamaProvider:
         keep_alive: str | None = None,
         transport: JsonTransport | None = None,
     ) -> None:
-        if not model.strip():
+        # CLI callers may explicitly pass None when no --model/--ollama-host was given.
+        # Resolve those values from local configuration before validating them.
+        if model is None:
+            model = os.getenv("TARA_LLAMA_MODEL") or os.getenv("OLLAMA_MODEL") or "llama3.2:3b"
+        if base_url is None:
+            base_url = os.getenv("OLLAMA_HOST") or "http://127.0.0.1:11434"
+        if not isinstance(model, str) or not model.strip():
             raise ValueError("model must not be empty")
-        if not base_url.strip():
+        if not isinstance(base_url, str) or not base_url.strip():
             raise ValueError("base_url must not be empty")
         if timeout <= 0:
             raise ValueError("timeout must be positive")
