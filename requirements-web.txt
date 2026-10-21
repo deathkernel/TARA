@@ -1,0 +1,2 @@
+# Optional dependencies are only needed for the React development workflow.
+# Production serving uses Python's standard-library HTTP server.
