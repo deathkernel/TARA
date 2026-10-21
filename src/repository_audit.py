@@ -136,12 +136,12 @@ class RepositoryAuditor:
             return True
 
         ignored = False
-        for base, pattern, negated, directory_only in self._ignore_rules(path):
+        for base, pattern, negated, directory_only, anchored in self._ignore_rules(path):
             try:
                 candidate = path.relative_to(base).as_posix()
             except ValueError:
                 continue
-            if self._matches_rule(pattern, candidate, directory_only):
+            if self._matches_rule(pattern, candidate, directory_only, anchored):
                 ignored = not negated
         return ignored
 
@@ -176,18 +176,23 @@ class RepositoryAuditor:
                     line = line[1:]
                     negated = False
                 directory_only = line.endswith("/")
+                anchored = line.startswith("/")
                 line = line.strip("/")
                 if line:
-                    yield directory, line, negated, directory_only
+                    yield directory, line, negated, directory_only, anchored
 
     @staticmethod
-    def _matches_rule(pattern: str, candidate: str, directory_only: bool) -> bool:
+    def _matches_rule(
+        pattern: str, candidate: str, directory_only: bool, anchored: bool = False
+    ) -> bool:
         parts = candidate.split("/")
         prefixes = ["/".join(parts[:i]) for i in range(1, len(parts) + 1)]
+        if anchored or "/" in pattern:
+            prefixes = prefixes[:1] if anchored else prefixes
         for prefix in prefixes:
             if directory_only and prefix == candidate:
                 continue  # The scanned target is a file; only ancestor dirs match.
-            if "/" not in pattern:
+            if "/" not in pattern and not anchored:
                 if fnmatch.fnmatchcase(prefix.rsplit("/", 1)[-1], pattern):
                     return True
             elif _slash_glob_match(pattern, prefix):
