@@ -82,12 +82,14 @@ class OllamaProvider:
         keep_alive: str | None = None,
         transport: JsonTransport | None = None,
     ) -> None:
-        if not model.strip():
-            raise ValueError("model must not be empty")
-        if not base_url.strip():
-            raise ValueError("base_url must not be empty")
-        if not math.isfinite(timeout) or timeout <= 0:
+        if not isinstance(model, str) or not model.strip():
+            raise ValueError("model must be a non-empty string")
+        if not isinstance(base_url, str) or not base_url.strip():
+            raise ValueError("base_url must be a non-empty string")
+        if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or not math.isfinite(timeout) or timeout <= 0:
             raise ValueError("timeout must be finite and positive")
+        if not isinstance(power_mode, str):
+            raise ValueError("power_mode must be eco, balanced, or performance")
         normalized_mode = power_mode.strip().lower()
         if normalized_mode not in _POWER_PROFILES:
             raise ValueError(f"Unsupported TARA_POWER_MODE {power_mode!r}; use eco, balanced, or performance")
@@ -153,9 +155,9 @@ class OllamaProvider:
             raise ValueError("prompt must not be empty")
         if max_completion_tokens is None:
             max_completion_tokens = self.default_max_tokens
-        if max_completion_tokens <= 0:
-            raise ValueError("max_completion_tokens must be positive")
-        if not math.isfinite(temperature) or not 0.0 <= temperature <= 2.0:
+        if isinstance(max_completion_tokens, bool) or not isinstance(max_completion_tokens, int) or max_completion_tokens <= 0:
+            raise ValueError("max_completion_tokens must be a positive integer")
+        if isinstance(temperature, bool) or not isinstance(temperature, (int, float)) or not math.isfinite(temperature) or not 0.0 <= temperature <= 2.0:
             raise ValueError("temperature must be finite and between 0 and 2")
 
         messages: list[dict[str, str]] = []
