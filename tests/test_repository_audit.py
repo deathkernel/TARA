@@ -83,3 +83,32 @@ def test_auditor_respects_nested_gitignore_and_builtin_exclusions(tmp_path):
     }
     assert "src/generated/invalid.py" not in syntax_paths
     assert ".venv/invalid.py" not in syntax_paths
+
+
+
+def test_root_anchored_gitignore_patterns_do_not_match_nested_paths(tmp_path):
+    _seed_required_files(tmp_path)
+    (tmp_path / ".gitignore").write_text(
+        "/ignored.py\n/src/only.py\n", encoding="utf-8"
+    )
+    (tmp_path / "ignored.py").write_text("invalid python (: \n", encoding="utf-8")
+    (tmp_path / "nested").mkdir()
+    (tmp_path / "nested" / "ignored.py").write_text(
+        "invalid python (: \n", encoding="utf-8"
+    )
+    (tmp_path / "src" / "only.py").write_text(
+        "invalid python (: \n", encoding="utf-8"
+    )
+    (tmp_path / "nested" / "src").mkdir()
+    (tmp_path / "nested" / "src" / "only.py").write_text(
+        "invalid python (: \n", encoding="utf-8"
+    )
+
+    report = RepositoryAuditor(tmp_path).audit()
+    syntax_paths = {
+        issue.path for issue in report.issues if issue.code == "PYTHON_SYNTAX"
+    }
+    assert "ignored.py" not in syntax_paths
+    assert "src/only.py" not in syntax_paths
+    assert "nested/ignored.py" in syntax_paths
+    assert "nested/src/only.py" in syntax_paths
