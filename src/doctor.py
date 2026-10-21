@@ -67,7 +67,15 @@ def scan_repository(root="."):
             continue
         try:
             tree = ast.parse(source, filename=rel)
-        except SyntaxError:
+        except SyntaxError as exc:
+            findings.append(DoctorFinding(
+                "ERROR",
+                "PYTHON_SYNTAX",
+                rel,
+                exc.lineno or 0,
+                exc.msg,
+                "Fix the reported Python syntax error, then rerun Doctor.",
+            ))
             continue
         for node in ast.walk(tree):
             if isinstance(node, ast.ExceptHandler) and isinstance(node.type, ast.Name) and node.type.id == "Exception" and len(node.body) == 1 and isinstance(node.body[0], ast.Pass):
