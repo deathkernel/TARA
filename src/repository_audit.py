@@ -187,8 +187,6 @@ class RepositoryAuditor:
     ) -> bool:
         parts = candidate.split("/")
         prefixes = ["/".join(parts[:i]) for i in range(1, len(parts) + 1)]
-        if anchored or "/" in pattern:
-            prefixes = prefixes[:1] if anchored else prefixes
         for prefix in prefixes:
             if directory_only and prefix == candidate:
                 continue  # The scanned target is a file; only ancestor dirs match.
