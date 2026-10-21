@@ -4,6 +4,7 @@ import argparse, ast, re, sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
+from .capability_registry import capabilities_as_json, inspect_capabilities
 from .repository_audit import RepositoryAuditor
 from .self_test import run_test_suite, summarize_pytest_output
 
@@ -26,6 +27,7 @@ class DoctorReport:
 
 COMMAND_CATALOG = {
     "check": "Static repository diagnostics; project code is not executed.",
+    "capabilities": "Report source-file presence without importing code or claiming runtime readiness.",
     "tests": "Run the fixed pytest suite with a timeout and captured output.",
     "commands list": "List Doctor command groups.",
     "commands suggest": "Suggest diagnostics from a problem description.",
@@ -67,7 +69,15 @@ def scan_repository(root="."):
             continue
         try:
             tree = ast.parse(source, filename=rel)
-        except SyntaxError:
+        except SyntaxError as exc:
+            findings.append(DoctorFinding(
+                "ERROR",
+                "PYTHON_SYNTAX",
+                rel,
+                exc.lineno or 0,
+                exc.msg,
+                "Fix the reported Python syntax error, then rerun Doctor.",
+            ))
             continue
         for node in ast.walk(tree):
             if isinstance(node, ast.ExceptHandler) and isinstance(node.type, ast.Name) and node.type.id == "Exception" and len(node.body) == 1 and isinstance(node.body[0], ast.Pass):
@@ -127,6 +137,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(prog="tara doctor")
     sub = parser.add_subparsers(dest="action", required=True)
     check = sub.add_parser("check"); check.add_argument("root", nargs="?", default=str(Path(__file__).resolve().parents[1]))
+    capabilities = sub.add_parser("capabilities"); capabilities.add_argument("root", nargs="?", default=str(Path(__file__).resolve().parents[1])); capabilities.add_argument("--json", action="store_true", help="emit machine-readable JSON")
     tests = sub.add_parser("tests"); tests.add_argument("root", nargs="?", default=str(Path(__file__).resolve().parents[1])); tests.add_argument("--timeout", type=int, default=300)
     commands = sub.add_parser("commands"); cs = commands.add_subparsers(dest="command_action", required=True)
     cs.add_parser("list")
@@ -135,6 +146,20 @@ def main(argv=None):
     args = parser.parse_args(argv)
     if args.action == "check":
         return _print_report(scan_repository(args.root))
+    if args.action == "capabilities":
+        inventory = inspect_capabilities(args.root)
+        if args.json:
+            print(capabilities_as_json(inventory))
+        else:
+            print("TARA source capability inventory (source presence only; runtime activation is not verified)")
+            for item in inventory:
+                print(f"{item.status:16} {item.name} [{item.area}]")
+                if item.present_files:
+                    print("  present: " + ", ".join(item.present_files))
+                if item.missing_files:
+                    print("  missing: " + ", ".join(item.missing_files))
+                print("  " + item.description)
+        return 0
     if args.action == "tests":
         result = run_test_suite(args.root, timeout=args.timeout)
         print("Command:", " ".join(result.command))

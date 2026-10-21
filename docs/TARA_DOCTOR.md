@@ -7,6 +7,8 @@ TARA Doctor provides bounded diagnostics and a controlled way to propose new dia
 Run from the repository root:
 
     python -m src.doctor check
+    python -m src.doctor capabilities
+    python -m src.doctor capabilities --json
     python -m src.doctor tests --timeout 300
     python -m src.doctor commands list
     python -m src.doctor commands suggest "pytest failing after recent change"
@@ -21,6 +23,8 @@ Run from the repository root:
 - The fixed pytest suite, with timeout and captured output.
 
 A clean report means only that the implemented checks found no issue; it does not prove the repository is bug-free.
+
+`capabilities` lists known components based on source-file presence. `source_present`, `partial_source`, and `not_detected` are repository inventory labels—not proof that a feature is configured, enabled, integrated, or production-ready. The command does not import project modules, load models, or contact services. Use `--json` for scripts and dashboards.
 
 ## Teaching TARA to create commands
 

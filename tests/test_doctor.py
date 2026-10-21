@@ -1,5 +1,5 @@
 import pytest
-from src.doctor import scan_repository, scaffold_command, suggest_commands
+from src.doctor import main, scan_repository, scaffold_command, suggest_commands
 
 def test_scan_finds_silent_exception_and_marker(tmp_path):
     (tmp_path / "src").mkdir()
@@ -8,10 +8,26 @@ def test_scan_finds_silent_exception_and_marker(tmp_path):
     assert "SILENT_BROAD_EXCEPTION" in codes
     assert "REVIEW_MARKER" in codes
 
-def test_scan_reports_syntax_error(tmp_path):
+def test_scan_reports_syntax_error_with_location_and_repair_hint(tmp_path):
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "broken.py").write_text("def broken(:\n", encoding="utf-8")
-    assert any(f.code == "PYTHON_SYNTAX" and f.path == "src/broken.py" for f in scan_repository(tmp_path).findings)
+
+    finding = next(
+        f for f in scan_repository(tmp_path).findings
+        if f.code == "PYTHON_SYNTAX" and f.path == "src/broken.py"
+    )
+
+    assert finding.severity == "ERROR"
+    assert finding.line == 1
+    assert finding.message
+    assert "syntax error" in finding.suggestion.lower()
+
+
+def test_capabilities_command_supports_json_output(tmp_path, capsys):
+    assert main(["capabilities", str(tmp_path), "--json"]) == 0
+    output = capsys.readouterr().out
+    assert '"name": "core_reasoning"' in output
+    assert '"status": "not_detected"' in output
 
 def test_scan_rejects_missing_root(tmp_path):
     with pytest.raises(FileNotFoundError): scan_repository(tmp_path / "missing")
