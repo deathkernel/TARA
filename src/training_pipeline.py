@@ -300,8 +300,8 @@ class TrainingPipeline:
         tracker = ExperimentTracker(tracker_path)
         # Keep the best validation checkpoint separate from periodic/final saves.
         best_checkpoint_path = output_path.with_name(output_path.name + ".best")
-        best_checkpoint_path.unlink(missing_ok=True)
         if resume is None:
+            best_checkpoint_path.unlink(missing_ok=True)
             model, tokenizer, optimizer, train_tokens, validation_tokens = self._new_state(texts)
             start_step = 0
             early_stopping = EarlyStopping(self.config.early_stopping_patience, self.config.early_stopping_min_delta)
@@ -313,8 +313,11 @@ class TrainingPipeline:
             early_stopping.bad_steps = int(state.get("bad_steps", 0))
             if validation_tokens is not None:
                 # A resumed checkpoint is the incumbent best until validation disproves it.
-                import shutil
-                shutil.copy2(Path(resume), best_checkpoint_path)
+                # Preserve the source when resuming directly from the .best path.
+                resume_path = Path(resume)
+                if resume_path.resolve() != best_checkpoint_path.resolve():
+                    import shutil
+                    shutil.copy2(resume_path, best_checkpoint_path)
         total_steps = start_step + self.config.steps
         scheduler = WarmupCosineScheduler(total_steps=max(1, total_steps), warmup_steps=min(self.config.warmup_steps, max(1, total_steps)), min_lr_ratio=self.config.min_lr_ratio)
         if resume is None:
