@@ -32,8 +32,12 @@ class WarmupCosineScheduler:
     def __init__(self, total_steps: int, warmup_steps: int = 0, min_lr_ratio: float = 0.1):
         if total_steps <= 0:
             raise ValueError("total_steps must be positive")
+        if warmup_steps < 0:
+            raise ValueError("warmup_steps must be non-negative")
+        if not 0.0 < min_lr_ratio <= 1.0:
+            raise ValueError("min_lr_ratio must be in (0, 1]")
         self.total_steps = total_steps
-        self.warmup_steps = warmup_steps
+        self.warmup_steps = min(warmup_steps, total_steps)
         self.min_lr_ratio = min_lr_ratio
 
     def multiplier(self, step: int) -> float:
@@ -58,6 +62,8 @@ class EarlyStopDecision:
 class EarlyStopping:
     """Validation-loss early stopping with explicit minimum improvement."""
     def __init__(self, patience: int = 5, min_delta: float = 0.0):
+        if patience < 0 or min_delta < 0:
+            raise ValueError("patience and min_delta must be non-negative")
         self.patience = patience
         self.min_delta = min_delta
         self.best: float | None = None
