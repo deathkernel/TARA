@@ -194,7 +194,8 @@ def test_atomic_torch_save_failure_preserves_existing_checkpoint(tmp_path, monke
     destination.write_bytes(known_good)
 
     def fail_save(payload, path):
-        Path(path).write_bytes(b"partial-checkpoint")
+        with open(path, "wb") as handle:
+            handle.write(b"partial-checkpoint")
         raise OSError("simulated checkpoint write failure")
 
     monkeypatch.setattr(training_pipeline_module.torch, "save", fail_save)
