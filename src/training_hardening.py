@@ -106,9 +106,12 @@ class ExperimentTracker:
         self.path = Path(path)
 
     def log(self, metric: TrainingMetric) -> None:
+        existing = self.metrics()
+        if existing and metric.step <= existing[-1].step:
+            raise ValueError("metrics steps must be strictly increasing")
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with self.path.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(asdict(metric), sort_keys=True) + "\n")
+            handle.write(json.dumps(asdict(metric), sort_keys=True, allow_nan=False) + "\n")
 
     def metrics(self) -> list[TrainingMetric]:
         if not self.path.exists():
@@ -118,11 +121,12 @@ class ExperimentTracker:
             if not line.strip():
                 continue
             try:
-                metric = TrainingMetric(**json.loads(line))
-            except (json.JSONDecodeError, TypeError) as exc:
-                raise ValueError(f"invalid metrics JSONL record at line {line_number}") from exc
-            if metric.step <= 0:
-                raise ValueError(f"metrics step must be positive at line {line_number}")
+                record = json.loads(line)
+                if not isinstance(record, dict):
+                    raise TypeError("metrics record must be an object")
+                metric = TrainingMetric(**record)
+            except (json.JSONDecodeError, TypeError, KeyError, ValueError) as exc:
+                raise ValueError(f"invalid metrics JSONL record at line {line_number}: {exc}") from exc
             if result and metric.step <= result[-1].step:
                 raise ValueError(f"metrics steps must be strictly increasing at line {line_number}")
             result.append(metric)
