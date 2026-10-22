@@ -752,3 +752,25 @@ audio = core.speak(response.text)
 The API key is never stored in the repository. The ElevenLabs voice ID is also configuration-driven, so you can change TARA's voice without changing code.
 
 ElevenLabs' current Python SDK supports `text_to_speech.convert(...)` with a selected `voice_id`, model and output format. See the official API documentation for the current parameters. 
+
+
+## Checkpoint durability follow-up — 2026-10-22
+
+- Added atomic writes to the PyTorch training pipeline: serialize to a unique temporary sibling, sync the completed file, then replace the destination.
+- Added regression coverage for successful checkpoint replacement and failed serialization preserving the existing checkpoint and cleaning only the current temporary file.
+- Draft PR: [#71 — Make training checkpoint writes atomic](https://github.com/deathkernel/TARA/pull/71), stacked on `audit/preserve-best-validation-checkpoint`.
+- Exact head at handoff: `fdacda83b02c5af92b5d44e942d66f96c0905030`.
+- Validation: tests have not been run locally; a CI run for this exact head has not yet been returned by the available workflow lookup. Do not mark this verified until CI passes.
+- No training job, checkpoint promotion, merge, or default-branch update was performed.
+
+- Additional failure-mode coverage: simulated `os.replace` failure preserves the prior checkpoint and removes the temporary sibling. Added in commit `c803e504d61ed21ad50698b8c1ae48d867779645`; awaiting CI for the updated PR head.
+
+- Resume regression: a resumed run with worse subsequent validation losses must keep the incumbent best checkpoint (step 2 / validation loss 0.5) instead of publishing the later, worse state. Added in commit `b540850cd32b591aaad3aade9c4d0cbfe532cdfe`; latest head CI still needs to confirm this test.
+
+- RNG recovery regression coverage: verify Python and PyTorch RNG state round-trips, and assert training checkpoints include the saved RNG state required for deterministic resume. Added in commit `2d4f3033f02e499b854d07163f0210c12ba09461`; CI pending for the updated head.
+
+- Resume edge case: fixed training so a checkpoint passed directly from the output's `.best` path is not deleted before loading; added a regression test that resumes from that exact path and verifies best-checkpoint publication remains intact.
+
+- Resume continuity: added regression coverage that checks AdamW's per-parameter optimizer step advances from 1 to 2 across checkpoint resume, guarding against accidentally restarting optimizer momentum/state.
+
+- Resume continuity follow-up: added a regression test that resumes with the same JSONL metrics file, checks step numbers remain `[1, 2]`, confirms the checkpoint fingerprint refreshes to the appended metrics, and verifies scheduler metadata advances to step 2.

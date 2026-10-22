@@ -171,3 +171,397 @@ def test_training_preserves_best_validation_checkpoint(tmp_path, monkeypatch):
     assert payload["metrics"]["validation_loss"] == pytest.approx(0.5)
     assert not checkpoint.with_name(checkpoint.name + ".best").exists()
 
+
+
+def test_atomic_torch_save_replaces_checkpoint_with_complete_payload(tmp_path):
+    from src.training_pipeline import _atomic_torch_save
+
+    destination = tmp_path / "model.pt"
+    destination.write_bytes(b"old-checkpoint")
+
+    _atomic_torch_save({"step": 7, "weights": [1, 2, 3]}, destination)
+
+    payload = torch.load(destination, map_location="cpu", weights_only=True)
+    assert payload == {"step": 7, "weights": [1, 2, 3]}
+    assert list(tmp_path.glob(".model.pt.*.tmp")) == []
+
+
+def test_atomic_torch_save_failure_preserves_existing_checkpoint(tmp_path, monkeypatch):
+    import src.training_pipeline as training_pipeline_module
+
+    destination = tmp_path / "model.pt"
+    known_good = b"known-good-checkpoint-bytes"
+    destination.write_bytes(known_good)
+
+    def fail_save(payload, path):
+        with open(path, "wb") as handle:
+            handle.write(b"partial-checkpoint")
+        raise OSError("simulated checkpoint write failure")
+
+    monkeypatch.setattr(training_pipeline_module.torch, "save", fail_save)
+    with pytest.raises(OSError, match="simulated checkpoint write failure"):
+        training_pipeline_module._atomic_torch_save({"step": 8}, destination)
+
+    assert destination.read_bytes() == known_good
+    assert list(tmp_path.glob(".model.pt.*.tmp")) == []
+
+
+def test_atomic_torch_save_replace_failure_preserves_existing_checkpoint(tmp_path, monkeypatch):
+    import src.training_pipeline as training_pipeline_module
+
+    destination = tmp_path / "model.pt"
+    known_good = b"known-good-checkpoint-bytes"
+    destination.write_bytes(known_good)
+
+    def fail_replace(source, target):
+        raise OSError("simulated atomic replace failure")
+
+    monkeypatch.setattr(training_pipeline_module.os, "replace", fail_replace)
+    with pytest.raises(OSError, match="simulated atomic replace failure"):
+        training_pipeline_module._atomic_torch_save({"step": 9}, destination)
+
+    assert destination.read_bytes() == known_good
+    assert list(tmp_path.glob(".model.pt.*.tmp")) == []
+
+
+def test_resume_preserves_incumbent_best_validation_checkpoint(tmp_path, monkeypatch):
+    import src.training_pipeline as training_pipeline_module
+
+    data = tmp_path / "data.jsonl"
+    checkpoint = tmp_path / "model.pt"
+    write_algorithm_dataset(data, count=8)
+    validation_losses = iter([1.0, 0.5, 0.7, 0.9])
+    monkeypatch.setattr(
+        training_pipeline_module,
+        "evaluate",
+        lambda *args, **kwargs: next(validation_losses),
+    )
+    common = dict(
+        batch_size=2,
+        context=16,
+        embedding_dim=8,
+        ff_dim=16,
+        heads=2,
+        lr=1e-3,
+        validation_split=0.25,
+        seed=11,
+        log_every=1,
+        early_stopping_patience=10,
+    )
+
+    TrainingPipeline(TrainingConfig(steps=2, **common)).train(data, checkpoint)
+    resumed = TrainingPipeline(TrainingConfig(steps=2, **common)).train(
+        data, checkpoint, resume=checkpoint
+    )
+    payload = torch.load(checkpoint, map_location="cpu", weights_only=True)
+
+    assert resumed.start_step == 2
+    assert resumed.final_step == 4
+    assert payload["step"] == 2
+    assert payload["metrics"]["validation_loss"] == pytest.approx(0.5)
+    assert not checkpoint.with_name(checkpoint.name + ".best").exists()
+
+
+def test_training_rng_state_round_trip_restores_python_and_torch(tmp_path):
+    import random
+    from src.training_pipeline import TrainingPipeline
+
+    random.seed(1234)
+    torch.manual_seed(5678)
+    state = TrainingPipeline._capture_rng_state()
+    expected_python = random.random()
+    expected_torch = torch.rand(4)
+
+    random.random()
+    torch.rand(9)
+    TrainingPipeline._restore_rng_state(state)
+
+    assert random.random() == expected_python
+    assert torch.equal(torch.rand(4), expected_torch)
+
+
+def test_training_checkpoint_contains_rng_state(tmp_path):
+    data = tmp_path / "data.jsonl"
+    checkpoint = tmp_path / "model.pt"
+    write_algorithm_dataset(data, count=8)
+
+    TrainingPipeline(tiny_config(steps=1)).train(data, checkpoint)
+    payload = torch.load(checkpoint, map_location="cpu", weights_only=True)
+
+    assert isinstance(payload.get("rng_state"), dict)
+    assert isinstance(payload["rng_state"].get("python"), tuple)
+    assert isinstance(payload["rng_state"].get("torch"), torch.Tensor)
+
+def test_resume_from_best_checkpoint_path_preserves_source_until_publish(tmp_path, monkeypatch):
+    import shutil
+    import src.training_pipeline as training_pipeline_module
+
+    data = tmp_path / "data.jsonl"
+    checkpoint = tmp_path / "model.pt"
+    best_checkpoint = checkpoint.with_name(checkpoint.name + ".best")
+    write_algorithm_dataset(data, count=8)
+    TrainingPipeline(tiny_config(steps=1)).train(data, checkpoint)
+    shutil.copy2(checkpoint, best_checkpoint)
+    expected_step = torch.load(best_checkpoint, map_location="cpu", weights_only=True)["step"]
+    monkeypatch.setattr(training_pipeline_module, "evaluate", lambda *args, **kwargs: 100.0)
+
+    summary = TrainingPipeline(tiny_config(steps=1)).train(
+        data, checkpoint, resume=best_checkpoint
+    )
+
+    payload = torch.load(checkpoint, map_location="cpu", weights_only=True)
+    assert summary.start_step == expected_step
+    assert summary.final_step == expected_step + 1
+    assert payload["step"] == expected_step
+    assert not best_checkpoint.exists()
+
+def test_resume_restores_and_advances_optimizer_state(tmp_path):
+    data = tmp_path / "data.jsonl"
+    checkpoint = tmp_path / "model.pt"
+    write_algorithm_dataset(data, count=8)
+    config = TrainingConfig(
+        steps=1,
+        batch_size=2,
+        context=16,
+        embedding_dim=8,
+        ff_dim=16,
+        heads=2,
+        lr=1e-3,
+        validation_split=0.0,
+        seed=11,
+        log_every=1,
+    )
+
+    TrainingPipeline(config).train(data, checkpoint)
+    before = torch.load(checkpoint, map_location="cpu", weights_only=True)
+    before_steps = [
+        int(state["step"].item())
+        for state in before["optimizer_state"]["state"].values()
+        if "step" in state
+    ]
+    assert before_steps and set(before_steps) == {1}
+
+    resumed_config = TrainingConfig(**{**config.__dict__, "steps": 1})
+    summary = TrainingPipeline(resumed_config).train(data, checkpoint, resume=checkpoint)
+    after = torch.load(checkpoint, map_location="cpu", weights_only=True)
+    after_steps = [
+        int(state["step"].item())
+        for state in after["optimizer_state"]["state"].values()
+        if "step" in state
+    ]
+
+    assert summary.start_step == 1
+    assert summary.final_step == 2
+    assert after_steps and set(after_steps) == {2}
+
+def test_resume_appends_metrics_and_refreshes_checkpoint_fingerprint(tmp_path):
+    data = tmp_path / "data.jsonl"
+    checkpoint = tmp_path / "model.pt"
+    metrics = tmp_path / "metrics.jsonl"
+    write_algorithm_dataset(data, count=8)
+    config = TrainingConfig(
+        steps=1,
+        batch_size=2,
+        context=16,
+        embedding_dim=8,
+        ff_dim=16,
+        heads=2,
+        lr=1e-3,
+        validation_split=0.0,
+        seed=11,
+        log_every=1,
+        warmup_steps=1,
+        min_lr_ratio=0.2,
+    )
+
+    TrainingPipeline(config).train(data, checkpoint, metrics_path=metrics)
+    first = torch.load(checkpoint, map_location="cpu", weights_only=True)
+    first_fingerprint = first["metrics_fingerprint"]
+    first_rows = metrics.read_text(encoding="utf-8").splitlines()
+    assert len(first_rows) == 1
+
+    resumed_config = TrainingConfig(**{**config.__dict__, "steps": 1})
+    summary = TrainingPipeline(resumed_config).train(
+        data, checkpoint, resume=checkpoint, metrics_path=metrics
+    )
+    payload = torch.load(checkpoint, map_location="cpu", weights_only=True)
+    rows = [json.loads(line) for line in metrics.read_text(encoding="utf-8").splitlines()]
+
+    assert summary.start_step == 1
+    assert summary.final_step == 2
+    assert [row["step"] for row in rows] == [1, 2]
+    assert payload["metrics_fingerprint"] != first_fingerprint
+    assert payload["metrics_fingerprint"] == __import__("hashlib").sha256(
+        metrics.read_bytes()
+    ).hexdigest()
+    assert payload["scheduler"]["optimizer_steps"] == 2
+    assert payload["scheduler"]["total_steps"] == 2
+
+@pytest.mark.parametrize(
+    ("overrides", "message"),
+    [
+        ({"gradient_accumulation_steps": 2}, "training controls do not match"),
+        ({"embedding_dim": 16, "ff_dim": 32}, "model configuration does not match"),
+    ],
+)
+def test_resume_rejects_incompatible_training_configuration(tmp_path, overrides, message):
+    data = tmp_path / "data.jsonl"
+    checkpoint = tmp_path / "model.pt"
+    write_algorithm_dataset(data, count=8)
+    TrainingPipeline(tiny_config(steps=1)).train(data, checkpoint)
+
+    incompatible = TrainingConfig(**{**tiny_config(steps=1).__dict__, **overrides})
+    with pytest.raises(ValueError, match=message):
+        TrainingPipeline(incompatible).train(data, checkpoint, resume=checkpoint)
+
+
+def test_atomic_torch_save_fsync_failure_preserves_existing_checkpoint(tmp_path, monkeypatch):
+    import src.training_pipeline as training_pipeline_module
+
+    destination = tmp_path / "model.pt"
+    known_good = b"known-good-checkpoint-bytes"
+    destination.write_bytes(known_good)
+
+    def fail_fsync(_fd):
+        raise OSError("simulated fsync failure")
+
+    monkeypatch.setattr(training_pipeline_module.os, "fsync", fail_fsync)
+    with pytest.raises(OSError, match="simulated fsync failure"):
+        training_pipeline_module._atomic_torch_save({"step": 10}, destination)
+
+    assert destination.read_bytes() == known_good
+    assert list(tmp_path.glob(".model.pt.*.tmp")) == []
+
+
+@pytest.mark.parametrize(
+    ("payload", "message"),
+    [
+        ([], "expected a mapping payload"),
+        ({}, "missing required fields"),
+        ({"format_version": 999}, "missing required fields"),
+    ],
+)
+def test_resume_rejects_malformed_checkpoint_payload(tmp_path, payload, message):
+    data = tmp_path / "data.jsonl"
+    checkpoint = tmp_path / "broken.pt"
+    write_algorithm_dataset(data, count=8)
+    torch.save(payload, checkpoint)
+
+    with pytest.raises(ValueError, match=message):
+        TrainingPipeline(tiny_config(steps=1)).train(data, checkpoint, resume=checkpoint)
+
+
+def test_resume_rejects_truncated_checkpoint_file(tmp_path):
+    data = tmp_path / "data.jsonl"
+    checkpoint = tmp_path / "truncated.pt"
+    write_algorithm_dataset(data, count=8)
+    checkpoint.write_bytes(b"not-a-valid-pytorch-checkpoint")
+
+    with pytest.raises((ValueError, RuntimeError, EOFError, OSError)):
+        TrainingPipeline(tiny_config(steps=1)).train(data, checkpoint, resume=checkpoint)
+
+
+def test_resume_rejects_unsupported_checkpoint_version(tmp_path):
+    data = tmp_path / "data.jsonl"
+    checkpoint = tmp_path / "old-version.pt"
+    write_algorithm_dataset(data, count=8)
+    torch.save(
+        {
+            "format_version": 999,
+            "dataset_fingerprint": "unused",
+            "hardening_config": {},
+            "tokenizer": {},
+            "model_config": {},
+            "model_state": {},
+            "optimizer_state": {},
+            "step": 0,
+        },
+        checkpoint,
+    )
+
+    with pytest.raises(ValueError, match="unsupported TARA training checkpoint format"):
+        TrainingPipeline(tiny_config(steps=1)).train(data, checkpoint, resume=checkpoint)
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("hardening_config", [], "hardening config must be a mapping"),
+        ("model_config", [], "model config must be a mapping"),
+        ("model_state", [], "model state must be a mapping"),
+        ("optimizer_state", [], "optimizer state must be a mapping"),
+        ("dataset_fingerprint", 123, "dataset fingerprint must be a string"),
+    ],
+)
+def test_resume_rejects_invalid_checkpoint_field_types(tmp_path, field, value, message):
+    data = tmp_path / "data.jsonl"
+    checkpoint = tmp_path / "invalid-field.pt"
+    write_algorithm_dataset(data, count=8)
+    payload = {
+        "format_version": 3,
+        "dataset_fingerprint": "unused",
+        "hardening_config": {},
+        "tokenizer": {},
+        "model_config": {},
+        "model_state": {},
+        "optimizer_state": {},
+        "step": 0,
+    }
+    payload[field] = value
+    torch.save(payload, checkpoint)
+
+    with pytest.raises(ValueError, match=message):
+        TrainingPipeline(tiny_config(steps=1)).train(data, checkpoint, resume=checkpoint)
+
+
+@pytest.mark.parametrize(
+    "tokenizer",
+    [
+        {"itos": ["a", "a"], "stoi": {"a": 0}},
+        {"itos": ["a", "b"], "stoi": {"a": 0}},
+        {"itos": ["a", 2], "stoi": {"a": 0, "2": 1}},
+        {"itos": ["a"], "stoi": {"a": True}},
+    ],
+)
+def test_resume_rejects_invalid_checkpoint_tokenizer(tmp_path, tokenizer):
+    pipeline = TrainingPipeline(tiny_config(steps=1))
+
+    with pytest.raises(ValueError, match="checkpoint tokenizer is missing or invalid"):
+        pipeline._load_tokenizer({"tokenizer": tokenizer})
+
+
+def test_resume_rejects_boolean_checkpoint_version(tmp_path):
+    data = tmp_path / "data.jsonl"
+    checkpoint = tmp_path / "boolean-version.pt"
+    write_algorithm_dataset(data, count=8)
+    torch.save(
+        {
+            "format_version": True,
+            "dataset_fingerprint": "unused",
+            "hardening_config": {},
+            "tokenizer": {},
+            "model_config": {},
+            "model_state": {},
+            "optimizer_state": {},
+            "step": 0,
+        },
+        checkpoint,
+    )
+
+    with pytest.raises(ValueError, match="unsupported TARA training checkpoint format"):
+        TrainingPipeline(tiny_config(steps=1)).train(data, checkpoint, resume=checkpoint)
+
+
+def test_resume_rejects_boolean_checkpoint_step(tmp_path):
+    data = tmp_path / "data.jsonl"
+    checkpoint = tmp_path / "boolean-step.pt"
+    write_algorithm_dataset(data, count=8)
+    # Use a normal checkpoint as a template so all preceding schema checks pass.
+    TrainingPipeline(tiny_config(steps=1)).train(data, checkpoint)
+    payload = torch.load(checkpoint, map_location="cpu", weights_only=True)
+    payload["step"] = True
+    torch.save(payload, checkpoint)
+
+    with pytest.raises(ValueError, match="checkpoint step is invalid"):
+        TrainingPipeline(tiny_config(steps=1)).train(data, checkpoint, resume=checkpoint)
+

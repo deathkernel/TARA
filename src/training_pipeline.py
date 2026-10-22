@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import random
+import tempfile
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Iterable
@@ -16,6 +18,31 @@ from src.torch_language_model import FastTinyLanguageModel
 from src.training_hardening import EarlyStopping, ExperimentTracker, TrainingControls, TrainingMetric, WarmupCosineScheduler
 
 CHECKPOINT_FORMAT_VERSION = 3
+
+def _atomic_torch_save(payload: dict, path: str | Path) -> None:
+    """Replace a checkpoint only after its complete payload is written."""
+    destination = Path(path)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="wb",
+            dir=destination.parent,
+            prefix=f".{destination.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as handle:
+            temporary_path = Path(handle.name)
+        torch.save(payload, temporary_path)
+        with temporary_path.open("rb+") as handle:
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary_path, destination)
+        temporary_path = None
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
+
 
 @dataclass(frozen=True)
 class TrainingConfig:
@@ -192,18 +219,57 @@ class TrainingPipeline:
     @staticmethod
     def _load_tokenizer(payload: dict) -> CharTokenizer:
         data = payload.get("tokenizer")
-        if not isinstance(data, dict) or not isinstance(data.get("itos"), list):
+        if not isinstance(data, dict):
+            raise ValueError("checkpoint tokenizer is missing or invalid")
+        itos = data.get("itos")
+        stoi = data.get("stoi")
+        if (
+            not isinstance(itos, list)
+            or not itos
+            or any(not isinstance(token, str) for token in itos)
+            or len(set(itos)) != len(itos)
+            or not isinstance(stoi, dict)
+            or any(not isinstance(token, str) or isinstance(index, bool) or not isinstance(index, int) for token, index in stoi.items())
+            or stoi != {token: index for index, token in enumerate(itos)}
+        ):
             raise ValueError("checkpoint tokenizer is missing or invalid")
         tokenizer = CharTokenizer("a")
-        tokenizer.itos = list(data["itos"])
-        tokenizer.stoi = dict(data["stoi"])
+        tokenizer.itos = list(itos)
+        tokenizer.stoi = dict(stoi)
         return tokenizer
 
     def _resume_state(self, checkpoint_path: Path, texts: list[str]):
         # Checkpoints contain only tensors/primitives; never execute pickle payloads.
         payload = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
-        if payload.get("format_version") != CHECKPOINT_FORMAT_VERSION:
+        if not isinstance(payload, dict):
+            raise ValueError("invalid TARA training checkpoint: expected a mapping payload")
+        required_fields = {
+            "format_version",
+            "dataset_fingerprint",
+            "hardening_config",
+            "tokenizer",
+            "model_config",
+            "model_state",
+            "optimizer_state",
+            "step",
+        }
+        missing_fields = required_fields.difference(payload)
+        if missing_fields:
+            missing = ", ".join(sorted(missing_fields))
+            raise ValueError(f"invalid TARA training checkpoint: missing required fields: {missing}")
+        version = payload.get("format_version")
+        if isinstance(version, bool) or not isinstance(version, int) or version != CHECKPOINT_FORMAT_VERSION:
             raise ValueError("unsupported TARA training checkpoint format; retrain or migrate the checkpoint")
+        if not isinstance(payload.get("dataset_fingerprint"), str):
+            raise ValueError("invalid TARA training checkpoint: dataset fingerprint must be a string")
+        if not isinstance(payload.get("hardening_config"), dict):
+            raise ValueError("invalid TARA training checkpoint: hardening config must be a mapping")
+        if not isinstance(payload.get("model_config"), dict):
+            raise ValueError("invalid TARA training checkpoint: model config must be a mapping")
+        if not isinstance(payload.get("model_state"), dict):
+            raise ValueError("invalid TARA training checkpoint: model state must be a mapping")
+        if not isinstance(payload.get("optimizer_state"), dict):
+            raise ValueError("invalid TARA training checkpoint: optimizer state must be a mapping")
         if payload.get("dataset_fingerprint") != _fingerprint(texts):
             raise ValueError("dataset fingerprint differs from checkpoint; use the original dataset or start a fresh training run")
         if payload.get("hardening_config") != self.config.hardening_config():
@@ -220,7 +286,7 @@ class TrainingPipeline:
         train_tokens = _tokenize_corpus(train_texts, tokenizer, self.config.context)
         validation_tokens = _tokenize_corpus(validation_texts, tokenizer, self.config.context) if validation_texts else None
         step = payload.get("step")
-        if not isinstance(step, int) or step < 0:
+        if isinstance(step, bool) or not isinstance(step, int) or step < 0:
             raise ValueError("checkpoint step is invalid")
         return model, tokenizer, optimizer, train_tokens, validation_tokens, step, payload
 
@@ -247,7 +313,7 @@ class TrainingPipeline:
 
     def _save(self, path: Path, model, tokenizer, optimizer, step, train_loss, validation_loss, fingerprint, scheduler, early_stopping, tracker):
         path.parent.mkdir(parents=True, exist_ok=True)
-        torch.save({
+        payload = {
             "format_version": CHECKPOINT_FORMAT_VERSION,
             "step": step,
             "model_state": model.state_dict(),
@@ -262,7 +328,8 @@ class TrainingPipeline:
             "early_stopping": {"best": early_stopping.best, "bad_steps": early_stopping.bad_steps},
             "metrics_fingerprint": tracker.fingerprint(),
             "rng_state": self._capture_rng_state(),
-        }, path)
+        }
+        _atomic_torch_save(payload, path)
 
     def train(self, data: str | Path, output: str | Path, resume: str | Path | None = None, metrics_path: str | Path | None = None) -> TrainingSummary:
         texts = load_training_texts(data)
@@ -272,8 +339,8 @@ class TrainingPipeline:
         tracker = ExperimentTracker(tracker_path)
         # Keep the best validation checkpoint separate from periodic/final saves.
         best_checkpoint_path = output_path.with_name(output_path.name + ".best")
-        best_checkpoint_path.unlink(missing_ok=True)
         if resume is None:
+            best_checkpoint_path.unlink(missing_ok=True)
             model, tokenizer, optimizer, train_tokens, validation_tokens = self._new_state(texts)
             start_step = 0
             early_stopping = EarlyStopping(self.config.early_stopping_patience, self.config.early_stopping_min_delta)
@@ -285,8 +352,11 @@ class TrainingPipeline:
             early_stopping.bad_steps = int(state.get("bad_steps", 0))
             if validation_tokens is not None:
                 # A resumed checkpoint is the incumbent best until validation disproves it.
-                import shutil
-                shutil.copy2(Path(resume), best_checkpoint_path)
+                # Preserve the source when resuming directly from the .best path.
+                resume_path = Path(resume)
+                if resume_path.resolve() != best_checkpoint_path.resolve():
+                    import shutil
+                    shutil.copy2(resume_path, best_checkpoint_path)
         total_steps = start_step + self.config.steps
         scheduler = WarmupCosineScheduler(total_steps=max(1, total_steps), warmup_steps=min(self.config.warmup_steps, max(1, total_steps)), min_lr_ratio=self.config.min_lr_ratio)
         if resume is None:
