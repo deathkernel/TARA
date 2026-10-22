@@ -414,3 +414,21 @@ def test_resume_rejects_incompatible_training_configuration(tmp_path, overrides,
     with pytest.raises(ValueError, match=message):
         TrainingPipeline(incompatible).train(data, checkpoint, resume=checkpoint)
 
+
+def test_atomic_torch_save_fsync_failure_preserves_existing_checkpoint(tmp_path, monkeypatch):
+    import src.training_pipeline as training_pipeline_module
+
+    destination = tmp_path / "model.pt"
+    known_good = b"known-good-checkpoint-bytes"
+    destination.write_bytes(known_good)
+
+    def fail_fsync(_fd):
+        raise OSError("simulated fsync failure")
+
+    monkeypatch.setattr(training_pipeline_module.os, "fsync", fail_fsync)
+    with pytest.raises(OSError, match="simulated fsync failure"):
+        training_pipeline_module._atomic_torch_save({"step": 10}, destination)
+
+    assert destination.read_bytes() == known_good
+    assert list(tmp_path.glob(".model.pt.*.tmp")) == []
+
