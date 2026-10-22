@@ -354,3 +354,46 @@ def test_resume_restores_and_advances_optimizer_state(tmp_path):
     assert summary.final_step == 2
     assert after_steps and set(after_steps) == {2}
 
+def test_resume_appends_metrics_and_refreshes_checkpoint_fingerprint(tmp_path):
+    data = tmp_path / "data.jsonl"
+    checkpoint = tmp_path / "model.pt"
+    metrics = tmp_path / "metrics.jsonl"
+    write_algorithm_dataset(data, count=8)
+    config = TrainingConfig(
+        steps=1,
+        batch_size=2,
+        context=16,
+        embedding_dim=8,
+        ff_dim=16,
+        heads=2,
+        lr=1e-3,
+        validation_split=0.0,
+        seed=11,
+        log_every=1,
+        warmup_steps=1,
+        min_lr_ratio=0.2,
+    )
+
+    TrainingPipeline(config).train(data, checkpoint, metrics_path=metrics)
+    first = torch.load(checkpoint, map_location="cpu", weights_only=True)
+    first_fingerprint = first["metrics_fingerprint"]
+    first_rows = metrics.read_text(encoding="utf-8").splitlines()
+    assert len(first_rows) == 1
+
+    resumed_config = TrainingConfig(**{**config.__dict__, "steps": 1})
+    summary = TrainingPipeline(resumed_config).train(
+        data, checkpoint, resume=checkpoint, metrics_path=metrics
+    )
+    payload = torch.load(checkpoint, map_location="cpu", weights_only=True)
+    rows = [json.loads(line) for line in metrics.read_text(encoding="utf-8").splitlines()]
+
+    assert summary.start_step == 1
+    assert summary.final_step == 2
+    assert [row["step"] for row in rows] == [1, 2]
+    assert payload["metrics_fingerprint"] != first_fingerprint
+    assert payload["metrics_fingerprint"] == __import__("hashlib").sha256(
+        metrics.read_bytes()
+    ).hexdigest()
+    assert payload["scheduler"]["optimizer_steps"] == 2
+    assert payload["scheduler"]["total_steps"] == 2
+
