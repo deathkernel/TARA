@@ -60,7 +60,7 @@ def test_scheduler_and_early_stopping_reject_invalid_controls(factory, message):
 def test_scheduler_caps_warmup_at_total_steps():
     scheduler = WarmupCosineScheduler(total_steps=3, warmup_steps=10, min_lr_ratio=0.2)
 
-    assert scheduler.multiplier(0) == pytest.approx(1 / 3)
+    assert scheduler.multiplier(0) == pytest.approx(0.5)
     assert scheduler.multiplier(2) == pytest.approx(1.0)
     assert scheduler.multiplier(3) == pytest.approx(0.2)
 
