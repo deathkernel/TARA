@@ -229,6 +229,22 @@ class TrainingPipeline:
     def _resume_state(self, checkpoint_path: Path, texts: list[str]):
         # Checkpoints contain only tensors/primitives; never execute pickle payloads.
         payload = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+        if not isinstance(payload, dict):
+            raise ValueError("invalid TARA training checkpoint: expected a mapping payload")
+        required_fields = {
+            "format_version",
+            "dataset_fingerprint",
+            "hardening_config",
+            "tokenizer",
+            "model_config",
+            "model_state",
+            "optimizer_state",
+            "step",
+        }
+        missing_fields = required_fields.difference(payload)
+        if missing_fields:
+            missing = ", ".join(sorted(missing_fields))
+            raise ValueError(f"invalid TARA training checkpoint: missing required fields: {missing}")
         if payload.get("format_version") != CHECKPOINT_FORMAT_VERSION:
             raise ValueError("unsupported TARA training checkpoint format; retrain or migrate the checkpoint")
         if payload.get("dataset_fingerprint") != _fingerprint(texts):
