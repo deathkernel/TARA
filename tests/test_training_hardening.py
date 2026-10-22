@@ -71,3 +71,26 @@ def test_early_stopping_rejects_non_finite_validation_values(value):
     with pytest.raises(ValueError, match="validation metric must be finite"):
         stopper.update(value)
 
+@pytest.mark.parametrize(
+    ("content", "message"),
+    [
+        ('{"step": 1, "train_loss": 1.0, "validation_loss": null, "learning_rate": 0.1}\\n{"step": 1, "train_loss": 0.9, "validation_loss": null, "learning_rate": 0.1}\\n', "strictly increasing"),
+        ('{"step": 0, "train_loss": 1.0, "validation_loss": null, "learning_rate": 0.1}\\n', "step must be positive"),
+        ('{"step": 1, "train_loss": 1.0, "validation_loss": null, "learning_rate": 0.1}\\nnot-json\\n', "invalid metrics JSONL record at line 2"),
+    ],
+)
+def test_tracker_rejects_invalid_or_non_monotonic_metrics(tmp_path, content, message):
+    path = tmp_path / "metrics.jsonl"
+    path.write_text(content, encoding="utf-8")
+
+    with pytest.raises(ValueError, match=message):
+        ExperimentTracker(path).metrics()
+
+
+def test_tracker_accepts_strictly_increasing_metrics(tmp_path):
+    tracker = ExperimentTracker(tmp_path / "metrics.jsonl")
+    tracker.log(TrainingMetric(1, 1.0, None, 0.1))
+    tracker.log(TrainingMetric(3, 0.8, None, 0.05))
+
+    assert [metric.step for metric in tracker.metrics()] == [1, 3]
+
