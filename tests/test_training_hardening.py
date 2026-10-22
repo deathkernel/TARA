@@ -94,3 +94,23 @@ def test_tracker_accepts_strictly_increasing_metrics(tmp_path):
 
     assert [metric.step for metric in tracker.metrics()] == [1, 3]
 
+@pytest.mark.parametrize(
+    ("args", "message"),
+    [
+        ((0, 1.0, None, 0.1), "metric step must be a positive integer"),
+        ((1, float("nan"), None, 0.1), "train_loss must be finite"),
+        ((1, 1.0, float("inf"), 0.1), "validation_loss must be finite"),
+        ((1, 1.0, None, float("nan")), "learning_rate must be finite"),
+        ((1, 1.0, None, -0.1), "learning_rate must be finite and non-negative"),
+    ],
+)
+def test_training_metric_rejects_invalid_values(args, message):
+    with pytest.raises(ValueError, match=message):
+        TrainingMetric(*args)
+
+
+def test_training_metric_allows_missing_validation_loss():
+    metric = TrainingMetric(1, 1.0, None, 0.0)
+
+    assert metric.validation_loss is None
+
