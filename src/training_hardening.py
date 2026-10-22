@@ -88,6 +88,17 @@ class TrainingMetric:
     validation_loss: float | None
     learning_rate: float
 
+    def __post_init__(self) -> None:
+        import math
+        if not isinstance(self.step, int) or self.step <= 0:
+            raise ValueError("metric step must be a positive integer")
+        if not math.isfinite(self.train_loss):
+            raise ValueError("train_loss must be finite")
+        if self.validation_loss is not None and not math.isfinite(self.validation_loss):
+            raise ValueError("validation_loss must be finite when provided")
+        if not math.isfinite(self.learning_rate) or self.learning_rate < 0:
+            raise ValueError("learning_rate must be finite and non-negative")
+
 
 class ExperimentTracker:
     """Append-only JSONL tracker with a stable experiment fingerprint."""
