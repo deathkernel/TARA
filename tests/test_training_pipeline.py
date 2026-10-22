@@ -204,3 +204,21 @@ def test_atomic_torch_save_failure_preserves_existing_checkpoint(tmp_path, monke
 
     assert destination.read_bytes() == known_good
     assert list(tmp_path.glob(".model.pt.*.tmp")) == []
+
+
+def test_atomic_torch_save_replace_failure_preserves_existing_checkpoint(tmp_path, monkeypatch):
+    import src.training_pipeline as training_pipeline_module
+
+    destination = tmp_path / "model.pt"
+    known_good = b"known-good-checkpoint-bytes"
+    destination.write_bytes(known_good)
+
+    def fail_replace(source, target):
+        raise OSError("simulated atomic replace failure")
+
+    monkeypatch.setattr(training_pipeline_module.os, "replace", fail_replace)
+    with pytest.raises(OSError, match="simulated atomic replace failure"):
+        training_pipeline_module._atomic_torch_save({"step": 9}, destination)
+
+    assert destination.read_bytes() == known_good
+    assert list(tmp_path.glob(".model.pt.*.tmp")) == []
