@@ -263,7 +263,7 @@ class TrainingPipeline:
         train_tokens = _tokenize_corpus(train_texts, tokenizer, self.config.context)
         validation_tokens = _tokenize_corpus(validation_texts, tokenizer, self.config.context) if validation_texts else None
         step = payload.get("step")
-        if not isinstance(step, int) or step < 0:
+        if isinstance(step, bool) or not isinstance(step, int) or step < 0:
             raise ValueError("checkpoint step is invalid")
         return model, tokenizer, optimizer, train_tokens, validation_tokens, step, payload
 
