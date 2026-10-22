@@ -142,3 +142,17 @@ def test_tracker_log_rejects_duplicate_or_decreasing_steps(tmp_path):
 
     assert [metric.step for metric in tracker.metrics()] == [2]
 
+
+@pytest.mark.parametrize(
+    ("args", "message"),
+    [
+        ((True, 1.0, None, 0.1), "metric step must be a positive integer"),
+        ((1, "1.0", None, 0.1), "train_loss must be finite"),
+        ((1, 1.0, "0.5", 0.1), "validation_loss must be finite"),
+        ((1, 1.0, None, True), "learning_rate must be finite"),
+    ],
+)
+def test_training_metric_rejects_boolean_and_nonnumeric_values(args, message):
+    with pytest.raises(ValueError, match=message):
+        TrainingMetric(*args)
+
