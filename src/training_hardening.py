@@ -90,14 +90,23 @@ class TrainingMetric:
 
     def __post_init__(self) -> None:
         import math
-        if not isinstance(self.step, int) or self.step <= 0:
+        if isinstance(self.step, bool) or not isinstance(self.step, int) or self.step <= 0:
             raise ValueError("metric step must be a positive integer")
-        if not math.isfinite(self.train_loss):
-            raise ValueError("train_loss must be finite")
-        if self.validation_loss is not None and not math.isfinite(self.validation_loss):
-            raise ValueError("validation_loss must be finite when provided")
-        if not math.isfinite(self.learning_rate) or self.learning_rate < 0:
-            raise ValueError("learning_rate must be finite and non-negative")
+        if isinstance(self.train_loss, bool) or not isinstance(self.train_loss, (int, float)) or not math.isfinite(self.train_loss):
+            raise ValueError("train_loss must be a finite number")
+        if self.validation_loss is not None and (
+            isinstance(self.validation_loss, bool)
+            or not isinstance(self.validation_loss, (int, float))
+            or not math.isfinite(self.validation_loss)
+        ):
+            raise ValueError("validation_loss must be a finite number when provided")
+        if (
+            isinstance(self.learning_rate, bool)
+            or not isinstance(self.learning_rate, (int, float))
+            or not math.isfinite(self.learning_rate)
+            or self.learning_rate < 0
+        ):
+            raise ValueError("learning_rate must be a finite non-negative number")
 
 
 class ExperimentTracker:
