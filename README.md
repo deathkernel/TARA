@@ -764,3 +764,5 @@ ElevenLabs' current Python SDK supports `text_to_speech.convert(...)` with a sel
 - No training job, checkpoint promotion, merge, or default-branch update was performed.
 
 - Additional failure-mode coverage: simulated `os.replace` failure preserves the prior checkpoint and removes the temporary sibling. Added in commit `c803e504d61ed21ad50698b8c1ae48d867779645`; awaiting CI for the updated PR head.
+
+- Resume regression: a resumed run with worse subsequent validation losses must keep the incumbent best checkpoint (step 2 / validation loss 0.5) instead of publishing the later, worse state. Added in commit `b540850cd32b591aaad3aade9c4d0cbfe532cdfe`; latest head CI still needs to confirm this test.
