@@ -34,3 +34,12 @@ def test_tracker_is_append_only_and_fingerprinted(tmp_path):
     assert json.loads(lines[0])["step"] == 1
     assert json.loads(lines[1])["step"] == 2
     assert len(tracker.fingerprint()) == 64
+
+def test_scheduler_extension_uses_new_total_step_budget():
+    original = WarmupCosineScheduler(total_steps=2, warmup_steps=0, min_lr_ratio=0.2)
+    extended = WarmupCosineScheduler(total_steps=4, warmup_steps=0, min_lr_ratio=0.2)
+
+    assert original.multiplier(1) == pytest.approx(0.6)
+    assert extended.multiplier(1) > original.multiplier(1)
+    assert extended.multiplier(4) == pytest.approx(0.2)
+
