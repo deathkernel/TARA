@@ -770,3 +770,5 @@ ElevenLabs' current Python SDK supports `text_to_speech.convert(...)` with a sel
 - RNG recovery regression coverage: verify Python and PyTorch RNG state round-trips, and assert training checkpoints include the saved RNG state required for deterministic resume. Added in commit `2d4f3033f02e499b854d07163f0210c12ba09461`; CI pending for the updated head.
 
 - Resume edge case: fixed training so a checkpoint passed directly from the output's `.best` path is not deleted before loading; added a regression test that resumes from that exact path and verifies best-checkpoint publication remains intact.
+
+- Resume continuity: added regression coverage that checks AdamW's per-parameter optimizer step advances from 1 to 2 across checkpoint resume, guarding against accidentally restarting optimizer momentum/state.
