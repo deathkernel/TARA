@@ -762,3 +762,5 @@ ElevenLabs' current Python SDK supports `text_to_speech.convert(...)` with a sel
 - Exact head at handoff: `fdacda83b02c5af92b5d44e942d66f96c0905030`.
 - Validation: tests have not been run locally; a CI run for this exact head has not yet been returned by the available workflow lookup. Do not mark this verified until CI passes.
 - No training job, checkpoint promotion, merge, or default-branch update was performed.
+
+- Additional failure-mode coverage: simulated `os.replace` failure preserves the prior checkpoint and removes the temporary sibling. Added in commit `c803e504d61ed21ad50698b8c1ae48d867779645`; awaiting CI for the updated PR head.
