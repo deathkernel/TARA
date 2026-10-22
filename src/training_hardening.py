@@ -103,9 +103,18 @@ class ExperimentTracker:
         if not self.path.exists():
             return []
         result = []
-        for line in self.path.read_text(encoding="utf-8").splitlines():
-            if line.strip():
-                result.append(TrainingMetric(**json.loads(line)))
+        for line_number, line in enumerate(self.path.read_text(encoding="utf-8").splitlines(), start=1):
+            if not line.strip():
+                continue
+            try:
+                metric = TrainingMetric(**json.loads(line))
+            except (json.JSONDecodeError, TypeError) as exc:
+                raise ValueError(f"invalid metrics JSONL record at line {line_number}") from exc
+            if metric.step <= 0:
+                raise ValueError(f"metrics step must be positive at line {line_number}")
+            if result and metric.step <= result[-1].step:
+                raise ValueError(f"metrics steps must be strictly increasing at line {line_number}")
+            result.append(metric)
         return result
 
     def fingerprint(self) -> str:
