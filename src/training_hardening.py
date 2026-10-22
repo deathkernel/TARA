@@ -37,7 +37,7 @@ class WarmupCosineScheduler:
         if not 0.0 < min_lr_ratio <= 1.0:
             raise ValueError("min_lr_ratio must be in (0, 1]")
         self.total_steps = total_steps
-        self.warmup_steps = min(warmup_steps, total_steps)
+        self.warmup_steps = min(warmup_steps, max(0, total_steps - 1))
         self.min_lr_ratio = min_lr_ratio
 
     def multiplier(self, step: int) -> float:
