@@ -291,3 +291,27 @@ def test_training_checkpoint_contains_rng_state(tmp_path):
     assert isinstance(payload.get("rng_state"), dict)
     assert isinstance(payload["rng_state"].get("python"), tuple)
     assert isinstance(payload["rng_state"].get("torch"), torch.Tensor)
+
+def test_resume_from_best_checkpoint_path_preserves_source_until_publish(tmp_path, monkeypatch):
+    import shutil
+    import src.training_pipeline as training_pipeline_module
+
+    data = tmp_path / "data.jsonl"
+    checkpoint = tmp_path / "model.pt"
+    best_checkpoint = checkpoint.with_name(checkpoint.name + ".best")
+    write_algorithm_dataset(data, count=8)
+    TrainingPipeline(tiny_config(steps=1)).train(data, checkpoint)
+    shutil.copy2(checkpoint, best_checkpoint)
+    expected_step = torch.load(best_checkpoint, map_location="cpu", weights_only=True)["step"]
+    monkeypatch.setattr(training_pipeline_module, "evaluate", lambda *args, **kwargs: 100.0)
+
+    summary = TrainingPipeline(tiny_config(steps=1)).train(
+        data, checkpoint, resume=best_checkpoint
+    )
+
+    payload = torch.load(checkpoint, map_location="cpu", weights_only=True)
+    assert summary.start_step == expected_step
+    assert summary.final_step == expected_step + 1
+    assert payload["step"] == expected_step
+    assert not best_checkpoint.exists()
+
