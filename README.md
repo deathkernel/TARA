@@ -768,3 +768,5 @@ ElevenLabs' current Python SDK supports `text_to_speech.convert(...)` with a sel
 - Resume regression: a resumed run with worse subsequent validation losses must keep the incumbent best checkpoint (step 2 / validation loss 0.5) instead of publishing the later, worse state. Added in commit `b540850cd32b591aaad3aade9c4d0cbfe532cdfe`; latest head CI still needs to confirm this test.
 
 - RNG recovery regression coverage: verify Python and PyTorch RNG state round-trips, and assert training checkpoints include the saved RNG state required for deterministic resume. Added in commit `2d4f3033f02e499b854d07163f0210c12ba09461`; CI pending for the updated head.
+
+- Resume edge case: fixed training so a checkpoint passed directly from the output's `.best` path is not deleted before loading; added a regression test that resumes from that exact path and verifies best-checkpoint publication remains intact.
