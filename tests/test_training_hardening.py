@@ -125,7 +125,7 @@ def test_training_metric_allows_missing_validation_loss():
 )
 def test_tracker_rejects_malformed_metric_schema(tmp_path, record):
     path = tmp_path / "metrics.jsonl"
-    path.write_text(record + "\\n", encoding="utf-8")
+    path.write_text(record + "\n", encoding="utf-8")
 
     with pytest.raises(ValueError, match="invalid metrics JSONL record at line 1"):
         ExperimentTracker(path).metrics()
