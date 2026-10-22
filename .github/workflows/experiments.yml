@@ -10,9 +10,15 @@ on:
       - "src/**"
       - "requirements.txt"
 
+# A new commit supersedes an older experiment on the same branch.
+concurrency:
+  group: tara-experiments-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   trained-profile-comparison:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
