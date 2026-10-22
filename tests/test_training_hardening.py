@@ -114,3 +114,31 @@ def test_training_metric_allows_missing_validation_loss():
 
     assert metric.validation_loss is None
 
+@pytest.mark.parametrize(
+    "record",
+    [
+        '{"step": 1, "train_loss": 1.0}',
+        '{"step": 1, "train_loss": 1.0, "validation_loss": null, "learning_rate": 0.1, "extra": 1}',
+        '[]',
+        '{"step": 1, "train_loss": NaN, "validation_loss": null, "learning_rate": 0.1}',
+    ],
+)
+def test_tracker_rejects_malformed_metric_schema(tmp_path, record):
+    path = tmp_path / "metrics.jsonl"
+    path.write_text(record + "\\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="invalid metrics JSONL record at line 1"):
+        ExperimentTracker(path).metrics()
+
+
+def test_tracker_log_rejects_duplicate_or_decreasing_steps(tmp_path):
+    tracker = ExperimentTracker(tmp_path / "metrics.jsonl")
+    tracker.log(TrainingMetric(2, 1.0, None, 0.1))
+
+    with pytest.raises(ValueError, match="strictly increasing"):
+        tracker.log(TrainingMetric(2, 0.9, None, 0.05))
+    with pytest.raises(ValueError, match="strictly increasing"):
+        tracker.log(TrainingMetric(1, 0.9, None, 0.05))
+
+    assert [metric.step for metric in tracker.metrics()] == [2]
+
