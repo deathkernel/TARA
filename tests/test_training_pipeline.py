@@ -171,3 +171,35 @@ def test_training_preserves_best_validation_checkpoint(tmp_path, monkeypatch):
     assert payload["metrics"]["validation_loss"] == pytest.approx(0.5)
     assert not checkpoint.with_name(checkpoint.name + ".best").exists()
 
+
+
+def test_atomic_torch_save_replaces_checkpoint_with_complete_payload(tmp_path):
+    from src.training_pipeline import _atomic_torch_save
+
+    destination = tmp_path / "model.pt"
+    destination.write_bytes(b"old-checkpoint")
+
+    _atomic_torch_save({"step": 7, "weights": [1, 2, 3]}, destination)
+
+    payload = torch.load(destination, map_location="cpu", weights_only=True)
+    assert payload == {"step": 7, "weights": [1, 2, 3]}
+    assert list(tmp_path.glob(".model.pt.*.tmp")) == []
+
+
+def test_atomic_torch_save_failure_preserves_existing_checkpoint(tmp_path, monkeypatch):
+    import src.training_pipeline as training_pipeline_module
+
+    destination = tmp_path / "model.pt"
+    known_good = b"known-good-checkpoint-bytes"
+    destination.write_bytes(known_good)
+
+    def fail_save(payload, path):
+        Path(path).write_bytes(b"partial-checkpoint")
+        raise OSError("simulated checkpoint write failure")
+
+    monkeypatch.setattr(training_pipeline_module.torch, "save", fail_save)
+    with pytest.raises(OSError, match="simulated checkpoint write failure"):
+        training_pipeline_module._atomic_torch_save({"step": 8}, destination)
+
+    assert destination.read_bytes() == known_good
+    assert list(tmp_path.glob(".model.pt.*.tmp")) == []
