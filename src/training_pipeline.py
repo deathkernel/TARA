@@ -219,11 +219,23 @@ class TrainingPipeline:
     @staticmethod
     def _load_tokenizer(payload: dict) -> CharTokenizer:
         data = payload.get("tokenizer")
-        if not isinstance(data, dict) or not isinstance(data.get("itos"), list):
+        if not isinstance(data, dict):
+            raise ValueError("checkpoint tokenizer is missing or invalid")
+        itos = data.get("itos")
+        stoi = data.get("stoi")
+        if (
+            not isinstance(itos, list)
+            or not itos
+            or any(not isinstance(token, str) for token in itos)
+            or len(set(itos)) != len(itos)
+            or not isinstance(stoi, dict)
+            or any(not isinstance(token, str) or isinstance(index, bool) or not isinstance(index, int) for token, index in stoi.items())
+            or stoi != {token: index for index, token in enumerate(itos)}
+        ):
             raise ValueError("checkpoint tokenizer is missing or invalid")
         tokenizer = CharTokenizer("a")
-        tokenizer.itos = list(data["itos"])
-        tokenizer.stoi = dict(data["stoi"])
+        tokenizer.itos = list(itos)
+        tokenizer.stoi = dict(stoi)
         return tokenizer
 
     def _resume_state(self, checkpoint_path: Path, texts: list[str]):
@@ -245,8 +257,19 @@ class TrainingPipeline:
         if missing_fields:
             missing = ", ".join(sorted(missing_fields))
             raise ValueError(f"invalid TARA training checkpoint: missing required fields: {missing}")
-        if payload.get("format_version") != CHECKPOINT_FORMAT_VERSION:
+        version = payload.get("format_version")
+        if isinstance(version, bool) or not isinstance(version, int) or version != CHECKPOINT_FORMAT_VERSION:
             raise ValueError("unsupported TARA training checkpoint format; retrain or migrate the checkpoint")
+        if not isinstance(payload.get("dataset_fingerprint"), str):
+            raise ValueError("invalid TARA training checkpoint: dataset fingerprint must be a string")
+        if not isinstance(payload.get("hardening_config"), dict):
+            raise ValueError("invalid TARA training checkpoint: hardening config must be a mapping")
+        if not isinstance(payload.get("model_config"), dict):
+            raise ValueError("invalid TARA training checkpoint: model config must be a mapping")
+        if not isinstance(payload.get("model_state"), dict):
+            raise ValueError("invalid TARA training checkpoint: model state must be a mapping")
+        if not isinstance(payload.get("optimizer_state"), dict):
+            raise ValueError("invalid TARA training checkpoint: optimizer state must be a mapping")
         if payload.get("dataset_fingerprint") != _fingerprint(texts):
             raise ValueError("dataset fingerprint differs from checkpoint; use the original dataset or start a fresh training run")
         if payload.get("hardening_config") != self.config.hardening_config():
