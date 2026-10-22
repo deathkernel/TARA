@@ -11,11 +11,18 @@ to survive an exact training resume. Version 1 checkpoints remain readable.
 
 import json
 import math
+import os
+import tempfile
 from pathlib import Path
 
 
 def save_checkpoint(model, path, step, scheduler=None, metrics=None, optimizer=None):
-    """Save model parameters and optional optimizer/scheduler metadata."""
+    """Atomically save model parameters and optional training metadata.
+
+    The destination is replaced only after a complete JSON payload has been
+    written to a temporary sibling file. If serialization or writing fails,
+    an existing checkpoint remains intact.
+    """
     if not isinstance(step, int) or isinstance(step, bool) or step < 0:
         raise ValueError("step must be a non-negative integer")
     parameters = [float(parameter.data) for parameter in model.parameters()]
@@ -37,7 +44,32 @@ def save_checkpoint(model, path, step, scheduler=None, metrics=None, optimizer=N
         if not hasattr(optimizer, "state_dict"):
             raise TypeError("optimizer must provide state_dict()")
         payload["optimizer"] = optimizer.state_dict()
-    Path(path).write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+    serialized = json.dumps(payload, indent=2, sort_keys=True)
+    destination = Path(path)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            newline="\n",
+            dir=destination.parent,
+            prefix=f".{destination.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as handle:
+            temporary_path = Path(handle.name)
+            handle.write(serialized)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        # Close the temporary file before replacement for Windows compatibility.
+        os.replace(temporary_path, destination)
+        temporary_path = None
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
 
 
 def load_checkpoint(model, path, optimizer=None):

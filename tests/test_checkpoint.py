@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 
+from src import checkpoint as checkpoint_module
 from src.checkpoint import load_checkpoint, save_checkpoint
 from src.language_model import TinyLanguageModel
 from src.optimizers import AdamW
@@ -70,3 +71,37 @@ def test_checkpoint_rejects_nonfinite_parameters(tmp_path):
     model = TinyLanguageModel(vocab_size=5, embedding_dim=3, ff_dim=6, seed=4)
     with pytest.raises(ValueError):
         load_checkpoint(model, path)
+
+
+def test_failed_checkpoint_replace_preserves_previous_checkpoint(tmp_path, monkeypatch):
+    model = TinyLanguageModel(vocab_size=5, embedding_dim=3, ff_dim=6, seed=4)
+    path = tmp_path / "best-checkpoint.json"
+    save_checkpoint(model, path, step=7, metrics={"val_loss": 0.25})
+    previous_bytes = path.read_bytes()
+
+    def fail_replace(source, destination):
+        raise OSError("simulated interrupted checkpoint promotion")
+
+    monkeypatch.setattr(checkpoint_module.os, "replace", fail_replace)
+    with pytest.raises(OSError, match="simulated interrupted checkpoint promotion"):
+        save_checkpoint(model, path, step=8, metrics={"val_loss": 0.9})
+
+    assert path.read_bytes() == previous_bytes
+    assert list(tmp_path.glob(".best-checkpoint.json.*.tmp")) == []
+
+
+def test_checkpoint_serialization_failure_preserves_previous_file(tmp_path, monkeypatch):
+    model = TinyLanguageModel(vocab_size=5, embedding_dim=3, ff_dim=6, seed=4)
+    path = tmp_path / "best-checkpoint.json"
+    save_checkpoint(model, path, step=7, metrics={"val_loss": 0.25})
+    previous_bytes = path.read_bytes()
+
+    def fail_serialization(*args, **kwargs):
+        raise TypeError("simulated serialization failure")
+
+    monkeypatch.setattr(checkpoint_module.json, "dumps", fail_serialization)
+    with pytest.raises(TypeError, match="simulated serialization failure"):
+        save_checkpoint(model, path, step=8, metrics={"val_loss": 0.9})
+
+    assert path.read_bytes() == previous_bytes
+    assert list(tmp_path.glob(".best-checkpoint.json.*.tmp")) == []
