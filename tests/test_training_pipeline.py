@@ -432,3 +432,31 @@ def test_atomic_torch_save_fsync_failure_preserves_existing_checkpoint(tmp_path,
     assert destination.read_bytes() == known_good
     assert list(tmp_path.glob(".model.pt.*.tmp")) == []
 
+
+@pytest.mark.parametrize(
+    ("payload", "message"),
+    [
+        ([], "expected a mapping payload"),
+        ({}, "missing required fields"),
+        ({"format_version": 999}, "missing required fields"),
+    ],
+)
+def test_resume_rejects_malformed_checkpoint_payload(tmp_path, payload, message):
+    data = tmp_path / "data.jsonl"
+    checkpoint = tmp_path / "broken.pt"
+    write_algorithm_dataset(data, count=8)
+    torch.save(payload, checkpoint)
+
+    with pytest.raises(ValueError, match=message):
+        TrainingPipeline(tiny_config(steps=1)).train(data, checkpoint, resume=checkpoint)
+
+
+def test_resume_rejects_truncated_checkpoint_file(tmp_path):
+    data = tmp_path / "data.jsonl"
+    checkpoint = tmp_path / "truncated.pt"
+    write_algorithm_dataset(data, count=8)
+    checkpoint.write_bytes(b"not-a-valid-pytorch-checkpoint")
+
+    with pytest.raises((ValueError, RuntimeError, EOFError, OSError)):
+        TrainingPipeline(tiny_config(steps=1)).train(data, checkpoint, resume=checkpoint)
+
