@@ -315,3 +315,42 @@ def test_resume_from_best_checkpoint_path_preserves_source_until_publish(tmp_pat
     assert payload["step"] == expected_step
     assert not best_checkpoint.exists()
 
+def test_resume_restores_and_advances_optimizer_state(tmp_path):
+    data = tmp_path / "data.jsonl"
+    checkpoint = tmp_path / "model.pt"
+    write_algorithm_dataset(data, count=8)
+    config = TrainingConfig(
+        steps=1,
+        batch_size=2,
+        context=16,
+        embedding_dim=8,
+        ff_dim=16,
+        heads=2,
+        lr=1e-3,
+        validation_split=0.0,
+        seed=11,
+        log_every=1,
+    )
+
+    TrainingPipeline(config).train(data, checkpoint)
+    before = torch.load(checkpoint, map_location="cpu", weights_only=True)
+    before_steps = [
+        int(state["step"].item())
+        for state in before["optimizer_state"]["state"].values()
+        if "step" in state
+    ]
+    assert before_steps and set(before_steps) == {1}
+
+    resumed_config = TrainingConfig(**{**config.__dict__, "steps": 1})
+    summary = TrainingPipeline(resumed_config).train(data, checkpoint, resume=checkpoint)
+    after = torch.load(checkpoint, map_location="cpu", weights_only=True)
+    after_steps = [
+        int(state["step"].item())
+        for state in after["optimizer_state"]["state"].values()
+        if "step" in state
+    ]
+
+    assert summary.start_step == 1
+    assert summary.final_step == 2
+    assert after_steps and set(after_steps) == {2}
+
