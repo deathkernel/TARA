@@ -772,3 +772,5 @@ ElevenLabs' current Python SDK supports `text_to_speech.convert(...)` with a sel
 - Resume edge case: fixed training so a checkpoint passed directly from the output's `.best` path is not deleted before loading; added a regression test that resumes from that exact path and verifies best-checkpoint publication remains intact.
 
 - Resume continuity: added regression coverage that checks AdamW's per-parameter optimizer step advances from 1 to 2 across checkpoint resume, guarding against accidentally restarting optimizer momentum/state.
+
+- Resume continuity follow-up: added a regression test that resumes with the same JSONL metrics file, checks step numbers remain `[1, 2]`, confirms the checkpoint fingerprint refreshes to the appended metrics, and verifies scheduler metadata advances to step 2.
