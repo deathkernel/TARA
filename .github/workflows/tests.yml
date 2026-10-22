@@ -8,7 +8,7 @@ on:
 # Keep only the newest CI run for each PR or branch. Rapid commits otherwise
 # leave many obsolete runs queued and delay feedback on the latest change.
 concurrency:
-  group: tara-ci-${{ github.event.pull_request.number || github.ref }}
+  group: tara-ci-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
