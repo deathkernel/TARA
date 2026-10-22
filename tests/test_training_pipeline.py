@@ -397,3 +397,20 @@ def test_resume_appends_metrics_and_refreshes_checkpoint_fingerprint(tmp_path):
     assert payload["scheduler"]["optimizer_steps"] == 2
     assert payload["scheduler"]["total_steps"] == 2
 
+@pytest.mark.parametrize(
+    ("overrides", "message"),
+    [
+        ({"gradient_accumulation_steps": 2}, "training controls do not match"),
+        ({"embedding_dim": 16, "ff_dim": 32}, "model configuration does not match"),
+    ],
+)
+def test_resume_rejects_incompatible_training_configuration(tmp_path, overrides, message):
+    data = tmp_path / "data.jsonl"
+    checkpoint = tmp_path / "model.pt"
+    write_algorithm_dataset(data, count=8)
+    TrainingPipeline(tiny_config(steps=1)).train(data, checkpoint)
+
+    incompatible = TrainingConfig(**{**tiny_config(steps=1).__dict__, **overrides})
+    with pytest.raises(ValueError, match=message):
+        TrainingPipeline(incompatible).train(data, checkpoint, resume=checkpoint)
+
