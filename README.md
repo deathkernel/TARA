@@ -752,3 +752,13 @@ audio = core.speak(response.text)
 The API key is never stored in the repository. The ElevenLabs voice ID is also configuration-driven, so you can change TARA's voice without changing code.
 
 ElevenLabs' current Python SDK supports `text_to_speech.convert(...)` with a selected `voice_id`, model and output format. See the official API documentation for the current parameters. 
+
+
+## Checkpoint durability follow-up — 2026-10-22
+
+- Added atomic writes to the PyTorch training pipeline: serialize to a unique temporary sibling, sync the completed file, then replace the destination.
+- Added regression coverage for successful checkpoint replacement and failed serialization preserving the existing checkpoint and cleaning only the current temporary file.
+- Draft PR: [#71 — Make training checkpoint writes atomic](https://github.com/deathkernel/TARA/pull/71), stacked on `audit/preserve-best-validation-checkpoint`.
+- Exact head at handoff: `fdacda83b02c5af92b5d44e942d66f96c0905030`.
+- Validation: tests have not been run locally; a CI run for this exact head has not yet been returned by the available workflow lookup. Do not mark this verified until CI passes.
+- No training job, checkpoint promotion, merge, or default-branch update was performed.
