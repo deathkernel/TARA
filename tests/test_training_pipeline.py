@@ -460,3 +460,72 @@ def test_resume_rejects_truncated_checkpoint_file(tmp_path):
     with pytest.raises((ValueError, RuntimeError, EOFError, OSError)):
         TrainingPipeline(tiny_config(steps=1)).train(data, checkpoint, resume=checkpoint)
 
+
+def test_resume_rejects_unsupported_checkpoint_version(tmp_path):
+    data = tmp_path / "data.jsonl"
+    checkpoint = tmp_path / "old-version.pt"
+    write_algorithm_dataset(data, count=8)
+    torch.save(
+        {
+            "format_version": 999,
+            "dataset_fingerprint": "unused",
+            "hardening_config": {},
+            "tokenizer": {},
+            "model_config": {},
+            "model_state": {},
+            "optimizer_state": {},
+            "step": 0,
+        },
+        checkpoint,
+    )
+
+    with pytest.raises(ValueError, match="unsupported TARA training checkpoint format"):
+        TrainingPipeline(tiny_config(steps=1)).train(data, checkpoint, resume=checkpoint)
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("hardening_config", [], "hardening config must be a mapping"),
+        ("model_config", [], "model config must be a mapping"),
+        ("model_state", [], "model state must be a mapping"),
+        ("optimizer_state", [], "optimizer state must be a mapping"),
+        ("dataset_fingerprint", 123, "dataset fingerprint must be a string"),
+    ],
+)
+def test_resume_rejects_invalid_checkpoint_field_types(tmp_path, field, value, message):
+    data = tmp_path / "data.jsonl"
+    checkpoint = tmp_path / "invalid-field.pt"
+    write_algorithm_dataset(data, count=8)
+    payload = {
+        "format_version": 3,
+        "dataset_fingerprint": "unused",
+        "hardening_config": {},
+        "tokenizer": {},
+        "model_config": {},
+        "model_state": {},
+        "optimizer_state": {},
+        "step": 0,
+    }
+    payload[field] = value
+    torch.save(payload, checkpoint)
+
+    with pytest.raises(ValueError, match=message):
+        TrainingPipeline(tiny_config(steps=1)).train(data, checkpoint, resume=checkpoint)
+
+
+@pytest.mark.parametrize(
+    "tokenizer",
+    [
+        {"itos": ["a", "a"], "stoi": {"a": 0}},
+        {"itos": ["a", "b"], "stoi": {"a": 0}},
+        {"itos": ["a", 2], "stoi": {"a": 0, "2": 1}},
+        {"itos": ["a"], "stoi": {"a": True}},
+    ],
+)
+def test_resume_rejects_invalid_checkpoint_tokenizer(tmp_path, tokenizer):
+    pipeline = TrainingPipeline(tiny_config(steps=1))
+
+    with pytest.raises(ValueError, match="checkpoint tokenizer is missing or invalid"):
+        pipeline._load_tokenizer({"tokenizer": tokenizer})
+
