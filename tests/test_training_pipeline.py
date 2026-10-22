@@ -260,3 +260,34 @@ def test_resume_preserves_incumbent_best_validation_checkpoint(tmp_path, monkeyp
     assert payload["step"] == 2
     assert payload["metrics"]["validation_loss"] == pytest.approx(0.5)
     assert not checkpoint.with_name(checkpoint.name + ".best").exists()
+
+
+def test_training_rng_state_round_trip_restores_python_and_torch(tmp_path):
+    import random
+    from src.training_pipeline import TrainingPipeline
+
+    random.seed(1234)
+    torch.manual_seed(5678)
+    state = TrainingPipeline._capture_rng_state()
+    expected_python = random.random()
+    expected_torch = torch.rand(4)
+
+    random.random()
+    torch.rand(9)
+    TrainingPipeline._restore_rng_state(state)
+
+    assert random.random() == expected_python
+    assert torch.equal(torch.rand(4), expected_torch)
+
+
+def test_training_checkpoint_contains_rng_state(tmp_path):
+    data = tmp_path / "data.jsonl"
+    checkpoint = tmp_path / "model.pt"
+    write_algorithm_dataset(data, count=8)
+
+    TrainingPipeline(tiny_config(steps=1)).train(data, checkpoint)
+    payload = torch.load(checkpoint, map_location="cpu", weights_only=True)
+
+    assert isinstance(payload.get("rng_state"), dict)
+    assert isinstance(payload["rng_state"].get("python"), tuple)
+    assert isinstance(payload["rng_state"].get("torch"), torch.Tensor)
