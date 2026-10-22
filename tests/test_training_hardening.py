@@ -43,3 +43,31 @@ def test_scheduler_extension_uses_new_total_step_budget():
     assert extended.multiplier(1) > original.multiplier(1)
     assert extended.multiplier(4) == pytest.approx(0.2)
 
+@pytest.mark.parametrize(
+    ("factory", "message"),
+    [
+        (lambda: WarmupCosineScheduler(10, warmup_steps=-1), "warmup_steps must be non-negative"),
+        (lambda: WarmupCosineScheduler(10, min_lr_ratio=0.0), "min_lr_ratio must be in"),
+        (lambda: EarlyStopping(patience=-1), "patience and min_delta must be non-negative"),
+        (lambda: EarlyStopping(min_delta=-0.1), "patience and min_delta must be non-negative"),
+    ],
+)
+def test_scheduler_and_early_stopping_reject_invalid_controls(factory, message):
+    with pytest.raises(ValueError, match=message):
+        factory()
+
+
+def test_scheduler_caps_warmup_at_total_steps():
+    scheduler = WarmupCosineScheduler(total_steps=3, warmup_steps=10, min_lr_ratio=0.2)
+
+    assert scheduler.multiplier(0) == pytest.approx(1 / 3)
+    assert scheduler.multiplier(2) == pytest.approx(1.0)
+    assert scheduler.multiplier(3) == pytest.approx(0.2)
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+def test_early_stopping_rejects_non_finite_validation_values(value):
+    stopper = EarlyStopping()
+    with pytest.raises(ValueError, match="validation metric must be finite"):
+        stopper.update(value)
+
