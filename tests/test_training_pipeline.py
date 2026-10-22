@@ -529,3 +529,39 @@ def test_resume_rejects_invalid_checkpoint_tokenizer(tmp_path, tokenizer):
     with pytest.raises(ValueError, match="checkpoint tokenizer is missing or invalid"):
         pipeline._load_tokenizer({"tokenizer": tokenizer})
 
+
+def test_resume_rejects_boolean_checkpoint_version(tmp_path):
+    data = tmp_path / "data.jsonl"
+    checkpoint = tmp_path / "boolean-version.pt"
+    write_algorithm_dataset(data, count=8)
+    torch.save(
+        {
+            "format_version": True,
+            "dataset_fingerprint": "unused",
+            "hardening_config": {},
+            "tokenizer": {},
+            "model_config": {},
+            "model_state": {},
+            "optimizer_state": {},
+            "step": 0,
+        },
+        checkpoint,
+    )
+
+    with pytest.raises(ValueError, match="unsupported TARA training checkpoint format"):
+        TrainingPipeline(tiny_config(steps=1)).train(data, checkpoint, resume=checkpoint)
+
+
+def test_resume_rejects_boolean_checkpoint_step(tmp_path):
+    data = tmp_path / "data.jsonl"
+    checkpoint = tmp_path / "boolean-step.pt"
+    write_algorithm_dataset(data, count=8)
+    # Use a normal checkpoint as a template so all preceding schema checks pass.
+    TrainingPipeline(tiny_config(steps=1)).train(data, checkpoint)
+    payload = torch.load(checkpoint, map_location="cpu", weights_only=True)
+    payload["step"] = True
+    torch.save(payload, checkpoint)
+
+    with pytest.raises(ValueError, match="checkpoint step is invalid"):
+        TrainingPipeline(tiny_config(steps=1)).train(data, checkpoint, resume=checkpoint)
+
