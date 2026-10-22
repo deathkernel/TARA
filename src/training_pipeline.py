@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import random
+import tempfile
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Iterable
@@ -16,6 +18,31 @@ from src.torch_language_model import FastTinyLanguageModel
 from src.training_hardening import EarlyStopping, ExperimentTracker, TrainingControls, TrainingMetric, WarmupCosineScheduler
 
 CHECKPOINT_FORMAT_VERSION = 3
+
+def _atomic_torch_save(payload: dict, path: str | Path) -> None:
+    """Replace a checkpoint only after its complete payload is written."""
+    destination = Path(path)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="wb",
+            dir=destination.parent,
+            prefix=f".{destination.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as handle:
+            temporary_path = Path(handle.name)
+        torch.save(payload, temporary_path)
+        with temporary_path.open("rb+") as handle:
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary_path, destination)
+        temporary_path = None
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
+
 
 @dataclass(frozen=True)
 class TrainingConfig:
@@ -247,7 +274,7 @@ class TrainingPipeline:
 
     def _save(self, path: Path, model, tokenizer, optimizer, step, train_loss, validation_loss, fingerprint, scheduler, early_stopping, tracker):
         path.parent.mkdir(parents=True, exist_ok=True)
-        torch.save({
+        payload = {
             "format_version": CHECKPOINT_FORMAT_VERSION,
             "step": step,
             "model_state": model.state_dict(),
@@ -262,7 +289,8 @@ class TrainingPipeline:
             "early_stopping": {"best": early_stopping.best, "bad_steps": early_stopping.bad_steps},
             "metrics_fingerprint": tracker.fingerprint(),
             "rng_state": self._capture_rng_state(),
-        }, path)
+        }
+        _atomic_torch_save(payload, path)
 
     def train(self, data: str | Path, output: str | Path, resume: str | Path | None = None, metrics_path: str | Path | None = None) -> TrainingSummary:
         texts = load_training_texts(data)
