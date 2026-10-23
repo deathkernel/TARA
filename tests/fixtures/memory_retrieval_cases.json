@@ -86,5 +86,39 @@
       "first",
       "second"
     ]
+  },
+  {
+    "name": "Hinglish query matches mixed Hindi-English memory",
+    "query": "Hindi mein jawab",
+    "memories": [
+      {
+        "key": "language preference",
+        "value": "Mujhe Hindi mein answer do"
+      },
+      {
+        "key": "editing",
+        "value": "DaVinci Resolve workflow"
+      }
+    ],
+    "expected_keys": [
+      "language preference"
+    ]
+  },
+  {
+    "name": "Hinglish follow-up vocabulary",
+    "query": "bhai editing ke liye laptop",
+    "memories": [
+      {
+        "key": "editing setup",
+        "value": "Laptop editing ke liye recommendations"
+      },
+      {
+        "key": "travel",
+        "value": "Train ticket aur hotel"
+      }
+    ],
+    "expected_keys": [
+      "editing setup"
+    ]
   }
 ]
