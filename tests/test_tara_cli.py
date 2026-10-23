@@ -165,3 +165,55 @@ def test_forget_is_persisted_across_a_fresh_memory_instance(tmp_path):
     assert restored.keys() == ["keep_me"]
     assert any("Forgot memory: remove_me" in line for line in output)
     assert brain.prompts == []
+
+
+
+def test_remember_save_failure_rolls_back_memory_and_preserves_disk(tmp_path, monkeypatch):
+    path = tmp_path / "memory.json"
+    memory = LongTermMemory(path)
+    memory.remember("existing", "keep")
+    memory.save()
+    original_snapshot = path.read_text(encoding="utf-8")
+    brain = FakeBrain()
+    brain.memory = LongTermMemory(path)
+
+    def fail_save():
+        raise OSError("disk unavailable")
+
+    monkeypatch.setattr(brain.memory, "save", fail_save)
+    inputs = iter(["/remember new=value", "/exit"])
+    output = []
+    chat_loop(brain, input_fn=lambda _: next(inputs), output_fn=output.append)
+
+    assert brain.memory.keys() == ["existing"]
+    assert brain.memory.path == path
+    assert path.read_text(encoding="utf-8") == original_snapshot
+    assert any("Memory operation failed: disk unavailable" in line for line in output)
+    assert brain.prompts == []
+
+
+def test_forget_save_failure_restores_memory_and_preserves_disk(tmp_path, monkeypatch):
+    path = tmp_path / "memory.json"
+    memory = LongTermMemory(path)
+    memory.remember("remove_me", "keep me if save fails")
+    memory.remember("other", "also keep")
+    memory.save()
+    original_snapshot = path.read_text(encoding="utf-8")
+    brain = FakeBrain()
+    brain.memory = LongTermMemory(path)
+    before_metadata = brain.memory.metadata("remove_me")
+
+    def fail_save():
+        raise OSError("disk unavailable")
+
+    monkeypatch.setattr(brain.memory, "save", fail_save)
+    inputs = iter(["/forget remove_me", "/exit"])
+    output = []
+    chat_loop(brain, input_fn=lambda _: next(inputs), output_fn=output.append)
+
+    assert brain.memory.keys() == ["remove_me", "other"]
+    assert brain.memory.metadata("remove_me") == before_metadata
+    assert brain.memory.path == path
+    assert path.read_text(encoding="utf-8") == original_snapshot
+    assert any("Memory operation failed: disk unavailable" in line for line in output)
+    assert brain.prompts == []
