@@ -232,7 +232,7 @@ def test_retrieval_access_counts_persist_and_inform_forgetting(tmp_path):
     memory.remember("rare", "orchid", importance=1.0)
     memory.remember("useful", "orchid care", importance=1.0)
 
-    assert memory.retrieve("orchid care")[0]["key"] == "useful"
+    assert memory.retrieve("orchid care", min_score=0.75)[0]["key"] == "useful"
     memory.save()
 
     restored = LongTermMemory(path)
