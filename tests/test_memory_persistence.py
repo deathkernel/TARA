@@ -240,3 +240,62 @@ def test_retrieval_access_counts_persist_and_inform_forgetting(tmp_path):
     assert restored.metadata("rare")["access_count"] == 0
     assert restored.forget_least_used(1) == ["rare"]
     assert restored.keys() == ["useful"]
+
+
+
+def test_transactional_remember_without_destination_rolls_back_everything():
+    memory = LongTermMemory()
+    memory.remember("existing", "kept", importance=2.0)
+    memory.recall("existing")
+    before = (memory.keys(), memory.metadata("existing"), memory._next_order, memory.path)
+
+    with pytest.raises(ValueError, match="path is required"):
+        memory.remember_and_save("new", "not persisted")
+
+    assert (memory.keys(), memory.metadata("existing"), memory._next_order, memory.path) == before
+    assert memory.metadata("new") is None
+
+
+def test_forget_and_save_missing_key_is_a_noop_without_storage(monkeypatch):
+    memory = LongTermMemory()
+    memory.remember("existing", "kept")
+    before = (memory.keys(), memory.metadata("existing"), memory._next_order, memory.path)
+    save_calls = []
+
+    def track_save(*args, **kwargs):
+        save_calls.append((args, kwargs))
+
+    monkeypatch.setattr(memory, "save", track_save)
+
+    assert memory.forget_and_save("missing") is None
+    assert save_calls == []
+    assert (memory.keys(), memory.metadata("existing"), memory._next_order, memory.path) == before
+
+
+@pytest.mark.parametrize("invalid_key", ["", None, 42])
+def test_transactional_remember_rejects_invalid_keys_without_partial_mutation(invalid_key):
+    memory = LongTermMemory()
+    memory.remember("existing", "kept")
+    before = (memory.keys(), memory.metadata("existing"), memory._next_order, memory.path)
+
+    with pytest.raises(ValueError, match="key"):
+        memory.remember_and_save(invalid_key, "value")
+
+    assert (memory.keys(), memory.metadata("existing"), memory._next_order, memory.path) == before
+
+
+def test_transactional_update_preserves_usage_history_after_reload(tmp_path):
+    path = tmp_path / "memory.json"
+    memory = LongTermMemory(path)
+    memory.remember_and_save("topic", "old", importance=1.0)
+    memory.recall("topic")
+
+    memory.remember_and_save("topic", "updated", importance=3.0)
+
+    restored = LongTermMemory(path)
+    assert restored.recall("topic") == "updated"
+    assert restored.metadata("topic") == {
+        "access_count": 2,
+        "importance": 3.0,
+        "order": 0,
+    }
