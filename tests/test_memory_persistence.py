@@ -223,3 +223,20 @@ def test_transactional_memory_mutations_persist_successfully(tmp_path):
     assert LongTermMemory(path).recall("key") == "value"
     assert memory.forget_and_save("key") == "value"
     assert LongTermMemory(path).keys() == []
+
+
+
+def test_retrieval_access_counts_persist_and_inform_forgetting(tmp_path):
+    path = tmp_path / "memory.json"
+    memory = LongTermMemory(path)
+    memory.remember("rare", "orchid", importance=1.0)
+    memory.remember("useful", "orchid care", importance=1.0)
+
+    assert memory.retrieve("orchid care")[0]["key"] == "useful"
+    memory.save()
+
+    restored = LongTermMemory(path)
+    assert restored.metadata("useful")["access_count"] == 1
+    assert restored.metadata("rare")["access_count"] == 0
+    assert restored.forget_least_used(1) == ["rare"]
+    assert restored.keys() == ["useful"]
