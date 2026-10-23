@@ -249,7 +249,7 @@ def test_memory_search_shows_at_most_five_ranked_results_with_scores():
 
     result = next(line for line in output if line.startswith("TARA: Matching saved memories:"))
     assert "score: 1.00" in result
-    assert result.count("\n- ") == 4
+    assert result.count("\n- ") == 5
     assert "python_0" in result and "python_4" in result
     assert "python_5" not in result and "python_6" not in result
     assert brain.prompts == []
