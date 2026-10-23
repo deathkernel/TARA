@@ -115,3 +115,34 @@ def test_conversation_context_is_bounded_and_reused():
     assert "User: first message" not in calls[3][0]
     assert "User: second message" in calls[3][0]
     assert "User: third message" in calls[3][0]
+
+
+
+def test_invalid_response_token_setting_is_reported_and_chat_continues(monkeypatch):
+    monkeypatch.setenv("TARA_MAX_RESPONSE_TOKENS", "0")
+    brain = FakeBrain()
+    inputs = iter(["hello", "/exit"])
+    output = []
+
+    chat_loop(brain, input_fn=lambda _: next(inputs), output_fn=output.append)
+
+    assert brain.prompts == []
+    assert any("TARA_MAX_RESPONSE_TOKENS must be a positive integer" in line for line in output)
+    assert output[-1] == "TARA: Bye, bhai!"
+
+
+def test_eof_closes_chat_without_provider_call():
+    brain = FakeBrain()
+    output = []
+
+    chat_loop(brain, input_fn=lambda _: (_ for _ in ()).throw(EOFError()), output_fn=output.append)
+
+    assert brain.prompts == []
+    assert output[-1] == "TARA: Chat closed."
+
+
+def test_display_text_removes_control_characters_and_bounds_output():
+    from src.__main__ import _display_text
+
+    assert _display_text("hello\x00\nworld") == "hello world"
+    assert _display_text("x" * 10, limit=5) == "xxxx…"
