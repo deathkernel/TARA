@@ -110,7 +110,7 @@ def test_conversation_context_is_bounded_and_reused():
     assert len(brain.conversation_history) == 4
     assert "User: second message" in calls[1][0]
     assert "TARA: reply-2" in calls[2][0]
-    assert "User: first message" in brain.conversation_history[0][1] is False
+    assert brain.conversation_history[0] == ("User", "second message")
     brain.respond("fourth message")
     assert "User: first message" not in calls[3][0]
     assert "User: second message" in calls[3][0]
