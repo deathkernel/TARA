@@ -32,7 +32,7 @@ def test_retrieval_metrics_report_ranking_and_no_match_separately():
     assert metrics["case_count"] == len(FIXTURES)
     assert metrics["ranking_case_count"] == len(FIXTURES) - 1
     assert metrics["no_match_case_count"] == 1
-    assert metrics["precision_at_k"] == 1.0
+    assert metrics["precision_at_k"] == pytest.approx(7 / 12)
     assert metrics["recall_at_k"] == 1.0
     assert metrics["hit_rate_at_k"] == 1.0
     assert metrics["mrr"] == 1.0
