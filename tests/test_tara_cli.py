@@ -138,7 +138,7 @@ def test_eof_closes_chat_without_provider_call():
     chat_loop(brain, input_fn=lambda _: (_ for _ in ()).throw(EOFError()), output_fn=output.append)
 
     assert brain.prompts == []
-    assert output[-1] == "TARA: Chat closed."
+    assert output[-1] == "\nTARA: Chat closed."
 
 
 def test_display_text_removes_control_characters_and_bounds_output():
