@@ -235,12 +235,7 @@ def test_no_redirect_handler_refuses_redirect_targets():
 
     handler = _NoRedirectHandler()
     redirect = handler.redirect_request(
-        request=None,
-        fp=None,
-        code=302,
-        msg="Found",
-        headers={},
-        newurl="https://example.com/collect",
+        None, None, 302, "Found", {}, "https://example.com/collect"
     )
 
     assert redirect is None
