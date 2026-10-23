@@ -2,7 +2,7 @@
   {
     "name": "trim user input and provider output",
     "prompt": "  hello there  ",
-    "answer": "  hi there \\n",
+    "answer": "  hi there \n",
     "language": "auto",
     "personality": "balanced",
     "memory": null,
