@@ -79,7 +79,7 @@ translation or guarantee that related words with different spellings will match.
 | `TARA_POWER_MODE` | `eco` | Resource profile: eco, balanced, or performance |
 | `TARA_MEMORY_PATH` | `data/tara_memory.json` | Persistent memory file |
 
-Memory persistence writes to a temporary file in the destination directory and atomically replaces the saved file. Versioned memory payloads are validated before replacing in-memory state; the original plain key/value JSON format remains supported for migration.
+Memory persistence writes to a temporary file in the destination directory and atomically replaces the saved file. Versioned memory payloads are validated before replacing in-memory state; the original plain key/value JSON format remains supported for migration. Explicit `/remember` and `/forget` mutations are rolled back in the active session if the updated snapshot cannot be saved, keeping the live memory and persisted file consistent.
 
 The provider validates its endpoint and resource limits. The default endpoint is local-only; do not expose Ollama to an untrusted network.
 
