@@ -78,9 +78,9 @@ def _run_memory_command(command_text: str, brain) -> str | None:
             return "Usage: /forget key"
         if len(argument) > 120:
             return "Memory key must be at most 120 characters."
-        removed = memory.forget_and_save(argument)
-        if removed is None:
+        if argument not in memory.keys():
             return f"No saved memory found for: {_display_text(argument, limit=120)}"
+        memory.forget_and_save(argument)
         return f"Forgot memory: {_display_text(argument, limit=120)}"
     except (OSError, TypeError, ValueError) as exc:
         return f"Memory operation failed: {_display_text(exc, limit=240)}"
