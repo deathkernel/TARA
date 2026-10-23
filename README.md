@@ -54,19 +54,20 @@ Memory is stored locally at `data/tara_memory.json` by default. Set `TARA_MEMORY
 |---|---|---|
 | `TARA_LANGUAGE` | `auto` | Preferred response language; auto follows the conversation |
 | `TARA_PERSONALITY` | `balanced` | Response style: balanced, friendly, professional, concise, or a custom style description |
-| `TARA_MAX_HISTORY_TURNS` | `12` | Maximum recent user/assistant turns included in context |
-| `TARA_MAX_RESPONSE_TOKENS` | `128` | Maximum response length requested from the provider |
+| `TARA_MAX_HISTORY_TURNS` | `12` (maximum `64`) | Maximum recent user/assistant turns retained in session context |
+| `TARA_MAX_RESPONSE_TOKENS` | Provider profile default: `128` eco, `256` balanced, `512` performance | Maximum response length requested from the provider; explicit values must be between 1 and 4,096 |
+
+TARA rejects user messages longer than 16,000 characters, bounds assembled provider context to 32,000 characters, and rejects provider responses longer than 32,000 characters. These character limits are safety bounds, not tokenizer-based context-window calculations. The provider's own token/context limits still apply.
 
 ## Memory retrieval
 
 The regression suite includes a small fixture-based retrieval evaluation covering Hindi, accented Latin text, Unicode compatibility normalization, no-match behavior, and stable ranking ties. These are deterministic lexical tests, not a semantic-understanding benchmark.
 
-Saved-memory search uses deterministic lexical overlap rather than a semantic embedding model.
-Matching is Unicode-aware, so scripts such as Hindi/Devanagari and accented Latin text can be
-searched without extra dependencies. Results are ranked by query-token overlap; ties retain
-memory insertion order. A zero result limit returns no records, and invalid limits or relevance
-thresholds are rejected. This improves multilingual token handling but does not provide semantic
-translation or guarantee that related words with different spellings will match.
+Saved-memory search uses deterministic lexical overlap rather than a semantic embedding model. Matching is Unicode-aware, so scripts such as Hindi/Devanagari and accented Latin text can be searched without extra dependencies. Results are ranked by query-token overlap; ties retain memory insertion order. A zero result limit returns no records, and invalid limits or relevance thresholds are rejected. This improves multilingual token handling but does not provide semantic translation or guarantee that related words with different spellings will match.
+
+## Provider contract
+
+A language provider implements `complete(prompt, *, system, max_completion_tokens, temperature)` and returns plain text. It exposes `default_max_tokens` for its resource profile, applies a finite request timeout, and raises an exception for transport errors or malformed responses. Providers perform inference only; TARA owns chat history and memory. The interface is documented in `src/provider_contract.py`.
 
 ## Provider and resource settings
 
