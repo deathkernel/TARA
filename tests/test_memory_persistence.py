@@ -97,3 +97,95 @@ def test_unknown_metadata_keys_are_rejected(tmp_path):
 
     with pytest.raises(ValueError, match="unknown key"):
         LongTermMemory(path)
+
+
+def test_malformed_json_does_not_mutate_memory_or_active_path(tmp_path):
+    active_path = tmp_path / "active.json"
+    corrupt_path = tmp_path / "corrupt.json"
+    active_path.write_text("{}", encoding="utf-8")
+    corrupt_path.write_text('{"format_version": 2, "records": ', encoding="utf-8")
+    memory = LongTermMemory(active_path)
+    memory.remember("safe", "value")
+    before_keys = memory.keys()
+    before_metadata = memory.metadata("safe")
+
+    with pytest.raises(json.JSONDecodeError):
+        memory.load(corrupt_path)
+
+    assert memory.keys() == before_keys
+    assert memory.metadata("safe") == before_metadata
+    assert memory.path == active_path
+
+
+@pytest.mark.parametrize(
+    ("metadata", "next_order", "message"),
+    [
+        ({"access_count": True, "importance": 1.0, "order": 0}, 1, "access_count"),
+        ({"access_count": 0, "importance": float("nan"), "order": 0}, 1, "importance"),
+        ({"access_count": 0, "importance": 1.0, "order": True}, 1, "order"),
+        ({"access_count": 0, "importance": -1.0, "order": 0}, 1, "importance"),
+        ({"access_count": 0, "importance": 1.0, "order": 0}, True, "next_order"),
+    ],
+)
+def test_invalid_metadata_types_are_rejected_before_state_change(
+    tmp_path, metadata, next_order, message
+):
+    path = tmp_path / "invalid.json"
+    path.write_text(
+        json.dumps(
+            {
+                "format_version": 2,
+                "records": {"name": "TARA"},
+                "metadata": {"name": metadata},
+                "next_order": next_order,
+            },
+            allow_nan=True,
+        ),
+        encoding="utf-8",
+    )
+    memory = LongTermMemory()
+    memory.remember("keep", "unchanged")
+    before = (memory.keys(), memory.metadata("keep"), memory.path)
+
+    with pytest.raises(ValueError, match=message):
+        memory.load(path)
+
+    assert (memory.keys(), memory.metadata("keep"), memory.path) == before
+
+
+def test_versioned_payload_defaults_optional_metadata_safely(tmp_path):
+    path = tmp_path / "minimal.json"
+    path.write_text(
+        json.dumps(
+            {
+                "format_version": 2,
+                "records": {"first": "one", "second": "two"},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    memory = LongTermMemory(path)
+
+    assert memory.keys() == ["first", "second"]
+    assert memory.metadata("first") == {
+        "access_count": 0,
+        "importance": 1.0,
+        "order": 0,
+    }
+    assert memory.metadata("second")["order"] == 1
+    assert memory._next_order == 2
+
+
+def test_successful_save_replaces_snapshot_and_leaves_no_temp_files(tmp_path):
+    path = tmp_path / "memory.json"
+    path.write_text('{"old": "snapshot"}', encoding="utf-8")
+    memory = LongTermMemory()
+    memory.remember("new", "snapshot")
+
+    memory.save(path)
+
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    assert payload["format_version"] == 2
+    assert payload["records"] == {"new": "snapshot"}
+    assert list(tmp_path.glob(".memory.json.*.tmp")) == []
