@@ -165,3 +165,37 @@ def test_remember_rejects_boolean_and_invalid_importance():
     for importance in (True, float("nan"), float("inf"), -1, "1"):
         with pytest.raises(ValueError, match="importance"):
             memory.remember("fact", "value", importance=importance)
+
+
+
+def test_retrieval_scores_rank_candidates_and_apply_minimum_score():
+    memory = LongTermMemory()
+    memory.remember("first", "python language")
+    memory.remember("second", "language tutorial for python")
+    memory.remember("third", "python recipe")
+
+    results = memory.retrieve("python language", min_score=0.75)
+
+    assert [(item["key"], item["score"]) for item in results] == [
+        ("first", 1.0),
+        ("second", 1.0),
+    ]
+    assert memory.retrieve("python language", limit=0) == []
+    assert memory.retrieve("unrelated query") == []
+
+
+def test_retrieval_updates_only_returned_memories_access_counts():
+    memory = LongTermMemory()
+    memory.remember("python", "language")
+    memory.remember("cooking", "recipe")
+
+    assert memory.retrieve("python", min_score=0.5) == [
+        {"key": "python", "value": "language", "score": 1.0}
+    ]
+    assert memory.metadata("python")["access_count"] == 1
+    assert memory.metadata("cooking")["access_count"] == 0
+
+    memory.retrieve("python", limit=0)
+    memory.retrieve("nothing matches")
+    assert memory.metadata("python")["access_count"] == 1
+    assert memory.metadata("cooking")["access_count"] == 0
