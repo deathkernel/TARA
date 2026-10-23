@@ -181,3 +181,15 @@ def test_cli_integer_environment_limits(monkeypatch):
     monkeypatch.setenv("LIMIT", "4097")
     with pytest.raises(ValueError, match="between 1 and 4096"):
         _positive_int_env("LIMIT", 128, maximum=4096)
+
+
+
+def test_hinglish_follow_up_retains_prior_conversation_context():
+    provider = FakeProvider(["Hindi mein samjha dunga", "Laptop options bata deta hoon"])
+    brain = TARABrain(llm_provider=provider, language="auto", max_history_turns=3)
+    brain.respond("Bhai, mujhe Hindi mein samjhana")
+    brain.respond("Aur editing ke liye laptop kaunsa?")
+    second_prompt = provider.calls[1][0]
+    assert "User: Bhai, mujhe Hindi mein samjhana" in second_prompt
+    assert "TARA: Hindi mein samjha dunga" in second_prompt
+    assert "User: Aur editing ke liye laptop kaunsa?" in second_prompt

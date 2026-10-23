@@ -93,3 +93,8 @@ python -m src.repository_audit .
 ```
 
 CI validates Python syntax, repository shape, provider configuration, memory behavior, and the chat CLI. A passing test suite is evidence for those tested behaviors only; it is not a claim that TARA is generally intelligent or production-ready.
+
+
+### Retrieval evaluation metrics
+
+The fixture runner in `src/memory_evaluation.py` reports precision@k, recall@k, hit rate@k, mean reciprocal rank (MRR), and no-match accuracy. Ranking metrics are calculated only for cases that have at least one expected relevant memory; no-match accuracy is reported separately for cases whose expected result is empty. This keeps the small fixture set transparent and prevents empty-result cases from inflating ranking scores. These metrics measure lexical retrieval against hand-labelled fixtures, not semantic quality across arbitrary user conversations.

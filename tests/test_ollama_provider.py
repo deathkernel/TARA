@@ -215,3 +215,35 @@ def test_http_json_rejects_malformed_json(monkeypatch):
     monkeypatch.setattr(module, "build_opener", lambda *_: FakeOpener())
     with pytest.raises(RuntimeError, match="malformed JSON"):
         _http_json("http://127.0.0.1:11434/api/chat", {}, 1.0)
+
+
+
+def test_ollama_provider_rejects_missing_message_content():
+    provider = OllamaProvider(transport=lambda *_: {"message": {"role": "assistant"}})
+    with pytest.raises(RuntimeError, match="message.content"):
+        provider.complete("Hello")
+
+
+def test_http_json_converts_request_timeout_to_runtime_error(monkeypatch):
+    import src.ollama_provider as module
+
+    class FakeOpener:
+        def open(self, request, timeout):
+            assert timeout == 0.25
+            raise TimeoutError("simulated socket timeout")
+
+    monkeypatch.setattr(module, "build_opener", lambda *_: FakeOpener())
+    with pytest.raises(RuntimeError, match="Could not reach.*simulated socket timeout"):
+        _http_json("http://127.0.0.1:11434/api/chat", {}, 0.25)
+
+
+def test_ollama_provider_passes_configured_timeout_to_transport():
+    seen = []
+
+    def transport(url, payload, timeout):
+        seen.append(timeout)
+        return {"message": {"content": "ok"}}
+
+    provider = OllamaProvider(timeout=0.75, transport=transport)
+    assert provider.complete("hello") == "ok"
+    assert seen == [0.75]
