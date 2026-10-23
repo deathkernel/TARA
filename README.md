@@ -1,14 +1,15 @@
 # TARA — Conversation AI
 
-TARA is a conversation-first AI application. Its current scope is text chat with a local language model, bounded multi-turn context, and explicit user-controlled memory.
+TARA is a conversation-first AI application. Its current scope is text chat with a local language model, bounded multi-turn context, configurable response style, and explicit user-controlled memory.
 
 ## Scope
 
 **Included**
 - Interactive chat through `python -m src`
 - Local inference through [Ollama](https://ollama.com/)
-- Multi-turn conversation context held in the running session
-- Optional, explicit persistent memory commands
+- Bounded multi-turn conversation context
+- Configurable response language and personality
+- Explicit persistent memory commands and a context-clear command
 - Resource-bounded provider configuration and regression tests
 
 **Intentionally out of scope**
@@ -34,19 +35,29 @@ Those capabilities may be developed as separate future projects. They are not pa
    python -m src
    ```
 
-TARA defaults to the local Ollama backend. It does not download models or start Ollama for you. See [`.env.example`](.env.example) for optional settings.
+TARA defaults to the local Ollama backend. It does not download models or start Ollama for you. See the .env.example file for optional settings.
 
 ## Chat commands
 
 - `/help` — show available commands
 - `/exit` — end the chat
+- `/clear` — clear active conversation context without deleting saved memories
 - `/remember key=value` — explicitly save a memory
 - `/memory [query]` — list memories or search them
 - `/forget key` — delete a saved memory
 
 Memory is stored locally at `data/tara_memory.json` by default. Set `TARA_MEMORY_PATH` to change the location. Saved memories are separate from the active conversation context. Do not store passwords, API keys, or other secrets in memory.
 
-## Configuration
+## Conversation settings
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `TARA_LANGUAGE` | `auto` | Preferred response language; auto follows the conversation |
+| `TARA_PERSONALITY` | `balanced` | Response style: balanced, friendly, professional, concise, or a custom style description |
+| `TARA_MAX_HISTORY_TURNS` | `12` | Maximum recent user/assistant turns included in context |
+| `TARA_MAX_RESPONSE_TOKENS` | `128` | Maximum response length requested from the provider |
+
+## Provider and resource settings
 
 | Variable | Default | Purpose |
 |---|---|---|
@@ -54,9 +65,8 @@ Memory is stored locally at `data/tara_memory.json` by default. Set `TARA_MEMORY
 | `TARA_LLAMA_MODEL` | `llama3.2:3b` | Ollama model name |
 | `OLLAMA_HOST` | `http://127.0.0.1:11434` | Local Ollama endpoint |
 | `TARA_LLM_TIMEOUT_SECONDS` | `120` | Request timeout |
-| `TARA_POWER_MODE` | `eco` | Resource profile: `eco`, `balanced`, or `performance` |
+| `TARA_POWER_MODE` | `eco` | Resource profile: eco, balanced, or performance |
 | `TARA_MEMORY_PATH` | `data/tara_memory.json` | Persistent memory file |
-| `TARA_MAX_RESPONSE_TOKENS` | Provider default | Maximum response tokens for chat |
 
 The provider validates its endpoint and resource limits. The default endpoint is local-only; do not expose Ollama to an untrusted network.
 
