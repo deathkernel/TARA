@@ -16,12 +16,10 @@ not a claim to reproduce biological memory.
 
 import json
 import math
-import re
 import unicodedata
 from collections import deque
 from pathlib import Path
 
-_TOKEN_RE = re.compile(r"[A-Za-z0-9_]+")
 
 
 def _tokens(text):
