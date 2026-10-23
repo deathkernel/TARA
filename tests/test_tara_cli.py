@@ -236,3 +236,72 @@ def test_forget_command_handles_a_saved_none_value(tmp_path):
     assert brain.memory.keys() == []
     assert LongTermMemory(path).keys() == []
     assert brain.prompts == []
+
+
+
+def test_memory_search_shows_at_most_five_ranked_results_with_scores():
+    brain = FakeBrain()
+    for index in range(7):
+        brain.memory.remember(f"python_{index}", "python scripting")
+    inputs = iter(["/memory python", "/exit"])
+    output = []
+    chat_loop(brain, input_fn=lambda _: next(inputs), output_fn=output.append)
+
+    result = next(line for line in output if line.startswith("TARA: Matching saved memories:"))
+    assert "score: 1.00" in result
+    assert result.count("\\n- ") == 4
+    assert "python_0" in result and "python_4" in result
+    assert "python_5" not in result and "python_6" not in result
+    assert brain.prompts == []
+
+
+def test_memory_list_is_bounded_to_twenty_entries():
+    brain = FakeBrain()
+    for index in range(23):
+        brain.memory.remember(f"key_{index}", f"value_{index}")
+    inputs = iter(["/memory", "/exit"])
+    output = []
+    chat_loop(brain, input_fn=lambda _: next(inputs), output_fn=output.append)
+
+    result = next(line for line in output if line.startswith("TARA: Saved memories:"))
+    assert result.count("\\n- ") == 20
+    assert "... and 3 more." in result
+    assert "key_20:" not in result
+    assert brain.prompts == []
+
+
+def test_missing_forget_does_not_write_memory_file_or_call_save(monkeypatch):
+    brain = FakeBrain()
+    save_calls = []
+
+    def track_save(*args, **kwargs):
+        save_calls.append((args, kwargs))
+
+    monkeypatch.setattr(brain.memory, "save", track_save)
+    inputs = iter(["/forget absent", "/exit"])
+    output = []
+    chat_loop(brain, input_fn=lambda _: next(inputs), output_fn=output.append)
+
+    assert any("No saved memory found for: absent" in line for line in output)
+    assert save_calls == []
+    assert brain.memory.keys() == []
+    assert brain.prompts == []
+
+
+def test_invalid_remember_command_does_not_mutate_or_save(monkeypatch):
+    brain = FakeBrain()
+    save_calls = []
+
+    def track_save(*args, **kwargs):
+        save_calls.append((args, kwargs))
+
+    monkeypatch.setattr(brain.memory, "save", track_save)
+    inputs = iter(["/remember missing_separator", "/remember =value", "/learn key=", "/exit"])
+    output = []
+    chat_loop(brain, input_fn=lambda _: next(inputs), output_fn=output.append)
+
+    assert any("Usage: /remember key=value" in line for line in output)
+    assert sum("Both memory key and value are required" in line for line in output) == 2
+    assert save_calls == []
+    assert brain.memory.keys() == []
+    assert brain.prompts == []
