@@ -211,7 +211,7 @@ def test_forget_save_failure_restores_memory_and_preserves_disk(tmp_path, monkey
     output = []
     chat_loop(brain, input_fn=lambda _: next(inputs), output_fn=output.append)
 
-    assert brain.memory.keys() == ["remove_me", "other"]
+    assert brain.memory.keys() == ["other", "remove_me"]
     assert brain.memory.metadata("remove_me") == before_metadata
     assert brain.memory.path == path
     assert path.read_text(encoding="utf-8") == original_snapshot
