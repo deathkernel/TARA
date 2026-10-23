@@ -46,7 +46,7 @@ TARA defaults to the local Ollama backend. It does not download models or start 
 - `/memory [query]` — list memories or search them
 - `/forget key` — delete a saved memory
 
-Memory is stored locally at `data/tara_memory.json` by default. Set `TARA_MEMORY_PATH` to change the location. Saved memories are separate from the active conversation context. Do not store passwords, API keys, or other secrets in memory.
+Memory is stored locally at `data/tara_memory.json` by default. Set `TARA_MEMORY_PATH` to change the location. Writes use a temporary file and atomic replacement so a failed serialization or interrupted write does not truncate the last saved file. Loads validate the complete supported schema before replacing in-memory state; malformed or unknown-version files stop startup with an actionable error rather than silently discarding data. The original plain key/value JSON format remains readable. Saved memories are separate from the active conversation context. Do not store passwords, API keys, or other secrets in memory.
 
 ## Conversation settings
 
@@ -98,3 +98,8 @@ CI validates Python syntax, repository shape, provider configuration, memory beh
 ### Retrieval evaluation metrics
 
 The fixture runner in `src/memory_evaluation.py` reports precision@k, recall@k, hit rate@k, mean reciprocal rank (MRR), and no-match accuracy. Ranking metrics are calculated only for cases that have at least one expected relevant memory; no-match accuracy is reported separately for cases whose expected result is empty. This keeps the small fixture set transparent and prevents empty-result cases from inflating ranking scores. These metrics measure lexical retrieval against hand-labelled fixtures, not semantic quality across arbitrary user conversations.
+
+
+### Integration readiness checks
+
+Before proposing a release, run the full test suite and static audit on Python 3.11, 3.12, and 3.13. Persistence tests cover atomic-write failure, invalid metadata, unknown format versions, legacy-file compatibility, and startup behavior with corrupt saved memory. CLI regressions verify that `/clear` removes active context while leaving explicitly saved memory intact. A green CI run is evidence for these tested paths; it does not replace a release review on the target machine with its configured Ollama model.

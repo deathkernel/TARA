@@ -115,3 +115,50 @@ def test_conversation_context_is_bounded_and_reused():
     assert "User: first message" not in calls[3][0]
     assert "User: second message" in calls[3][0]
     assert "User: third message" in calls[3][0]
+
+
+
+def test_clear_command_drops_active_context_but_keeps_saved_memory(tmp_path):
+    calls = []
+
+    class Provider:
+        default_max_tokens = 64
+
+        def complete(self, prompt, **kwargs):
+            calls.append(prompt)
+            return f"reply-{len(calls)}"
+
+    memory_path = tmp_path / "memory.json"
+    memory = LongTermMemory(memory_path)
+    memory.remember("preferred language", "Hinglish")
+    memory.save()
+    brain = TARABrain(llm_provider=Provider(), memory=memory, max_history_turns=3)
+    inputs = iter(["first private topic", "/clear", "new topic", "/memory", "/exit"])
+    output = []
+
+    chat_loop(brain, input_fn=lambda _: next(inputs), output_fn=output.append)
+
+    assert len(calls) == 2
+    assert "first private topic" not in calls[1]
+    assert any("Active conversation context cleared" in line for line in output)
+    assert any("preferred language: Hinglish" in line for line in output)
+    assert LongTermMemory(memory_path).recall("preferred language") == "Hinglish"
+
+
+def test_corrupt_persisted_memory_fails_cli_startup_cleanly(monkeypatch, tmp_path, capsys):
+    import src.__main__ as cli
+
+    path = tmp_path / "corrupt.json"
+    path.write_text("{not-json", encoding="utf-8")
+    monkeypatch.setenv("TARA_MEMORY_PATH", str(path))
+    monkeypatch.setenv("TARA_MAX_HISTORY_TURNS", "12")
+    monkeypatch.setenv("TARA_LANGUAGE", "auto")
+    monkeypatch.setenv("TARA_PERSONALITY", "balanced")
+    monkeypatch.setattr(cli, "provider_from_env", lambda: object())
+    monkeypatch.setattr(
+        cli, "chat_loop",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("chat must not start")),
+    )
+
+    assert cli.main() == 2
+    assert "TARA could not start" in capsys.readouterr().out
