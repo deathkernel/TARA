@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import os
 
-from .brain import TARABrain
+from .brain import MAX_HISTORY_TURNS, TARABrain
 from .llm_provider_factory import provider_from_env
 from .memory import LongTermMemory
 
@@ -14,16 +14,18 @@ def _display_text(value, *, limit=240) -> str:
     return text if len(text) <= limit else text[: limit - 1] + "…"
 
 
-def _positive_int_env(name: str, default: int) -> int:
+def _positive_int_env(name: str, default: int, *, maximum: int | None = None) -> int:
     raw = os.getenv(name, "").strip()
     if not raw:
-        return default
-    try:
-        value = int(raw)
-    except ValueError as exc:
-        raise ValueError(f"{name} must be a positive integer") from exc
-    if value <= 0:
-        raise ValueError(f"{name} must be a positive integer")
+        value = default
+    else:
+        try:
+            value = int(raw)
+        except ValueError as exc:
+            raise ValueError(f"{name} must be a positive integer") from exc
+    if value <= 0 or (maximum is not None and value > maximum):
+        bound = f" between 1 and {maximum}" if maximum is not None else " greater than 0"
+        raise ValueError(f"{name} must be an integer{bound}")
     return value
 
 
@@ -123,7 +125,7 @@ def chat_loop(brain, *, input_fn=input, output_fn=print) -> None:
         try:
             provider = getattr(brain, "llm_provider", None)
             default_tokens = getattr(provider, "default_max_tokens", 128)
-            max_tokens = _positive_int_env("TARA_MAX_RESPONSE_TOKENS", default_tokens)
+            max_tokens = _positive_int_env("TARA_MAX_RESPONSE_TOKENS", default_tokens, maximum=4096)
             response = brain.respond(prompt, max_new_tokens=max_tokens, temperature=0.6)
         except (RuntimeError, TimeoutError, OSError, ValueError) as exc:
             output_fn(f"TARA: I couldn't generate a response. Check the configured language provider. Details: {_display_text(exc)}")
@@ -141,7 +143,9 @@ def main() -> int:
         memory_path = os.getenv("TARA_MEMORY_PATH", "data/tara_memory.json").strip()
         if not memory_path:
             raise ValueError("TARA_MEMORY_PATH must not be empty")
-        max_history_turns = _positive_int_env("TARA_MAX_HISTORY_TURNS", 12)
+        max_history_turns = _positive_int_env(
+            "TARA_MAX_HISTORY_TURNS", 12, maximum=MAX_HISTORY_TURNS
+        )
         language = os.getenv("TARA_LANGUAGE", "auto")
         personality = os.getenv("TARA_PERSONALITY", "balanced")
         brain = TARABrain(

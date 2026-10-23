@@ -1,9 +1,16 @@
+from threading import Event, Thread
 from types import SimpleNamespace
 
 import pytest
 
-from src.__main__ import chat_loop
-from src.brain import TARABrain
+from src.__main__ import _positive_int_env, chat_loop
+from src.brain import (
+    MAX_CONTEXT_CHARS,
+    MAX_HISTORY_TURNS,
+    MAX_PROVIDER_RESPONSE_CHARS,
+    MAX_USER_MESSAGE_CHARS,
+    TARABrain,
+)
 from src.memory import LongTermMemory
 
 
@@ -46,7 +53,7 @@ def test_invalid_prompt_and_token_limit_are_rejected():
     brain = TARABrain(llm_provider=FakeProvider())
     with pytest.raises(ValueError, match="prompt"):
         brain.respond("  ")
-    with pytest.raises(ValueError, match="positive integer"):
+    with pytest.raises(ValueError, match="between 1 and 4096"):
         brain.respond("hello", max_new_tokens=True)
 
 
@@ -88,7 +95,6 @@ def test_cli_help_mentions_clear_command():
     assert "/clear" in "\n".join(output)
 
 
-
 def test_provider_exception_does_not_mutate_conversation_history():
     class RaisingProvider:
         def complete(self, *_args, **_kwargs):
@@ -97,8 +103,81 @@ def test_provider_exception_does_not_mutate_conversation_history():
     brain = TARABrain(llm_provider=RaisingProvider())
     brain.conversation_history = [("User", "earlier"), ("TARA", "saved response")]
     before = list(brain.conversation_history)
-
     with pytest.raises(RuntimeError, match="provider unavailable"):
         brain.respond("new message")
-
     assert brain.conversation_history == before
+
+
+@pytest.mark.parametrize("turns", [0, -1, True, 1.5, MAX_HISTORY_TURNS + 1])
+def test_history_turn_limit_is_bounded(turns):
+    with pytest.raises(ValueError, match="max_history_turns"):
+        TARABrain(llm_provider=FakeProvider(), max_history_turns=turns)
+
+
+def test_oversized_user_message_is_rejected_before_provider_call():
+    provider = FakeProvider()
+    brain = TARABrain(llm_provider=provider)
+    with pytest.raises(ValueError, match="characters"):
+        brain.respond("x" * (MAX_USER_MESSAGE_CHARS + 1))
+    assert provider.calls == []
+
+
+def test_assembled_context_is_bounded_by_dropping_oldest_history():
+    provider = FakeProvider()
+    brain = TARABrain(llm_provider=provider, max_history_turns=3)
+    brain.conversation_history = [
+        ("User", "old " * 5000),
+        ("TARA", "old reply " * 5000),
+        ("User", "recent"),
+        ("TARA", "recent reply"),
+    ]
+    brain.respond("latest")
+    prompt = provider.calls[0][0]
+    assert len(prompt) <= MAX_CONTEXT_CHARS
+    assert "User: latest" in prompt
+    assert "User: old" not in prompt
+
+
+def test_oversized_provider_response_does_not_enter_history():
+    provider = FakeProvider(["x" * (MAX_PROVIDER_RESPONSE_CHARS + 1)])
+    brain = TARABrain(llm_provider=provider)
+    with pytest.raises(RuntimeError, match="exceeded"):
+        brain.respond("hello")
+    assert brain.conversation_history == []
+
+
+def test_clear_waits_for_inflight_response_and_leaves_context_empty():
+    entered = Event()
+    release = Event()
+
+    class SlowProvider(FakeProvider):
+        def complete(self, prompt, **kwargs):
+            entered.set()
+            assert release.wait(3)
+            return "finished"
+
+    brain = TARABrain(llm_provider=SlowProvider())
+    response_thread = Thread(target=lambda: brain.respond("in flight"))
+    response_thread.start()
+    assert entered.wait(3)
+
+    clear_done = Event()
+    clear_thread = Thread(target=lambda: (brain.clear_context(), clear_done.set()))
+    clear_thread.start()
+    assert not clear_done.wait(0.05)
+    release.set()
+    response_thread.join(3)
+    clear_thread.join(3)
+    assert not response_thread.is_alive()
+    assert not clear_thread.is_alive()
+    assert clear_done.is_set()
+    assert brain.conversation_history == []
+
+
+def test_cli_integer_environment_limits(monkeypatch):
+    monkeypatch.setenv("LIMIT", "65")
+    with pytest.raises(ValueError, match="between 1 and 64"):
+        _positive_int_env("LIMIT", 12, maximum=64)
+    monkeypatch.setenv("LIMIT", "4097")
+    with pytest.raises(ValueError, match="between 1 and 4096"):
+        _positive_int_env("LIMIT", 128, maximum=4096)
