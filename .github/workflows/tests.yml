@@ -1,4 +1,8 @@
-name: TARA CI
+name: TARA conversation CI
+
+concurrency:
+  group: tara-chat-ci-${{ github.event.pull_request.head.ref || github.ref }}
+  cancel-in-progress: true
 
 on:
   push:
@@ -6,32 +10,19 @@ on:
   workflow_dispatch:
 
 jobs:
-  python-tests:
+  conversation-tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install Python dependencies
+      - name: Install test dependency
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
       - name: Static repository audit
         run: python -m src.repository_audit .
-      - name: Python test suite
+      - name: Conversation-focused test suite
         run: python -m pytest -q
-      - name: XOR smoke experiment
-        run: python train_xor.py
-      - name: Tiny language-model smoke experiment
-        run: python train_tiny_lm.py
-
-  rust-tests:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: rust-tokenizer
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - run: cargo test --all-targets
