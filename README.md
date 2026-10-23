@@ -68,7 +68,7 @@ memory insertion order. A zero result limit returns no records, and invalid limi
 thresholds are rejected. This improves multilingual token handling but does not provide semantic
 translation or guarantee that related words with different spellings will match.
 
-## Provider and resource settings
+The `/memory query` command returns at most five lexical matches with scores; `/memory` lists at most twenty saved entries and reports any remainder. Invalid `/remember` or `/learn` input and attempts to forget a missing key do not write to disk or invoke the language model. These CLI limits keep output bounded for interactive sessions.\n\n## Provider and resource settings
 
 | Variable | Default | Purpose |
 |---|---|---|
