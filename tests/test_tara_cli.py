@@ -115,3 +115,193 @@ def test_conversation_context_is_bounded_and_reused():
     assert "User: first message" not in calls[3][0]
     assert "User: second message" in calls[3][0]
     assert "User: third message" in calls[3][0]
+
+
+
+def test_invalid_response_token_setting_is_reported_and_chat_continues(monkeypatch):
+    monkeypatch.setenv("TARA_MAX_RESPONSE_TOKENS", "0")
+    brain = FakeBrain()
+    inputs = iter(["hello", "/exit"])
+    output = []
+
+    chat_loop(brain, input_fn=lambda _: next(inputs), output_fn=output.append)
+
+    assert brain.prompts == []
+    assert any("TARA_MAX_RESPONSE_TOKENS must be a positive integer" in line for line in output)
+    assert output[-1] == "TARA: Bye, bhai!"
+
+
+def test_eof_closes_chat_without_provider_call():
+    brain = FakeBrain()
+    output = []
+
+    chat_loop(brain, input_fn=lambda _: (_ for _ in ()).throw(EOFError()), output_fn=output.append)
+
+    assert brain.prompts == []
+    assert output[-1] == "\nTARA: Chat closed."
+
+
+def test_display_text_removes_control_characters_and_bounds_output():
+    from src.__main__ import _display_text
+
+    assert _display_text("hello\x00\nworld") == "helloworld"
+    assert _display_text("x" * 10, limit=5) == "xxxx…"
+
+
+def test_forget_is_persisted_across_a_fresh_memory_instance(tmp_path):
+    path = tmp_path / "memory.json"
+    memory = LongTermMemory(path)
+    memory.remember("remove_me", "temporary")
+    memory.remember("keep_me", "persistent")
+    memory.save()
+
+    brain = FakeBrain()
+    brain.memory = LongTermMemory(path)
+    inputs = iter(["/forget remove_me", "/exit"])
+    output = []
+    chat_loop(brain, input_fn=lambda _: next(inputs), output_fn=output.append)
+
+    restored = LongTermMemory(path)
+    assert restored.keys() == ["keep_me"]
+    assert any("Forgot memory: remove_me" in line for line in output)
+    assert brain.prompts == []
+
+
+
+def test_remember_save_failure_rolls_back_memory_and_preserves_disk(tmp_path, monkeypatch):
+    path = tmp_path / "memory.json"
+    memory = LongTermMemory(path)
+    memory.remember("existing", "keep")
+    memory.save()
+    original_snapshot = path.read_text(encoding="utf-8")
+    brain = FakeBrain()
+    brain.memory = LongTermMemory(path)
+
+    def fail_save():
+        raise OSError("disk unavailable")
+
+    monkeypatch.setattr(brain.memory, "save", fail_save)
+    inputs = iter(["/remember new=value", "/exit"])
+    output = []
+    chat_loop(brain, input_fn=lambda _: next(inputs), output_fn=output.append)
+
+    assert brain.memory.keys() == ["existing"]
+    assert brain.memory.path == path
+    assert path.read_text(encoding="utf-8") == original_snapshot
+    assert any("Memory operation failed: disk unavailable" in line for line in output)
+    assert brain.prompts == []
+
+
+def test_forget_save_failure_restores_memory_and_preserves_disk(tmp_path, monkeypatch):
+    path = tmp_path / "memory.json"
+    memory = LongTermMemory(path)
+    memory.remember("remove_me", "keep me if save fails")
+    memory.remember("other", "also keep")
+    memory.save()
+    original_snapshot = path.read_text(encoding="utf-8")
+    brain = FakeBrain()
+    brain.memory = LongTermMemory(path)
+    before_metadata = brain.memory.metadata("remove_me")
+
+    def fail_save():
+        raise OSError("disk unavailable")
+
+    monkeypatch.setattr(brain.memory, "save", fail_save)
+    inputs = iter(["/forget remove_me", "/exit"])
+    output = []
+    chat_loop(brain, input_fn=lambda _: next(inputs), output_fn=output.append)
+
+    assert brain.memory.keys() == ["other", "remove_me"]
+    assert brain.memory.metadata("remove_me") == before_metadata
+    assert brain.memory.path == path
+    assert path.read_text(encoding="utf-8") == original_snapshot
+    assert any("Memory operation failed: disk unavailable" in line for line in output)
+    assert brain.prompts == []
+
+
+
+def test_forget_command_handles_a_saved_none_value(tmp_path):
+    path = tmp_path / "memory.json"
+    memory = LongTermMemory(path)
+    memory.remember("nullable", None)
+    memory.save()
+    brain = FakeBrain()
+    brain.memory = LongTermMemory(path)
+
+    inputs = iter(["/forget nullable", "/exit"])
+    output = []
+    chat_loop(brain, input_fn=lambda _: next(inputs), output_fn=output.append)
+
+    assert any("Forgot memory: nullable" in line for line in output)
+    assert brain.memory.keys() == []
+    assert LongTermMemory(path).keys() == []
+    assert brain.prompts == []
+
+
+
+def test_memory_search_shows_at_most_five_ranked_results_with_scores():
+    brain = FakeBrain()
+    for index in range(7):
+        brain.memory.remember(f"python_{index}", "python scripting")
+    inputs = iter(["/memory python", "/exit"])
+    output = []
+    chat_loop(brain, input_fn=lambda _: next(inputs), output_fn=output.append)
+
+    result = next(line for line in output if line.startswith("TARA: Matching saved memories:"))
+    assert "score: 1.00" in result
+    assert result.count("\n- ") == 5
+    assert "python_0" in result and "python_4" in result
+    assert "python_5" not in result and "python_6" not in result
+    assert brain.prompts == []
+
+
+def test_memory_list_is_bounded_to_twenty_entries():
+    brain = FakeBrain()
+    for index in range(23):
+        brain.memory.remember(f"key_{index}", f"value_{index}")
+    inputs = iter(["/memory", "/exit"])
+    output = []
+    chat_loop(brain, input_fn=lambda _: next(inputs), output_fn=output.append)
+
+    result = next(line for line in output if line.startswith("TARA: Saved memories:"))
+    assert result.count("\n- ") == 20
+    assert "... and 3 more." in result
+    assert "key_20:" not in result
+    assert brain.prompts == []
+
+
+def test_missing_forget_does_not_write_memory_file_or_call_save(monkeypatch):
+    brain = FakeBrain()
+    save_calls = []
+
+    def track_save(*args, **kwargs):
+        save_calls.append((args, kwargs))
+
+    monkeypatch.setattr(brain.memory, "save", track_save)
+    inputs = iter(["/forget absent", "/exit"])
+    output = []
+    chat_loop(brain, input_fn=lambda _: next(inputs), output_fn=output.append)
+
+    assert any("No saved memory found for: absent" in line for line in output)
+    assert save_calls == []
+    assert brain.memory.keys() == []
+    assert brain.prompts == []
+
+
+def test_invalid_remember_command_does_not_mutate_or_save(monkeypatch):
+    brain = FakeBrain()
+    save_calls = []
+
+    def track_save(*args, **kwargs):
+        save_calls.append((args, kwargs))
+
+    monkeypatch.setattr(brain.memory, "save", track_save)
+    inputs = iter(["/remember missing_separator", "/remember =value", "/learn key=", "/exit"])
+    output = []
+    chat_loop(brain, input_fn=lambda _: next(inputs), output_fn=output.append)
+
+    assert any("Usage: /remember key=value" in line for line in output)
+    assert sum("Both memory key and value are required" in line for line in output) == 2
+    assert save_calls == []
+    assert brain.memory.keys() == []
+    assert brain.prompts == []

@@ -16,6 +16,8 @@ not a claim to reproduce biological memory.
 
 import json
 import math
+import os
+import tempfile
 import unicodedata
 from collections import deque
 from pathlib import Path
@@ -66,9 +68,9 @@ class WorkingMemory:
     """Bounded FIFO working memory for recent observations or thoughts."""
 
     def __init__(self, capacity=8):
-        if capacity <= 0:
-            raise ValueError("capacity must be positive")
-        self.capacity = int(capacity)
+        if isinstance(capacity, bool) or not isinstance(capacity, int) or capacity <= 0:
+            raise ValueError("capacity must be a positive integer")
+        self.capacity = capacity
         self._items = deque(maxlen=self.capacity)
 
     def add(self, item):
@@ -79,8 +81,8 @@ class WorkingMemory:
         items = list(self._items)
         if limit is None:
             return items
-        if limit < 0:
-            raise ValueError("limit must be non-negative")
+        if isinstance(limit, bool) or not isinstance(limit, int) or limit < 0:
+            raise ValueError("limit must be a non-negative integer")
         return items[-limit:] if limit else []
 
     def clear(self):
@@ -109,8 +111,12 @@ class LongTermMemory:
         """
         if not isinstance(key, str) or not key:
             raise ValueError("key must be a non-empty string")
-        if not isinstance(importance, (int, float)) or not math.isfinite(importance):
-            raise ValueError("importance must be finite")
+        if (
+            isinstance(importance, bool)
+            or not isinstance(importance, (int, float))
+            or not math.isfinite(importance)
+        ):
+            raise ValueError("importance must be a finite number")
         if importance < 0:
             raise ValueError("importance must be non-negative")
 
@@ -180,8 +186,12 @@ class LongTermMemory:
         of retaining more important memories, then older insertion order is
         forgotten first. Returns the forgotten keys in removal order.
         """
-        if max_records < 0:
-            raise ValueError("max_records must be non-negative")
+        if (
+            isinstance(max_records, bool)
+            or not isinstance(max_records, int)
+            or max_records < 0
+        ):
+            raise ValueError("max_records must be a non-negative integer")
         excess = len(self._records) - max_records
         if excess <= 0:
             return []
@@ -208,7 +218,39 @@ class LongTermMemory:
             return None
         return dict(self._metadata[key])
 
+    def _mutate_and_save(self, mutation):
+        """Apply a memory mutation only if its snapshot can be persisted."""
+        records_before = self._records.copy()
+        metadata_before = {
+            key: dict(value) for key, value in self._metadata.items()
+        }
+        next_order_before = self._next_order
+        path_before = self.path
+        try:
+            result = mutation()
+            self.save()
+            return result
+        except Exception:
+            self._records = records_before
+            self._metadata = metadata_before
+            self._next_order = next_order_before
+            self.path = path_before
+            raise
+
+    def remember_and_save(self, key, value, importance=1.0):
+        """Remember a value and roll back the in-memory change if saving fails."""
+        return self._mutate_and_save(
+            lambda: self.remember(key, value, importance=importance)
+        )
+
+    def forget_and_save(self, key):
+        """Forget a value and roll back if the updated snapshot cannot be saved."""
+        if key not in self._records:
+            return None
+        return self._mutate_and_save(lambda: self.forget(key))
+
     def save(self, path=None):
+        """Persist memory atomically so interrupted writes do not truncate the file."""
         destination = Path(path) if path is not None else self.path
         if destination is None:
             raise ValueError("a path is required to save long-term memory")
@@ -219,13 +261,33 @@ class LongTermMemory:
             "metadata": self._metadata,
             "next_order": self._next_order,
         }
-        destination.write_text(
-            json.dumps(payload, indent=2, sort_keys=True),
-            encoding="utf-8",
-        )
-        self.path = destination
+        serialized = json.dumps(payload, indent=2, sort_keys=True)
+        temporary_path = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                dir=destination.parent,
+                prefix=f".{destination.name}.",
+                suffix=".tmp",
+                delete=False,
+            ) as handle:
+                temporary_path = Path(handle.name)
+                handle.write(serialized)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temporary_path, destination)
+            self.path = destination
+        except Exception:
+            if temporary_path is not None:
+                try:
+                    temporary_path.unlink(missing_ok=True)
+                except OSError:
+                    pass
+            raise
 
     def load(self, path=None):
+        """Load a legacy or versioned memory file after validating it completely."""
         source = Path(path) if path is not None else self.path
         if source is None:
             raise ValueError("a path is required to load long-term memory")
@@ -236,22 +298,74 @@ class LongTermMemory:
         if payload.get("format_version") == 2:
             records = payload.get("records")
             metadata = payload.get("metadata", {})
+            next_order = payload.get("next_order", len(records) if isinstance(records, dict) else 0)
             if not isinstance(records, dict) or not isinstance(metadata, dict):
                 raise ValueError("invalid long-term memory format")
-            self._records = records
-            self._metadata = metadata
-            self._next_order = int(payload.get("next_order", len(records)))
-            for order, key in enumerate(self._records):
-                self._metadata.setdefault(
+            if any(not isinstance(key, str) or not key for key in records):
+                raise ValueError("memory record keys must be non-empty strings")
+            if any(key not in records for key in metadata):
+                raise ValueError("memory metadata contains an unknown key")
+            if isinstance(next_order, bool) or not isinstance(next_order, int) or next_order < 0:
+                raise ValueError("next_order must be a non-negative integer")
+
+            validated_metadata = {}
+            for order, key in enumerate(records):
+                item = metadata.get(
                     key,
                     {"access_count": 0, "importance": 1.0, "order": order},
                 )
+                if not isinstance(item, dict):
+                    raise ValueError(f"invalid metadata for memory key: {key}")
+                access_count = item.get("access_count", 0)
+                importance = item.get("importance", 1.0)
+                insertion_order = item.get("order", order)
+                if (
+                    isinstance(access_count, bool)
+                    or not isinstance(access_count, int)
+                    or access_count < 0
+                ):
+                    raise ValueError(f"invalid access_count for memory key: {key}")
+                if (
+                    isinstance(importance, bool)
+                    or not isinstance(importance, (int, float))
+                    or not math.isfinite(importance)
+                    or importance < 0
+                ):
+                    raise ValueError(f"invalid importance for memory key: {key}")
+                if (
+                    isinstance(insertion_order, bool)
+                    or not isinstance(insertion_order, int)
+                    or insertion_order < 0
+                ):
+                    raise ValueError(f"invalid order for memory key: {key}")
+                validated_metadata[key] = {
+                    "access_count": access_count,
+                    "importance": float(importance),
+                    "order": insertion_order,
+                }
+
+            minimum_next_order = max(
+                (item["order"] for item in validated_metadata.values()),
+                default=-1,
+            ) + 1
+            if next_order < minimum_next_order:
+                raise ValueError("next_order must exceed all memory insertion orders")
+
+            self._records = records
+            self._metadata = validated_metadata
+            self._next_order = next_order
+            self.path = source
             return
 
         # Backward-compatible loading of the original plain key/value format.
+        if "format_version" in payload:
+            raise ValueError("unsupported long-term memory format version")
+        if any(not isinstance(key, str) or not key for key in payload):
+            raise ValueError("memory record keys must be non-empty strings")
         self._records = payload
-        self._metadata = {}
-        for order, key in enumerate(self._records):
-            self._metadata[key] = {"access_count": 0, "importance": 1.0, "order": order}
+        self._metadata = {
+            key: {"access_count": 0, "importance": 1.0, "order": order}
+            for order, key in enumerate(self._records)
+        }
         self._next_order = len(self._records)
         self.path = source

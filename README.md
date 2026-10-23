@@ -68,6 +68,8 @@ memory insertion order. A zero result limit returns no records, and invalid limi
 thresholds are rejected. This improves multilingual token handling but does not provide semantic
 translation or guarantee that related words with different spellings will match.
 
+The `/memory query` command returns at most five lexical matches with scores; `/memory` lists at most twenty saved entries and reports any remainder. Invalid `/remember` or `/learn` input and attempts to forget a missing key do not write to disk or invoke the language model. These CLI limits keep output bounded for interactive sessions.
+
 ## Provider and resource settings
 
 | Variable | Default | Purpose |
@@ -78,6 +80,8 @@ translation or guarantee that related words with different spellings will match.
 | `TARA_LLM_TIMEOUT_SECONDS` | `120` | Request timeout |
 | `TARA_POWER_MODE` | `eco` | Resource profile: eco, balanced, or performance |
 | `TARA_MEMORY_PATH` | `data/tara_memory.json` | Persistent memory file |
+
+Memory persistence writes to a temporary file in the destination directory and atomically replaces the saved file. Versioned memory payloads are validated before replacing in-memory state; the original plain key/value JSON format remains supported for migration. Explicit `/remember` and `/forget` mutations are rolled back in the active session if the updated snapshot cannot be saved, keeping the live memory and persisted file consistent.
 
 The provider validates its endpoint and resource limits. The default endpoint is local-only; do not expose Ollama to an untrusted network.
 
@@ -91,4 +95,9 @@ python -m pytest -q
 python -m src.repository_audit .
 ```
 
-CI validates Python syntax, repository shape, provider configuration, memory behavior, and the chat CLI. A passing test suite is evidence for those tested behaviors only; it is not a claim that TARA is generally intelligent or production-ready.
+CI validates Python syntax, repository shape, provider configuration, memory behavior, and the chat CLI. Provider-independent conversation contract tests use deterministic fake providers, so they do not require Ollama or model downloads. These tests check input/output normalization, history safety, explicit-memory boundaries, generation parameters, and CLI error handling; they are not a benchmark of model intelligence. Persistence tests cover legacy migration, malformed and inconsistent snapshots, state preservation after rejected loads, and CLI memory changes across reloads. A passing test suite is evidence for those tested behaviors only, not a claim that TARA is generally intelligent or production-ready.
+
+
+The repository audit reports missing required runtime files, Python syntax/read failures, duplicate full-test workflows, and process-randomized built-in `hash()` usage. Deterministic audit fingerprints support comparing repeated reports; warning-only findings do not make the repository unhealthy. Virtual environments, bytecode caches, and Git metadata are excluded from Python scanning.
+
+TARA keeps retrieval deterministic: lexical overlap scores rank matching memories, equal scores retain insertion order, and successful retrieval increments access metadata. Saving the memory snapshot persists that usage metadata for later forgetting decisions.
