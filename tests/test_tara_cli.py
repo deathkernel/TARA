@@ -146,3 +146,22 @@ def test_display_text_removes_control_characters_and_bounds_output():
 
     assert _display_text("hello\x00\nworld") == "helloworld"
     assert _display_text("x" * 10, limit=5) == "xxxx…"
+
+
+def test_forget_is_persisted_across_a_fresh_memory_instance(tmp_path):
+    path = tmp_path / "memory.json"
+    memory = LongTermMemory(path)
+    memory.remember("remove_me", "temporary")
+    memory.remember("keep_me", "persistent")
+    memory.save()
+
+    brain = FakeBrain()
+    brain.memory = LongTermMemory(path)
+    inputs = iter(["/forget remove_me", "/exit"])
+    output = []
+    chat_loop(brain, input_fn=lambda _: next(inputs), output_fn=output.append)
+
+    restored = LongTermMemory(path)
+    assert restored.keys() == ["keep_me"]
+    assert any("Forgot memory: remove_me" in line for line in output)
+    assert brain.prompts == []
