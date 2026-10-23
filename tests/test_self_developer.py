@@ -3,7 +3,14 @@ from pathlib import Path
 
 import pytest
 
-from src.self_developer import SelfDeveloper, SelfDeveloperError, _validation_commands
+from src.self_developer import (
+    COMMAND_TIMEOUT_SECONDS,
+    FULL_TEST_TIMEOUT_SECONDS,
+    SelfDeveloper,
+    SelfDeveloperError,
+    _validation_commands,
+    _validation_timeout,
+)
 
 
 @pytest.mark.parametrize("patch", [
@@ -132,6 +139,21 @@ def test_command_runner_bounds_failure_output(tmp_path):
     with pytest.raises(SelfDeveloperError) as exc:
         _run(["pytest"], cwd=tmp_path, runner=failed_runner)
     assert len(str(exc.value)) < _OUTPUT_LIMIT + 200
+
+def test_validation_timeout_gives_full_suite_a_bounded_longer_budget():
+    import sys
+
+    assert _validation_timeout([sys.executable, "-m", "pytest", "-q"]) == FULL_TEST_TIMEOUT_SECONDS
+    assert FULL_TEST_TIMEOUT_SECONDS == 7200
+
+
+def test_validation_timeout_keeps_focused_checks_short():
+    import sys
+
+    assert _validation_timeout([sys.executable, "-m", "compileall", "-q", "src"]) == COMMAND_TIMEOUT_SECONDS
+    assert _validation_timeout([sys.executable, "-m", "pytest", "-q", "tests/test_memory.py"]) == COMMAND_TIMEOUT_SECONDS
+    assert COMMAND_TIMEOUT_SECONDS == 300
+
 
 def test_validation_commands_run_full_suite_for_source_changes():
     commands = _validation_commands(["src/brain.py"])
