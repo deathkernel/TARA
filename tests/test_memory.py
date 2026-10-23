@@ -100,3 +100,79 @@ def test_equal_relevance_ranking_is_stable_and_limit_is_respected():
     assert [item["key"] for item in first_run] == ["first", "second"]
     assert [item["key"] for item in second_run] == ["first", "second"]
     assert len(memory.retrieve("Hindi", limit=1)) == 1
+
+
+
+def test_atomic_save_preserves_previous_file_when_value_is_not_json_serializable(tmp_path):
+    import json
+    import pytest
+
+    path = tmp_path / "memory.json"
+    memory = LongTermMemory(path)
+    memory.remember("stable", "last good value")
+    memory.save()
+    original = path.read_text(encoding="utf-8")
+
+    memory.remember("unsupported", object())
+    with pytest.raises(TypeError):
+        memory.save()
+
+    assert path.read_text(encoding="utf-8") == original
+    assert not list(tmp_path.glob(".memory.json.*.tmp"))
+    assert json.loads(path.read_text(encoding="utf-8"))["records"] == {
+        "stable": "last good value"
+    }
+
+
+def test_invalid_metadata_does_not_partially_replace_live_memory(tmp_path):
+    import json
+    import pytest
+
+    path = tmp_path / "invalid.json"
+    path.write_text(json.dumps({
+        "format_version": 2,
+        "records": {"new": "value"},
+        "metadata": {"new": {"access_count": "many", "importance": 1.0, "order": 0}},
+        "next_order": 1,
+    }), encoding="utf-8")
+    memory = LongTermMemory()
+    memory.remember("existing", "keep me")
+
+    with pytest.raises(ValueError, match="invalid metadata"):
+        memory.load(path)
+
+    assert memory.keys() == ["existing"]
+    assert memory.recall("existing") == "keep me"
+    assert memory.path is None
+
+
+def test_unknown_memory_format_version_is_rejected_without_state_mutation(tmp_path):
+    import json
+    import pytest
+
+    path = tmp_path / "future.json"
+    path.write_text(json.dumps({
+        "format_version": 99, "records": {}, "metadata": {}, "next_order": 0
+    }), encoding="utf-8")
+    memory = LongTermMemory()
+    memory.remember("existing", "keep me")
+
+    with pytest.raises(ValueError, match="unsupported.*version"):
+        memory.load(path)
+
+    assert memory.keys() == ["existing"]
+
+
+def test_legacy_key_value_memory_format_still_loads(tmp_path):
+    import json
+
+    path = tmp_path / "legacy.json"
+    path.write_text(json.dumps({"language": "Hinglish", "editor": "DaVinci"}), encoding="utf-8")
+
+    memory = LongTermMemory(path)
+
+    assert memory.recall("language") == "Hinglish"
+    assert memory.recall("editor") == "DaVinci"
+    assert memory.metadata("language") == {
+        "access_count": 1, "importance": 1.0, "order": 0
+    }

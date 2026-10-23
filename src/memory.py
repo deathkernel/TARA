@@ -16,6 +16,8 @@ not a claim to reproduce biological memory.
 
 import json
 import math
+import os
+import tempfile
 import unicodedata
 from collections import deque
 from pathlib import Path
@@ -209,6 +211,7 @@ class LongTermMemory:
         return dict(self._metadata[key])
 
     def save(self, path=None):
+        """Atomically persist memory so interrupted writes cannot truncate the file."""
         destination = Path(path) if path is not None else self.path
         if destination is None:
             raise ValueError("a path is required to save long-term memory")
@@ -219,13 +222,34 @@ class LongTermMemory:
             "metadata": self._metadata,
             "next_order": self._next_order,
         }
-        destination.write_text(
-            json.dumps(payload, indent=2, sort_keys=True),
-            encoding="utf-8",
-        )
-        self.path = destination
+        # Serialize before touching the existing file; unsupported values must
+        # not damage the last known-good persisted state.
+        serialized = json.dumps(payload, indent=2, sort_keys=True)
+        temporary_path = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                dir=destination.parent,
+                prefix=f".{destination.name}.",
+                suffix=".tmp",
+                delete=False,
+            ) as temporary:
+                temporary_path = Path(temporary.name)
+                temporary.write(serialized)
+                temporary.flush()
+                os.fsync(temporary.fileno())
+            os.replace(temporary_path, destination)
+            self.path = destination
+        finally:
+            if temporary_path is not None:
+                try:
+                    temporary_path.unlink(missing_ok=True)
+                except OSError:
+                    pass
 
     def load(self, path=None):
+        """Load a supported memory file, validating it before changing state."""
         source = Path(path) if path is not None else self.path
         if source is None:
             raise ValueError("a path is required to load long-term memory")
@@ -233,25 +257,63 @@ class LongTermMemory:
         if not isinstance(payload, dict):
             raise ValueError("long-term memory must contain a JSON object")
 
-        if payload.get("format_version") == 2:
+        if "format_version" not in payload:
+            # Backward-compatible loading of the original plain key/value format.
+            records = payload
+            metadata = {
+                key: {"access_count": 0, "importance": 1.0, "order": order}
+                for order, key in enumerate(records)
+            }
+            next_order = len(records)
+        else:
+            version = payload.get("format_version")
+            if version != 2 or isinstance(version, bool):
+                raise ValueError(f"unsupported long-term memory format version: {version!r}")
             records = payload.get("records")
-            metadata = payload.get("metadata", {})
-            if not isinstance(records, dict) or not isinstance(metadata, dict):
-                raise ValueError("invalid long-term memory format")
-            self._records = records
-            self._metadata = metadata
-            self._next_order = int(payload.get("next_order", len(records)))
-            for order, key in enumerate(self._records):
-                self._metadata.setdefault(
-                    key,
-                    {"access_count": 0, "importance": 1.0, "order": order},
-                )
-            return
+            raw_metadata = payload.get("metadata", {})
+            next_order = payload.get("next_order", len(records) if isinstance(records, dict) else 0)
+            if not isinstance(records, dict) or not all(isinstance(key, str) for key in records):
+                raise ValueError("invalid long-term memory records")
+            if not isinstance(raw_metadata, dict):
+                raise ValueError("invalid long-term memory metadata")
+            if isinstance(next_order, bool) or not isinstance(next_order, int) or next_order < 0:
+                raise ValueError("invalid long-term memory next_order")
 
-        # Backward-compatible loading of the original plain key/value format.
-        self._records = payload
-        self._metadata = {}
-        for order, key in enumerate(self._records):
-            self._metadata[key] = {"access_count": 0, "importance": 1.0, "order": order}
-        self._next_order = len(self._records)
+            metadata = {}
+            for order, key in enumerate(records):
+                item = raw_metadata.get(
+                    key, {"access_count": 0, "importance": 1.0, "order": order}
+                )
+                if not isinstance(item, dict):
+                    raise ValueError(f"invalid metadata for memory key {key!r}")
+                access_count = item.get("access_count")
+                importance = item.get("importance")
+                record_order = item.get("order")
+                if (
+                    isinstance(access_count, bool)
+                    or not isinstance(access_count, int)
+                    or access_count < 0
+                    or isinstance(importance, bool)
+                    or not isinstance(importance, (int, float))
+                    or not math.isfinite(importance)
+                    or importance < 0
+                    or isinstance(record_order, bool)
+                    or not isinstance(record_order, int)
+                    or record_order < 0
+                ):
+                    raise ValueError(f"invalid metadata for memory key {key!r}")
+                metadata[key] = {
+                    "access_count": access_count,
+                    "importance": float(importance),
+                    "order": record_order,
+                }
+            if any(key not in records for key in raw_metadata):
+                raise ValueError("memory metadata contains unknown record keys")
+            if metadata and next_order <= max(item["order"] for item in metadata.values()):
+                raise ValueError("next_order must be greater than every record order")
+
+        # Commit state only after the complete payload has passed validation.
+        self._records = dict(records)
+        self._metadata = metadata
+        self._next_order = next_order
         self.path = source
