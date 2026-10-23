@@ -215,3 +215,53 @@ def test_http_json_rejects_malformed_json(monkeypatch):
     monkeypatch.setattr(module, "build_opener", lambda *_: FakeOpener())
     with pytest.raises(RuntimeError, match="malformed JSON"):
         _http_json("http://127.0.0.1:11434/api/chat", {}, 1.0)
+
+
+@pytest.mark.parametrize("response", [
+    {},
+    {"message": None},
+    {"message": []},
+    {"message": {"content": None}},
+    {"message": {"content": 123}},
+])
+def test_ollama_provider_rejects_missing_or_non_text_message_content(response):
+    provider = OllamaProvider(transport=lambda *_: response)
+    with pytest.raises(RuntimeError, match="message.content"):
+        provider.complete("Hello")
+
+
+def test_no_redirect_handler_refuses_redirect_targets():
+    from src.ollama_provider import _NoRedirectHandler
+
+    handler = _NoRedirectHandler()
+    redirect = handler.redirect_request(
+        request=None,
+        fp=None,
+        code=302,
+        msg="Found",
+        headers={},
+        newurl="https://example.com/collect",
+    )
+
+    assert redirect is None
+
+
+def test_http_json_configures_no_redirect_handler(monkeypatch):
+    import src.ollama_provider as module
+
+    configured = []
+
+    class FakeOpener:
+        def open(self, request, timeout):
+            raise AssertionError("unexpected request execution")
+
+    def fake_build_opener(*handlers):
+        configured.extend(handlers)
+        return FakeOpener()
+
+    monkeypatch.setattr(module, "build_opener", fake_build_opener)
+    with pytest.raises(AssertionError, match="unexpected request execution"):
+        _http_json("http://127.0.0.1:11434/api/chat", {}, 1.0)
+
+    assert len(configured) == 1
+    assert isinstance(configured[0], module._NoRedirectHandler)
