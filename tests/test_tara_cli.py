@@ -217,3 +217,22 @@ def test_forget_save_failure_restores_memory_and_preserves_disk(tmp_path, monkey
     assert path.read_text(encoding="utf-8") == original_snapshot
     assert any("Memory operation failed: disk unavailable" in line for line in output)
     assert brain.prompts == []
+
+
+
+def test_forget_command_handles_a_saved_none_value(tmp_path):
+    path = tmp_path / "memory.json"
+    memory = LongTermMemory(path)
+    memory.remember("nullable", None)
+    memory.save()
+    brain = FakeBrain()
+    brain.memory = LongTermMemory(path)
+
+    inputs = iter(["/forget nullable", "/exit"])
+    output = []
+    chat_loop(brain, input_fn=lambda _: next(inputs), output_fn=output.append)
+
+    assert any("Forgot memory: nullable" in line for line in output)
+    assert brain.memory.keys() == []
+    assert LongTermMemory(path).keys() == []
+    assert brain.prompts == []
