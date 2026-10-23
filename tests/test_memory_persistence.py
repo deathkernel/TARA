@@ -189,3 +189,37 @@ def test_successful_save_replaces_snapshot_and_leaves_no_temp_files(tmp_path):
     assert payload["format_version"] == 2
     assert payload["records"] == {"new": "snapshot"}
     assert list(tmp_path.glob(".memory.json.*.tmp")) == []
+
+
+
+def test_transactional_memory_mutations_roll_back_all_state_when_save_fails(tmp_path, monkeypatch):
+    path = tmp_path / "memory.json"
+    path.write_text('{"disk": "snapshot"}', encoding="utf-8")
+    memory = LongTermMemory(path)
+    memory.remember("first", "one", importance=2.0)
+    memory.recall("first")
+    before = (memory.keys(), memory.metadata("first"), memory._next_order, memory.path)
+
+    def fail_save():
+        raise OSError("disk unavailable")
+
+    monkeypatch.setattr(memory, "save", fail_save)
+    with pytest.raises(OSError, match="disk unavailable"):
+        memory.remember_and_save("second", "two")
+    assert (memory.keys(), memory.metadata("first"), memory._next_order, memory.path) == before
+    assert memory.metadata("second") is None
+
+    with pytest.raises(OSError, match="disk unavailable"):
+        memory.forget_and_save("first")
+    assert (memory.keys(), memory.metadata("first"), memory._next_order, memory.path) == before
+    assert path.read_text(encoding="utf-8") == '{"disk": "snapshot"}'
+
+
+def test_transactional_memory_mutations_persist_successfully(tmp_path):
+    path = tmp_path / "memory.json"
+    memory = LongTermMemory(path)
+
+    assert memory.remember_and_save("key", "value") == "value"
+    assert LongTermMemory(path).recall("key") == "value"
+    assert memory.forget_and_save("key") == "value"
+    assert LongTermMemory(path).keys() == []
