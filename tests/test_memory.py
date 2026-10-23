@@ -49,3 +49,54 @@ def test_long_term_memory_rejects_non_object_json(tmp_path):
         assert "JSON object" in str(exc)
     else:
         raise AssertionError("invalid memory payload was accepted")
+
+
+
+def test_unicode_memory_retrieval_supports_hindi_and_accented_text():
+    memory = LongTermMemory()
+    memory.remember("भाषा", "मुझे हिंदी में जवाब देना")
+    memory.remember("cafe", "préférer un café crème")
+
+    hindi_results = memory.retrieve("हिंदी जवाब", limit=5)
+    french_results = memory.retrieve("café crème", limit=5)
+
+    assert hindi_results
+    assert hindi_results[0]["key"] == "भाषा"
+    assert french_results
+    assert french_results[0]["key"] == "cafe"
+
+
+def test_retrieval_limit_requires_non_negative_integer():
+    import pytest
+
+    memory = LongTermMemory()
+    memory.remember("language", "Hindi")
+    assert memory.retrieve("Hindi", limit=0) == []
+    for invalid in (-1, True, 1.5, "2"):
+        with pytest.raises(ValueError, match="limit"):
+            memory.retrieve("Hindi", limit=invalid)
+
+
+def test_retrieval_min_score_requires_finite_number_in_range():
+    import pytest
+
+    memory = LongTermMemory()
+    memory.remember("language", "Hindi")
+    assert memory.retrieve("Hindi", min_score=1.0)
+    for invalid in (-0.1, 1.1, True, float("nan"), float("inf"), "0.5"):
+        with pytest.raises(ValueError, match="min_score"):
+            memory.retrieve("Hindi", min_score=invalid)
+
+
+def test_equal_relevance_ranking_is_stable_and_limit_is_respected():
+    memory = LongTermMemory()
+    memory.remember("first", "Hindi")
+    memory.remember("second", "Hindi")
+    memory.remember("third", "English")
+
+    first_run = memory.retrieve("Hindi language", limit=2)
+    second_run = memory.retrieve("Hindi language", limit=2)
+
+    assert [item["key"] for item in first_run] == ["first", "second"]
+    assert [item["key"] for item in second_run] == ["first", "second"]
+    assert len(memory.retrieve("Hindi", limit=1)) == 1

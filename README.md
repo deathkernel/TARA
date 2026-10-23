@@ -57,6 +57,15 @@ Memory is stored locally at `data/tara_memory.json` by default. Set `TARA_MEMORY
 | `TARA_MAX_HISTORY_TURNS` | `12` | Maximum recent user/assistant turns included in context |
 | `TARA_MAX_RESPONSE_TOKENS` | `128` | Maximum response length requested from the provider |
 
+## Memory retrieval
+
+Saved-memory search uses deterministic lexical overlap rather than a semantic embedding model.
+Matching is Unicode-aware, so scripts such as Hindi/Devanagari and accented Latin text can be
+searched without extra dependencies. Results are ranked by query-token overlap; ties retain
+memory insertion order. A zero result limit returns no records, and invalid limits or relevance
+thresholds are rejected. This improves multilingual token handling but does not provide semantic
+translation or guarantee that related words with different spellings will match.
+
 ## Provider and resource settings
 
 | Variable | Default | Purpose |
