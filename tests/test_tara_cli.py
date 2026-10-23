@@ -249,7 +249,7 @@ def test_memory_search_shows_at_most_five_ranked_results_with_scores():
 
     result = next(line for line in output if line.startswith("TARA: Matching saved memories:"))
     assert "score: 1.00" in result
-    assert result.count("\\n- ") == 4
+    assert result.count("\n- ") == 4
     assert "python_0" in result and "python_4" in result
     assert "python_5" not in result and "python_6" not in result
     assert brain.prompts == []
@@ -264,7 +264,7 @@ def test_memory_list_is_bounded_to_twenty_entries():
     chat_loop(brain, input_fn=lambda _: next(inputs), output_fn=output.append)
 
     result = next(line for line in output if line.startswith("TARA: Saved memories:"))
-    assert result.count("\\n- ") == 20
+    assert result.count("\n- ") == 20
     assert "... and 3 more." in result
     assert "key_20:" not in result
     assert brain.prompts == []
