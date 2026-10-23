@@ -1,16 +1,10 @@
-"""Static repository audit for TARA Phase 36.
-
-The auditor is intentionally dependency-free. It checks Python syntax, required
-core files, duplicate pytest workflows, and non-deterministic built-in hash()
-calls. It never executes repository code.
-"""
+"""Static repository audit for the conversation-first TARA runtime."""
 from __future__ import annotations
 
 import ast
 from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
-from typing import Iterable
 
 
 @dataclass(frozen=True)
@@ -31,16 +25,17 @@ class AuditReport:
 
     @property
     def healthy(self) -> bool:
-        return not self.issues
+        return not any(issue.severity == "error" for issue in self.issues)
 
 
 class RepositoryAuditor:
     REQUIRED_FILES = (
         "requirements.txt",
+        "src/__main__.py",
         "src/brain.py",
-        "src/tara_core.py",
-        "src/unified_cognitive_loop.py",
-        "tests/test_tara_core.py",
+        "src/ollama_provider.py",
+        "src/memory.py",
+        "tests/test_tara_cli.py",
     )
 
     def __init__(self, root: str | Path):
@@ -64,13 +59,13 @@ class RepositoryAuditor:
 
         for relative in self.REQUIRED_FILES:
             if not (self.root / relative).is_file():
-                issues.append(AuditIssue("MISSING_REQUIRED_FILE", relative, "required Phase 36 file is missing"))
+                issues.append(AuditIssue("MISSING_REQUIRED_FILE", relative, "required conversation runtime file is missing"))
 
         pytest_workflows = []
         for path in workflow_files:
             try:
                 content = path.read_text(encoding="utf-8")
-            except UnicodeDecodeError:
+            except (OSError, UnicodeDecodeError):
                 continue
             if "python -m pytest" in content:
                 pytest_workflows.append(path)
@@ -82,7 +77,7 @@ class RepositoryAuditor:
                 f"multiple workflows run the full pytest suite: {names}",
             ))
 
-        parts = [str(issue.code) + "|" + issue.path + "|" + issue.detail for issue in issues]
+        parts = [f"{issue.code}|{issue.path}|{issue.detail}" for issue in issues]
         fingerprint = sha256("\x1f".join(parts).encode("utf-8")).hexdigest()
         return AuditReport(
             files_scanned=len(python_files) + len(workflow_files),
@@ -99,7 +94,6 @@ class RepositoryAuditor:
         except (OSError, UnicodeDecodeError, SyntaxError) as exc:
             issues.append(AuditIssue("PYTHON_SYNTAX", relative, str(exc)))
             return
-
         for node in ast.walk(tree):
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "hash":
                 issues.append(AuditIssue(
@@ -117,7 +111,7 @@ class RepositoryAuditor:
 def main() -> int:
     import argparse
 
-    parser = argparse.ArgumentParser(description="Run the TARA static repository audit")
+    parser = argparse.ArgumentParser(description="Audit the TARA conversation runtime")
     parser.add_argument("root", nargs="?", default=".")
     args = parser.parse_args()
     report = RepositoryAuditor(args.root).audit()
