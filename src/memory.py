@@ -218,6 +218,37 @@ class LongTermMemory:
             return None
         return dict(self._metadata[key])
 
+    def _mutate_and_save(self, mutation):
+        """Apply a memory mutation only if its snapshot can be persisted."""
+        records_before = self._records.copy()
+        metadata_before = {
+            key: dict(value) for key, value in self._metadata.items()
+        }
+        next_order_before = self._next_order
+        path_before = self.path
+        try:
+            result = mutation()
+            self.save()
+            return result
+        except Exception:
+            self._records = records_before
+            self._metadata = metadata_before
+            self._next_order = next_order_before
+            self.path = path_before
+            raise
+
+    def remember_and_save(self, key, value, importance=1.0):
+        """Remember a value and roll back the in-memory change if saving fails."""
+        return self._mutate_and_save(
+            lambda: self.remember(key, value, importance=importance)
+        )
+
+    def forget_and_save(self, key):
+        """Forget a value and roll back if the updated snapshot cannot be saved."""
+        if key not in self._records:
+            return None
+        return self._mutate_and_save(lambda: self.forget(key))
+
     def save(self, path=None):
         """Persist memory atomically so interrupted writes do not truncate the file."""
         destination = Path(path) if path is not None else self.path
