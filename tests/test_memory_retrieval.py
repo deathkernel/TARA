@@ -92,3 +92,20 @@ def test_loads_original_plain_key_value_format(tmp_path):
     memory = LongTermMemory(path)
     assert memory.recall("name") == "TARA"
     assert memory.metadata("name")["access_count"] == 1
+
+
+
+def test_retrieval_returns_no_results_when_no_tokens_overlap():
+    memory = LongTermMemory()
+    memory.remember("weather", "rain forecast")
+    assert memory.retrieve("quantum") == []
+    assert lexical_relevance("!!!", "???") == 0.0
+
+
+def test_retrieval_normalizes_compatibility_unicode():
+    memory = LongTermMemory()
+    memory.remember("python", "Unicode normalization test")
+    results = memory.retrieve("Ｐｙｔｈｏｎ")
+    assert results
+    assert results[0]["key"] == "python"
+    assert results[0]["score"] == 1.0

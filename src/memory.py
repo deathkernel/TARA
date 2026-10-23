@@ -16,16 +16,36 @@ not a claim to reproduce biological memory.
 
 import json
 import math
-import re
+import unicodedata
 from collections import deque
 from pathlib import Path
 
-_TOKEN_RE = re.compile(r"[A-Za-z0-9_]+")
 
 
 def _tokens(text):
-    """Return normalized lexical tokens from a string."""
-    return _TOKEN_RE.findall(str(text).lower())
+    """Return normalized Unicode-aware lexical tokens from a string.
+
+    Letters and numbers from any Unicode script are retained. Combining marks
+    stay attached to the preceding token, so scripts such as Devanagari are not
+    split into incomplete fragments. NFKC normalization and case folding make
+    compatible forms compare consistently without requiring external packages.
+    """
+    normalized = unicodedata.normalize("NFKC", str(text)).casefold()
+    tokens = []
+    current = []
+    for char in normalized:
+        category = unicodedata.category(char)
+        if category[0] in {"L", "N"} or category == "Pc" or (
+            category[0] == "M" and current
+        ):
+            current.append(char)
+        else:
+            if current:
+                tokens.append("".join(current))
+                current = []
+    if current:
+        tokens.append("".join(current))
+    return tokens
 
 
 def lexical_relevance(query, text):
@@ -119,10 +139,17 @@ class LongTermMemory:
         """
         if not isinstance(query, str):
             raise TypeError("query must be a string")
-        if limit is not None and limit < 0:
-            raise ValueError("limit must be non-negative")
-        if not 0.0 <= min_score <= 1.0:
-            raise ValueError("min_score must be in [0, 1]")
+        if limit is not None and (
+            isinstance(limit, bool) or not isinstance(limit, int) or limit < 0
+        ):
+            raise ValueError("limit must be a non-negative integer")
+        if (
+            isinstance(min_score, bool)
+            or not isinstance(min_score, (int, float))
+            or not math.isfinite(min_score)
+            or not 0.0 <= min_score <= 1.0
+        ):
+            raise ValueError("min_score must be a finite number in [0, 1]")
 
         ranked = []
         for key, value in self._records.items():
