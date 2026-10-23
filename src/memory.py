@@ -68,9 +68,9 @@ class WorkingMemory:
     """Bounded FIFO working memory for recent observations or thoughts."""
 
     def __init__(self, capacity=8):
-        if capacity <= 0:
-            raise ValueError("capacity must be positive")
-        self.capacity = int(capacity)
+        if isinstance(capacity, bool) or not isinstance(capacity, int) or capacity <= 0:
+            raise ValueError("capacity must be a positive integer")
+        self.capacity = capacity
         self._items = deque(maxlen=self.capacity)
 
     def add(self, item):
@@ -81,8 +81,8 @@ class WorkingMemory:
         items = list(self._items)
         if limit is None:
             return items
-        if limit < 0:
-            raise ValueError("limit must be non-negative")
+        if isinstance(limit, bool) or not isinstance(limit, int) or limit < 0:
+            raise ValueError("limit must be a non-negative integer")
         return items[-limit:] if limit else []
 
     def clear(self):
@@ -111,8 +111,12 @@ class LongTermMemory:
         """
         if not isinstance(key, str) or not key:
             raise ValueError("key must be a non-empty string")
-        if not isinstance(importance, (int, float)) or not math.isfinite(importance):
-            raise ValueError("importance must be finite")
+        if (
+            isinstance(importance, bool)
+            or not isinstance(importance, (int, float))
+            or not math.isfinite(importance)
+        ):
+            raise ValueError("importance must be a finite number")
         if importance < 0:
             raise ValueError("importance must be non-negative")
 
@@ -182,8 +186,12 @@ class LongTermMemory:
         of retaining more important memories, then older insertion order is
         forgotten first. Returns the forgotten keys in removal order.
         """
-        if max_records < 0:
-            raise ValueError("max_records must be non-negative")
+        if (
+            isinstance(max_records, bool)
+            or not isinstance(max_records, int)
+            or max_records < 0
+        ):
+            raise ValueError("max_records must be a non-negative integer")
         excess = len(self._records) - max_records
         if excess <= 0:
             return []
