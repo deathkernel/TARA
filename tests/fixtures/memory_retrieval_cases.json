@@ -1,0 +1,90 @@
+[
+  {
+    "name": "Hindi Devanagari token overlap",
+    "query": "हिंदी जवाब",
+    "memories": [
+      {
+        "key": "भाषा",
+        "value": "मुझे हिंदी में जवाब देना"
+      },
+      {
+        "key": "रंग",
+        "value": "नीला रंग पसंद है"
+      }
+    ],
+    "expected_keys": [
+      "भाषा"
+    ]
+  },
+  {
+    "name": "Accented Latin text",
+    "query": "café crème",
+    "memories": [
+      {
+        "key": "cafe",
+        "value": "préférer un café crème"
+      },
+      {
+        "key": "music",
+        "value": "écouter de la musique"
+      }
+    ],
+    "expected_keys": [
+      "cafe"
+    ]
+  },
+  {
+    "name": "Unicode compatibility normalization",
+    "query": "Ｐｙｔｈｏｎ",
+    "memories": [
+      {
+        "key": "python",
+        "value": "Unicode normalization test"
+      },
+      {
+        "key": "rust",
+        "value": "systems programming"
+      }
+    ],
+    "expected_keys": [
+      "python"
+    ]
+  },
+  {
+    "name": "No lexical overlap",
+    "query": "quantum",
+    "memories": [
+      {
+        "key": "weather",
+        "value": "rain forecast"
+      },
+      {
+        "key": "music",
+        "value": "listen to jazz"
+      }
+    ],
+    "expected_keys": []
+  },
+  {
+    "name": "Deterministic tie order",
+    "query": "Hindi language",
+    "memories": [
+      {
+        "key": "first",
+        "value": "Hindi"
+      },
+      {
+        "key": "second",
+        "value": "Hindi"
+      },
+      {
+        "key": "third",
+        "value": "English"
+      }
+    ],
+    "expected_keys": [
+      "first",
+      "second"
+    ]
+  }
+]

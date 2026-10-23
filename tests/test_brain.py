@@ -86,3 +86,19 @@ def test_cli_help_mentions_clear_command():
     output = []
     chat_loop(brain, input_fn=lambda _: next(inputs), output_fn=output.append)
     assert "/clear" in "\n".join(output)
+
+
+
+def test_provider_exception_does_not_mutate_conversation_history():
+    class RaisingProvider:
+        def complete(self, *_args, **_kwargs):
+            raise RuntimeError("provider unavailable")
+
+    brain = TARABrain(llm_provider=RaisingProvider())
+    brain.conversation_history = [("User", "earlier"), ("TARA", "saved response")]
+    before = list(brain.conversation_history)
+
+    with pytest.raises(RuntimeError, match="provider unavailable"):
+        brain.respond("new message")
+
+    assert brain.conversation_history == before

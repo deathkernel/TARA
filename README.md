@@ -59,6 +59,8 @@ Memory is stored locally at `data/tara_memory.json` by default. Set `TARA_MEMORY
 
 ## Memory retrieval
 
+The regression suite includes a small fixture-based retrieval evaluation covering Hindi, accented Latin text, Unicode compatibility normalization, no-match behavior, and stable ranking ties. These are deterministic lexical tests, not a semantic-understanding benchmark.
+
 Saved-memory search uses deterministic lexical overlap rather than a semantic embedding model.
 Matching is Unicode-aware, so scripts such as Hindi/Devanagari and accented Latin text can be
 searched without extra dependencies. Results are ranked by query-token overlap; ties retain
