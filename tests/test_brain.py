@@ -20,15 +20,19 @@ class FakeProvider:
 
 
 def test_context_is_bounded_and_last_turn_is_included():
-    provider = FakeProvider(["one", "two", "three"])
+    provider = FakeProvider(["one", "two", "three", "four"])
     brain = TARABrain(llm_provider=provider, max_history_turns=2)
     brain.respond("first")
     brain.respond("second")
     brain.respond("third")
-    assert len(brain.conversation_history) == 4
-    assert "User: first" not in provider.calls[2][0]
+    assert "User: first" in provider.calls[2][0]
     assert "User: second" in provider.calls[2][0]
     assert "TARA: two" in provider.calls[2][0]
+    brain.respond("fourth")
+    assert len(brain.conversation_history) == 4
+    assert "User: first" not in provider.calls[3][0]
+    assert "User: second" in provider.calls[3][0]
+    assert "TARA: three" in provider.calls[3][0]
 
 
 def test_empty_provider_response_does_not_corrupt_history():
