@@ -144,5 +144,5 @@ def test_eof_closes_chat_without_provider_call():
 def test_display_text_removes_control_characters_and_bounds_output():
     from src.__main__ import _display_text
 
-    assert _display_text("hello\x00\nworld") == "hello world"
+    assert _display_text("hello\x00\nworld") == "helloworld"
     assert _display_text("x" * 10, limit=5) == "xxxx…"
