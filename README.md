@@ -143,6 +143,9 @@ Exit code is `0` when every record passes structural/provenance checks, `1` when
 
 ### 6. Next actions — follow in order
 
+**Current handoff — 2026-10-23:** PR [#80](https://github.com/deathkernel/TARA/pull/80) adds separate timeouts for focused checks (5 minutes) and the full Python suite (2 hours), based on the recorded ~89-minute CI run. Its first CI run is queued; do not mark the change validated until the new run completes. PR #80 is a draft stacked on PR #8's branch and remains unmerged. No local test run was possible in this authoring environment.
+
+
 ```mermaid
 flowchart TD
     A[PR #8 CI: 499 Python tests + Rust passed] --> B[Run focused and full tests on Windows]
