@@ -27,6 +27,9 @@ PROTECTED_PATHS = (
 MAX_PATCH_CHARS = 100_000
 MAX_CONTEXT_CHARS = 50_000
 COMMAND_TIMEOUT_SECONDS = 300
+# The recorded full suite takes about 89 minutes on GitHub-hosted Ubuntu CI.
+# Keep it bounded, but do not make every source candidate fail at five minutes.
+FULL_TEST_TIMEOUT_SECONDS = 7_200
 _OUTPUT_LIMIT = 12_000
 
 
@@ -85,6 +88,13 @@ def _validation_commands(changed: list[str], *, available_tests: bool = True) ->
     for path in changed_python:
         commands.append([sys.executable, "-m", "py_compile", path])
     return commands
+
+
+def _validation_timeout(command: list[str]) -> int:
+    """Give the known long full-suite check a bounded, realistic time budget."""
+    if command == [sys.executable, "-m", "pytest", "-q"]:
+        return FULL_TEST_TIMEOUT_SECONDS
+    return COMMAND_TIMEOUT_SECONDS
 
 
 class SelfDeveloper:
@@ -293,7 +303,7 @@ class SelfDeveloper:
                     )
                     for command in _validation_commands(changed, available_tests=available_tests):
                         result = _run(
-                            command, cwd=worktree, timeout=COMMAND_TIMEOUT_SECONDS,
+                            command, cwd=worktree, timeout=_validation_timeout(command),
                             runner=self._command_runner,
                         )
                         validation_outputs.append(
