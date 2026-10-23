@@ -6,9 +6,10 @@ TARA owns conversation context and memory; providers own model inference only.
 """
 from __future__ import annotations
 
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 
+@runtime_checkable
 class LanguageProvider(Protocol):
     """Minimum provider contract consumed by :class:`TARABrain`."""
 
